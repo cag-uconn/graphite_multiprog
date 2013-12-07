@@ -32,10 +32,12 @@ namespace PrL1ShL2MSI
                    UInt32 cache_line_size,
                    UInt32 L2_cache_size,
                    UInt32 L2_cache_associativity,
+                   UInt32 L2_cache_num_banks,
                    string L2_cache_replacement_policy,
-                   UInt32 L2_cache_access_delay,
-                   bool L2_cache_track_miss_types,
-                   float frequency);
+                   UInt32 L2_cache_data_access_cycles,
+                   UInt32 L2_cache_tags_access_cycles,
+                   string L2_cache_perf_model_type,
+                   bool L2_cache_track_miss_types);
       ~L2CacheCntlr();
 
       Cache* getL2Cache() { return _L2_cache; }
@@ -106,7 +108,6 @@ namespace PrL1ShL2MSI
       // Utilities
       tile_id_t getTileId();
       UInt32 getCacheLineSize();
-      MemoryManager* getMemoryManager()   { return _memory_manager; }
       ShmemPerfModel* getShmemPerfModel();
       Core::mem_op_t getMemOpTypeFromShmemMsgType(ShmemMsg::Type shmem_msg_type);
 

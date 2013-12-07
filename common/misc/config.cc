@@ -102,6 +102,7 @@ Config::~Config()
 {
    // Clean up the dynamic memory we allocated
    delete [] m_proc_to_tile_list_map;
+   delete [] m_proc_to_application_tile_list_map;
 }
 
 UInt32 Config::getTotalTiles()
@@ -152,10 +153,11 @@ UInt32 Config::computeTileIDLength(UInt32 application_tile_count)
 
 void Config::GenerateTileMap()
 {
-
    vector<TileList> process_to_tile_mapping = computeProcessToTileMapping();
    
    m_proc_to_tile_list_map = new TileList[m_num_processes];
+   m_proc_to_application_tile_list_map = new TileList[m_num_processes];
+
    m_tile_to_proc_map.resize(m_total_tiles);
 
    // Populate the data structures for non-thread-spawner and non-MCP tiles
@@ -165,23 +167,25 @@ void Config::GenerateTileMap()
       TileList::iterator tile_it;
       for (tile_it = process_to_tile_mapping[i].begin(); tile_it != process_to_tile_mapping[i].end(); tile_it++)
       {
-         if ((*tile_it) < (SInt32) (m_total_tiles - m_num_processes - 1))
-         {
-            m_tile_to_proc_map[*tile_it] = i;
-            m_proc_to_tile_list_map[i].push_back(*tile_it);
-         }
+         assert((*tile_it) < (SInt32) m_application_tiles);
+         m_tile_to_proc_map[*tile_it] = i;
+         m_proc_to_tile_list_map[i].push_back(*tile_it);
+         m_proc_to_application_tile_list_map[i].push_back(*tile_it);
       }
    }
-    
-   // Assign the thread-spawners to tiles
-   // Thread-spawners occupy tile-id's (m_total_tiles - m_num_processes - 1) to (m_total_tiles - 2)
-   UInt32 current_proc = 0;
-   for (UInt32 i = (m_total_tiles - m_num_processes - 1); i < (m_total_tiles - 1); i++)
+ 
+   if (m_simulation_mode == FULL)
    {
-      assert((current_proc >= 0) && (current_proc < m_num_processes));
-      m_tile_to_proc_map[i] = current_proc;
-      m_proc_to_tile_list_map[current_proc].push_back(i);
-      current_proc++;
+      // Assign the thread-spawners to tiles
+      // Thread-spawners occupy tile-id's (m_application_tiles) to (m_total_tiles - 2)
+      UInt32 current_proc = 0;
+      for (UInt32 i = m_application_tiles; i < (m_total_tiles - 1); i++)
+      {
+         assert((current_proc >= 0) && (current_proc < m_num_processes));
+         m_tile_to_proc_map[i] = current_proc;
+         m_proc_to_tile_list_map[current_proc].push_back(i);
+         current_proc++;
+      }
    }
    
    // Add one for the MCP
@@ -202,21 +206,20 @@ Config::computeProcessToTileMapping()
       {
          switch(network_model)
          {
-            case NETWORK_EMESH_HOP_BY_HOP:
-            case NETWORK_ATAC:
-               return process_to_tile_mapping_struct.second;
-               break;
+         case NETWORK_EMESH_HOP_BY_HOP:
+         case NETWORK_ATAC:
+            return process_to_tile_mapping_struct.second;
 
-            default:
-               fprintf(stderr, "Unrecognized Network Type(%u)\n", network_model);
-               exit(EXIT_FAILURE);
+         default:
+            fprintf(stderr, "Unrecognized Network Type(%u)\n", network_model);
+            exit(EXIT_FAILURE);
          }
       }
    }
    
    vector<TileList> process_to_tile_mapping(m_num_processes);
    UInt32 current_proc = 0;
-   for (UInt32 i = 0; i < m_total_tiles; i++)
+   for (UInt32 i = 0; i < m_application_tiles; i++)
    {
       process_to_tile_mapping[current_proc].push_back(i);
       current_proc = (current_proc + 1) % m_num_processes;
@@ -363,14 +366,12 @@ void Config::parseTileParameters()
 {
    // Default values are as follows:
    // 1) Number of tiles -> Number of application tiles
-   // 2) Frequency -> 1 GHz
-   // 3) Core Type -> simple
-   // 4) L1-I Cache Type -> T1
-   // 5) L1-D Cache Type -> T1
-   // 6) L2 Cache Type -> T1
+   // 2) Core Type -> simple
+   // 3) L1-I Cache Type -> T1
+   // 4) L1-D Cache Type -> T1
+   // 5) L2 Cache Type -> T1
 
    const UInt32 DEFAULT_NUM_TILES = getApplicationTiles();
-   const float DEFAULT_FREQUENCY = 1;
    const string DEFAULT_CORE_TYPE = "simple";
    const string DEFAULT_CACHE_TYPE = "T1";
 
@@ -395,7 +396,6 @@ void Config::parseTileParameters()
    {
       // Initializing using default values
       UInt32 num_tiles = DEFAULT_NUM_TILES;
-      float frequency = DEFAULT_FREQUENCY;
       string core_type = DEFAULT_CORE_TYPE;
       string l1_icache_type = DEFAULT_CACHE_TYPE;
       string l1_dcache_type = DEFAULT_CACHE_TYPE;
@@ -417,22 +417,18 @@ void Config::parseTileParameters()
                break;
 
             case 1:
-               frequency = convertFromString<float>(*param_it);
-               break;
-
-            case 2:
                core_type = trimSpaces(*param_it);
                break;
 
-            case 3:
+            case 2:
                l1_icache_type = trimSpaces(*param_it);
                break;
 
-            case 4:
+            case 3:
                l1_dcache_type = trimSpaces(*param_it);
                break;
 
-            case 5:
+            case 4:
                l2_cache_type = trimSpaces(*param_it);
                break;
 
@@ -448,8 +444,7 @@ void Config::parseTileParameters()
       // Append these values to an internal list
       for (UInt32 i = num_initialized_tiles; i < num_initialized_tiles + num_tiles; i++)
       {
-         m_tile_parameters_vec.push_back(TileParameters(core_type, frequency,
-                  l1_icache_type, l1_dcache_type, l2_cache_type));
+         m_tile_parameters_vec.push_back(TileParameters(core_type, l1_icache_type, l1_dcache_type, l2_cache_type));
       }
       num_initialized_tiles += num_tiles;
 
@@ -471,7 +466,7 @@ void Config::parseTileParameters()
    // MCP and Thread Spawner cores
    for (UInt32 i = getApplicationTiles(); i < getTotalTiles(); i++)
    {
-      m_tile_parameters_vec.push_back(TileParameters(DEFAULT_CORE_TYPE, DEFAULT_FREQUENCY,
+      m_tile_parameters_vec.push_back(TileParameters(DEFAULT_CORE_TYPE,
                DEFAULT_CACHE_TYPE, DEFAULT_CACHE_TYPE, DEFAULT_CACHE_TYPE));
    }
 }
@@ -479,7 +474,6 @@ void Config::parseTileParameters()
 void Config::parseNetworkParameters()
 {
    const string DEFAULT_NETWORK_TYPE = "magic";
-   const float DEFAULT_FREQUENCY = 1;           // In GHz
 
    string network_parameters_list[NUM_STATIC_NETWORKS];
    try
@@ -487,8 +481,8 @@ void Config::parseNetworkParameters()
       config::Config *cfg = Sim()->getCfg();
       network_parameters_list[STATIC_NETWORK_USER] = cfg->getString("network/user");
       network_parameters_list[STATIC_NETWORK_MEMORY] = cfg->getString("network/memory");
-      network_parameters_list[STATIC_NETWORK_SYSTEM] = cfg->getString("network/system");
-      network_parameters_list[STATIC_NETWORK_FREQ_CONTROL] = DEFAULT_NETWORK_TYPE;
+      network_parameters_list[STATIC_NETWORK_SYSTEM] = DEFAULT_NETWORK_TYPE;
+      network_parameters_list[STATIC_NETWORK_DVFS] = DEFAULT_NETWORK_TYPE;
    }
    catch (...)
    {
@@ -498,7 +492,7 @@ void Config::parseNetworkParameters()
 
    for (SInt32 i = 0; i < NUM_STATIC_NETWORKS; i++)
    {
-      m_network_parameters_vec.push_back(NetworkParameters(network_parameters_list[i], DEFAULT_FREQUENCY));
+      m_network_parameters_vec.push_back(NetworkParameters(network_parameters_list[i]));
    }
 }
 
@@ -544,18 +538,6 @@ string Config::getL2CacheType(tile_id_t tile_id)
          m_tile_parameters_vec.size(), getTotalTiles());
 
    return m_tile_parameters_vec[tile_id].getL2CacheType();
-}
-
-float Config::getTileFrequency(tile_id_t tile_id)
-{
-   LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
-         "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
-
-   LOG_ASSERT_ERROR(m_tile_parameters_vec.size() == getTotalTiles(),
-         "m_tile_parameters_vec.size(%u), total tiles(%u)",
-         m_tile_parameters_vec.size(), getTotalTiles());
-
-   return m_tile_parameters_vec[tile_id].getFrequency();
 }
 
 string Config::getNetworkType(SInt32 network_id)

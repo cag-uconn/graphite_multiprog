@@ -18,10 +18,12 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
                            UInt32 cache_line_size,
                            UInt32 L2_cache_size,
                            UInt32 L2_cache_associativity,
+                           UInt32 L2_cache_num_banks,
                            string L2_cache_replacement_policy,
-                           UInt32 L2_cache_access_delay,
-                           bool L2_cache_track_miss_types,
-                           float frequency)
+                           UInt32 L2_cache_data_access_cycles,
+                           UInt32 L2_cache_tags_access_cycles,
+                           string L2_cache_perf_model_type,
+                           bool L2_cache_track_miss_types)
    : _memory_manager(memory_manager)
    , _dram_home_lookup(dram_home_lookup)
    , _enabled(false)
@@ -38,12 +40,15 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
          Cache::WRITE_BACK,
          L2_cache_size, 
          L2_cache_associativity, 
-         cache_line_size, 
+         cache_line_size,
+         L2_cache_num_banks,
          _L2_cache_replacement_policy_obj,
          _L2_cache_hash_fn_obj,
-         L2_cache_access_delay,
-         frequency,
-         L2_cache_track_miss_types);
+         L2_cache_data_access_cycles,
+         L2_cache_tags_access_cycles,
+         L2_cache_perf_model_type,
+         L2_cache_track_miss_types,
+         getShmemPerfModel());
 }
 
 L2CacheCntlr::~L2CacheCntlr()
@@ -186,8 +191,16 @@ L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line
 void
 L2CacheCntlr::handleMsgFromL1Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 {
+   // add synchronization cost
+   if (sender == getTileId()){
+      getShmemPerfModel()->incrCurrTime(_L2_cache->getSynchronizationDelay(DVFSManager::convertToModule(shmem_msg->getSenderMemComponent())));
+   }
+   else{
+      getShmemPerfModel()->incrCurrTime(_L2_cache->getSynchronizationDelay(NETWORK_MEMORY));
+   }
+
    // Incr current time for every message that comes into the L2 cache
-   _memory_manager->incrCurrTime(MemComponent::L2_CACHE, CachePerfModel::ACCESS_CACHE_DATA_AND_TAGS);
+   _memory_manager->incrCurrTime(MemComponent::L2_CACHE, CachePerfModel::ACCESS_DATA_AND_TAGS);
 
    ShmemMsg::Type shmem_msg_type = shmem_msg->getType();
    Time msg_time = getShmemPerfModel()->getCurrTime();
@@ -266,7 +279,7 @@ void
 L2CacheCntlr::handleMsgFromDram(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    // Incr curr time for every message that comes into the L2 cache
-   _memory_manager->incrCurrTime(MemComponent::L2_CACHE, CachePerfModel::ACCESS_CACHE_DATA_AND_TAGS);
+   _memory_manager->incrCurrTime(MemComponent::L2_CACHE, CachePerfModel::ACCESS_DATA_AND_TAGS);
 
    IntPtr address = shmem_msg->getAddress();
 
@@ -295,7 +308,7 @@ L2CacheCntlr::processNextReqFromL1Cache(IntPtr address)
    LOG_PRINT("Start processNextReqFromL1Cache(%#lx)", address);
    
    // Add 1 cycle to denote that we are moving to the next request
-   getShmemPerfModel()->incrCurrTime(Latency(1,_memory_manager->getTile()->getFrequency()));
+   getShmemPerfModel()->incrCurrTime(Latency(1,_L2_cache->getFrequency()));
 
    assert(_L2_cache_req_queue.count(address) >= 1);
    
@@ -369,7 +382,7 @@ L2CacheCntlr::processNullifyReq(ShmemReq* nullify_req, Byte* data_buf)
          ShmemMsg shmem_msg(ShmemMsg::FLUSH_REQ, MemComponent::L2_CACHE, MemComponent::L1_DCACHE,
                             requester, false, address,
                             msg_modeled);
-         getMemoryManager()->sendMsg(directory_entry->getOwner(), shmem_msg);
+         _memory_manager->sendMsg(directory_entry->getOwner(), shmem_msg);
       }
       break;
 
@@ -463,7 +476,7 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
             ShmemMsg shmem_msg(ShmemMsg::FLUSH_REQ, MemComponent::L2_CACHE, MemComponent::L1_DCACHE,
                                requester, false, address,
                                msg_modeled);
-            getMemoryManager()->sendMsg(directory_entry->getOwner(), shmem_msg);
+            _memory_manager->sendMsg(directory_entry->getOwner(), shmem_msg);
          }
          break;
 
@@ -486,7 +499,7 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
                ShmemMsg shmem_msg(ShmemMsg::UPGRADE_REP, MemComponent::L2_CACHE, MemComponent::L1_DCACHE,
                                   requester, false, address,
                                   msg_modeled);
-               getMemoryManager()->sendMsg(requester, shmem_msg);
+               _memory_manager->sendMsg(requester, shmem_msg);
                
                // Set completed to true
                completed = true;
@@ -585,7 +598,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
             ShmemMsg shmem_msg(ShmemMsg::WB_REQ, MemComponent::L2_CACHE, MemComponent::L1_DCACHE,
                                requester, false, address,
                                msg_modeled);
-            getMemoryManager()->sendMsg(directory_entry->getOwner(), shmem_msg);
+            _memory_manager->sendMsg(directory_entry->getOwner(), shmem_msg);
          }
          break;
 
@@ -626,7 +639,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
                ShmemMsg shmem_msg(ShmemMsg::INV_REQ, MemComponent::L2_CACHE, requester_mem_component,
                                   requester, false, address,
                                   msg_modeled);
-               getMemoryManager()->sendMsg(sharer_id, shmem_msg);
+               _memory_manager->sendMsg(sharer_id, shmem_msg);
             }
             else // succesfully added the sharer
             {
@@ -801,7 +814,7 @@ void
 L2CacheCntlr::restartShmemReq(ShmemReq* shmem_req, ShL2CacheLineInfo* L2_cache_line_info, Byte* data_buf)
 {
    // Add 1 cycle to denote that we are restarting the request
-   getShmemPerfModel()->incrCurrTime(Latency(1,_memory_manager->getTile()->getFrequency()));
+   getShmemPerfModel()->incrCurrTime(Latency(1, _L2_cache->getFrequency()));
 
    // Update ShmemReq & ShmemPerfModel internal time
    shmem_req->updateTime(getShmemPerfModel()->getCurrTime());
@@ -847,7 +860,7 @@ L2CacheCntlr::sendInvalidationMsg(ShmemMsg::Type requester_msg_type,
       ShmemMsg shmem_msg(ShmemMsg::INV_REQ, MemComponent::L2_CACHE, receiver_mem_component, 
                          requester, reply_expected, address,
                          msg_modeled);
-      getMemoryManager()->broadcastMsg(shmem_msg);
+      _memory_manager->broadcastMsg(shmem_msg);
    }
    else // not all tiles are sharers
    {
@@ -857,7 +870,7 @@ L2CacheCntlr::sendInvalidationMsg(ShmemMsg::Type requester_msg_type,
          ShmemMsg shmem_msg(ShmemMsg::INV_REQ, MemComponent::L2_CACHE, receiver_mem_component,
                             requester, false, address,
                             msg_modeled);
-         getMemoryManager()->sendMsg(sharers_list[i], shmem_msg);
+         _memory_manager->sendMsg(sharers_list[i], shmem_msg);
       }
    }
 }
@@ -875,7 +888,7 @@ L2CacheCntlr::readCacheLineAndSendToL1Cache(ShmemMsg::Type reply_msg_type,
                          requester, false, address, 
                          data_buf, getCacheLineSize(),
                          msg_modeled);
-      getMemoryManager()->sendMsg(requester, shmem_msg);
+      _memory_manager->sendMsg(requester, shmem_msg);
    }
    else
    {
@@ -887,7 +900,7 @@ L2CacheCntlr::readCacheLineAndSendToL1Cache(ShmemMsg::Type reply_msg_type,
                          requester, false, address,
                          L2_data_buf, getCacheLineSize(),
                          msg_modeled);
-      getMemoryManager()->sendMsg(requester, shmem_msg); 
+      _memory_manager->sendMsg(requester, shmem_msg); 
    }
 }
 
@@ -897,7 +910,7 @@ L2CacheCntlr::fetchDataFromDram(IntPtr address, tile_id_t requester, bool msg_mo
    ShmemMsg fetch_msg(ShmemMsg::DRAM_FETCH_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_CNTLR,
                       requester, false, address,
                       msg_modeled);
-   getMemoryManager()->sendMsg(getDramHome(address), fetch_msg);
+   _memory_manager->sendMsg(getDramHome(address), fetch_msg);
 }
 
 void
@@ -907,7 +920,7 @@ L2CacheCntlr::storeDataInDram(IntPtr address, Byte* data_buf, tile_id_t requeste
                      requester, false, address,
                      data_buf, getCacheLineSize(),
                      msg_modeled);
-   getMemoryManager()->sendMsg(getDramHome(address), send_msg);
+   _memory_manager->sendMsg(getDramHome(address), send_msg);
 }
 
 Core::mem_op_t
