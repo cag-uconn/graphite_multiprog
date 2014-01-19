@@ -32,8 +32,14 @@ DEBUG ?= none
 
 # Set to 'build' to just build the application and not run anything
 BUILD_MODE ?=
-# Set to 'pin' to use Pin while running the application, '' for just running the application standalone
+# Set to 'pin' to use Pin while running the application, 'native' for just running the application standalone
 MODE ?= pin
+
+# Scheduler: Set to 'basic' to use basic Graphite scheduler or 'condor' to use condor scheduler
+SCHEDULER ?= basic
+
+# Batch Job: Is this a batch job?
+BATCH_JOB ?= false
 
 # What configuration file to use when running Graphite?
 CONFIG_FILE ?= carbon_sim.cfg
@@ -72,35 +78,32 @@ CONFIG_FILE_ABS_PATH := $(SIM_ROOT)/$(CONFIG_FILE)
 OUTPUT_DIR_ABS_PATH := $(SIM_ROOT)/results/$(OUTPUT_DIR)
 APP_SPECIFIC_CXX_FLAGS ?= 
 
-# Use: $(call sim_flags_fn, $(1-CORES), $(2-PROCS), $(3-ENABLE_SM), $(4-OUTPUT_DIR_ABS_PATH),$(CLOCK_SKEW_MANAGEMENT_SCHEME))
+# Compute SIM_FLAGS
 sim_flags_fn = -c $(CONFIG_FILE_ABS_PATH)
 ifdef CORES
-	sim_flags_fn += --general/total_cores=$(1)
+	sim_flags_fn += --general/total_cores=$(CORES)
 endif
 ifdef PROCS
-	sim_flags_fn += --general/num_processes=$(2)
+	sim_flags_fn += --general/num_processes=$(PROCS)
 endif
 ifdef ENABLE_SM
-	sim_flags_fn += --general/enable_shared_mem=$(3)
+	sim_flags_fn += --general/enable_shared_mem=$(ENABLE_SM)
 endif
 ifdef OUTPUT_DIR
-	sim_flags_fn += --general/output_dir=$(4)
+	sim_flags_fn += --general/output_dir=$(OUTPUT_DIR_ABS_PATH)
 endif
 ifdef CLOCK_SKEW_MANAGEMENT_SCHEME
-	sim_flags_fn += --clock_skew_management/scheme=$(5)
+	sim_flags_fn += --clock_skew_management/scheme=$(CLOCK_SKEW_MANAGEMENT_SCHEME)
 endif
-SIM_FLAGS ?= $(call sim_flags_fn,$(CORES),$(PROCS),$(ENABLE_SM),$(OUTPUT_DIR_ABS_PATH),$(CLOCK_SKEW_MANAGEMENT_SCHEME))
+SIM_FLAGS ?= $(call sim_flags_fn)
 
 EXEC ?= $(CURDIR)/$(TARGET) $(APP_FLAGS) # command thats actually executed
-launch_fn = python -u $(SIM_ROOT)/tools/spawn_master.py
-
-# Use: $(call run_fn, $(1-MODE), $(2-EXEC), $(3-SIM_FLAGS))
-run_fn = $(if $(findstring build,$(BUILD_MODE)), ,$(if $(findstring pin,$(1)),$(call launch_fn) $(PIN_RUN) $(3) -- $(2),$(call launch_fn) $(VALGRIND) $(2) $(3)))
-RUN ?= cd $(SIM_ROOT) ; $(call run_fn,$(MODE),$(EXEC),$(SIM_FLAGS))
+LAUNCH = python -u $(SIM_ROOT)/tools/spawn.py $(SCHEDULER) $(MODE) $(BATCH_JOB) "$(PIN_RUN)" "$(SIM_FLAGS)" "$(EXEC)"
+RUN = $(if $(findstring build,$(BUILD_MODE)), , $(LAUNCH))
 
 # Build targets
 all: $(TARGET)
-	$(RUN)
+	cd $(SIM_ROOT); $(RUN)
 
 # Compiler flags
 LD_FLAGS += -static -u CarbonStartSim -u CarbonStopSim -u pthread_create -u pthread_join

@@ -16,4 +16,3 @@ getparam.o: getparam.C stdinc.h
 grav.o: grav.C stdinc.h
 load.o: load.C stdinc.h
 util.o: util.C stdinc.h
-
