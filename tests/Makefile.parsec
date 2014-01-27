@@ -32,7 +32,7 @@ EXEC ?= $(DIRECTORY)/inst/amd64-linux.graphite/bin/$(BENCHMARK) $(APP_FLAGS)
 
 include tests/Makefile.tests
 
-BUILD_COMMAND = export GRAPHITE_HOME=$(SIM_ROOT);$(PARSEC_LOCAL)/bin/parsecmgmt -a build -p $(BENCHMARK) -c graphite
+BUILD_COMMAND = export GRAPHITE_HOME=$(SIM_ROOT); $(PARSEC_LOCAL)/bin/parsecmgmt -a build -p $(BENCHMARK) -c graphite
 RUN_COMMAND = export GRAPHITE_HOME=$(SIM_ROOT); mkdir -p $(DIRECTORY)/run; cd $(DIRECTORY)/run; $(RUN)
 
 freqmine_parsec:

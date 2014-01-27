@@ -12,7 +12,7 @@ import subprocess
 import time
 import signal
 
-sys.path.append("./tools/job/")
+sys.path.append("%s/tools/job/" % os.environ.get('GRAPHITE_HOME'))
 from basic_master_job import BasicMasterJob
 from condor_master_job import CondorMasterJob
 

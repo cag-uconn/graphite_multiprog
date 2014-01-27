@@ -103,7 +103,7 @@ RUN = $(if $(findstring build,$(BUILD_MODE)), , $(LAUNCH))
 
 # Build targets
 all: $(TARGET)
-	cd $(SIM_ROOT); $(RUN)
+	export GRAPHITE_HOME=$(SIM_ROOT); cd $(SIM_ROOT); $(RUN)
 
 # Compiler flags
 LD_FLAGS += -static -u CarbonStartSim -u CarbonStopSim -u pthread_create -u pthread_join
