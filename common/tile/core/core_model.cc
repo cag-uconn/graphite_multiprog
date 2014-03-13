@@ -94,10 +94,14 @@ void CoreModel::outputSummary(ostream& os, const Time& target_completion_time)
    os << "    Completion Time (in nanoseconds): " << _curr_time.toNanosec() << endl;
    os << "    Average Frequency (in GHz): " << _average_frequency << endl;
    // Pipeline stall / dynamic instruction counters
-   os << "    Synchronization Stalls: " << _total_sync_instructions << endl;
-   os << "    Network Recv Stalls: " << _total_recv_instructions << endl;
+   os << "    Stalls Breakdown: " << endl;
+   os << "      Front-End Pipeline: " << _total_frontend_stalls << endl;
+   os << "      Back-End Pipeline: " << _total_backend_stalls << endl;
+   os << "      Synchronization: " << _total_sync_instructions << endl;
+   os << "      Network Recv: " << _total_recv_instructions << endl;
    os << "    Stall Time Breakdown (in nanoseconds): " << endl;
-   os << "      Memory: " << _total_memory_stall_time.toNanosec() << endl;
+   os << "      L1-I Cache: " << _total_l1_icache_stall_time.toNanosec() << endl;
+   os << "      L1-D Cache: " << _total_l1_dcache_stall_time.toNanosec() << endl;
    os << "      Execution Unit: " << _total_execution_unit_stall_time.toNanosec() << endl;
    os << "      Synchronization: " << _total_sync_instruction_stall_time.toNanosec() << endl;
    os << "      Network Recv: " << _total_recv_instruction_stall_time.toNanosec() << endl;
@@ -207,7 +211,10 @@ void CoreModel::initializeDynamicInstructionCounters()
 
 void CoreModel::initializePipelineStallCounters()
 {
-   _total_memory_stall_time = Time(0);
+   _total_frontend_stalls = 0;
+   _total_backend_stalls = 0;
+   _total_l1_icache_stall_time = Time(0);
+   _total_l1_dcache_stall_time = Time(0);
    _total_execution_unit_stall_time = Time(0);
 }
 
@@ -257,9 +264,15 @@ void CoreModel::updateDynamicInstructionCounters(const Instruction* instruction,
    }
 }
 
-void CoreModel::updatePipelineStallCounters(const Time& memory_stall_time, const Time& execution_unit_stall_time)
+void CoreModel::updatePipelineStallCounters(const Time& l1_icache_stall_time, const Time& l1_dcache_stall_time,
+                                            const Time& execution_unit_stall_time)
 {
-   _total_memory_stall_time += memory_stall_time;
+   if (l1_icache_stall_time > 0)
+      _total_frontend_stalls ++;
+   if (l1_dcache_stall_time > 0 || execution_unit_stall_time > 0)
+      _total_backend_stalls ++;
+   _total_l1_icache_stall_time += l1_icache_stall_time;
+   _total_l1_dcache_stall_time += l1_dcache_stall_time;
    _total_execution_unit_stall_time += execution_unit_stall_time;
 }
 

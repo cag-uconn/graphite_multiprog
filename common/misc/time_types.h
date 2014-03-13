@@ -45,11 +45,14 @@ class Time
       Time operator-(const Time& time) const
             { return Time(_picosec - time._picosec); }
 
-      bool operator>(const Time& time) const
-            { return _picosec > time._picosec; }
+      bool operator==(const Time& time) const
+           { return _picosec == time._picosec; }
 
       bool operator<(const Time& time) const
             { return _picosec < time._picosec; }
+
+      bool operator>(const Time& time) const
+            { return _picosec > time._picosec; }
 
       bool operator<=(const Time& time) const
             { return _picosec <= time._picosec; }
@@ -59,6 +62,12 @@ class Time
 
       bool operator==(const UInt64& picosec) const
             { return _picosec == picosec; }
+
+      bool operator<(const UInt64& picosec) const
+            { return _picosec < picosec; }
+
+      bool operator>(const UInt64& picosec) const
+            { return _picosec > picosec; }
 
       void operator+=(const Time& time)
             { _picosec += time._picosec; }

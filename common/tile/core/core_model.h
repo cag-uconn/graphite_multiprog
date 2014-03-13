@@ -89,7 +89,8 @@ protected:
    Time modelICache(const Instruction* instruction);
    void updateMemoryFenceCounters(const Instruction* instruction);
    void updateDynamicInstructionCounters(const Instruction* instruction, const Time& cost);
-   void updatePipelineStallCounters(const Time& memory_stall_time, const Time& execution_unit_stall_time);
+   void updatePipelineStallCounters(const Time& l1_icache_stall_time, const Time& l1_dcache_stall_time,
+                                    const Time& execution_unit_stall_time);
 
    // Power/Area modeling
    void initializeMcPATInterface(UInt32 num_load_buffer_entries, UInt32 num_store_buffer_entries);
@@ -126,7 +127,10 @@ private:
    Time _total_recv_instruction_stall_time;
    Time _total_sync_instruction_stall_time;
    // Pipeline stall counters
-   Time _total_memory_stall_time;
+   UInt64 _total_frontend_stalls;
+   UInt64 _total_backend_stalls;
+   Time _total_l1_icache_stall_time;
+   Time _total_l1_dcache_stall_time;
    Time _total_execution_unit_stall_time;
 
    // Power/Area modeling
