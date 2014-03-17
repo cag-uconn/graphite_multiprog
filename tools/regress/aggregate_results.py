@@ -42,24 +42,24 @@ for num_machines in num_machines_list:
    host_time_list[num_machines] = []
    MIPS_list[num_machines] = []
 
-summary_file.write("_" * 130)
+summary_file.write("_" * 145)
 summary_file.write("\n\n")
-summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s |\n" % \
+summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s | %s |\n" % \
                    ('Benchmark'.center(21), '# Machines'.center(12), 'Status'.center(8),
                     'Host'.center(13), 'Simulation'.center(13),
-                    'Target'.center(10), 'Target'.center(10),
-                    'Target'.center(18)) )
-summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s |\n" % \
+                    'Target'.center(11), 'Target'.center(10),
+                    'Target'.center(10), 'Target'.center(18)) )
+summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s | %s |\n" % \
                    (''.center(21), ''.center(12), ''.center(8),
                     'Time'.center(13), 'Performance'.center(13),
-                    'Time'.center(10), 'Energy'.center(10),
-                    'Performance/Watt'.center(18)) )
-summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s |\n" % \
+                    'Performance'.center(11), 'Time'.center(10),
+                    'Energy'.center(10), 'Performance/Watt'.center(18)) )
+summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s | %s |\n" % \
                    (''.center(21), ''.center(12), ''.center(8),
                     ''.center(13), '(in MIPS)'.center(13),
-                    '(in ms)'.center(10), '(in mJ)'.center(10),
-                    '(in MIPS/W)'.center(18)) )
-summary_file.write("_" * 130)
+                    '(in GIPS)'.center(11), '(in ms)'.center(10),
+                    '(in mJ)'.center(10), '(in MIPS/W)'.center(18)) )
+summary_file.write("_" * 145)
 summary_file.write("\n\n")
 
 for benchmark in benchmark_list:
@@ -83,26 +83,30 @@ for benchmark in benchmark_list:
          host_working_time = parseEventCounters("Host-Working-Time", eventCounterInfo)                # In micro-seconds
          MIPS = target_instructions / host_working_time
          formatted_MIPS = "%.2f" % (MIPS)
-         
+        
          target_time = 1.0e-6 * parseEventCounters("Target-Time", eventCounterInfo)     # In milli-seconds
          target_energy = 1000.0 * parseEventCounters("Target-Energy", eventCounterInfo) # In milli-joules
          target_performance_per_watt = 1.0e-3 * target_instructions / target_energy     # In MIPS/W
+         target_performance = target_instructions / (target_time * 1.0e6);
 
-         summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s |\n" % \
+         summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s | %s |\n" % \
                             (benchmark.ljust(21), str(num_machines).center(12), 'PASS'.center(8),
-                             formatTime(host_time).ljust(13), formatted_MIPS.ljust(13),
-                             ("%.2f" % (target_time)).ljust(10), ("%.2f" % (target_energy)).ljust(10),
+                             formatTime(host_time).ljust(13),
+                             formatted_MIPS.ljust(13),
+                             ("%.2f" % (target_performance)).ljust(11),
+                             ("%.2f" % (target_time)).ljust(10),
+                             ("%.2f" % (target_energy)).ljust(10),
                              ("%.2f" % (target_performance_per_watt)).ljust(18)))
         
          host_time_list[num_machines].append(host_time)
          MIPS_list[num_machines].append(MIPS)
       else:
-         summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s |\n" % \
+         summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s | %s |\n" % \
                             (benchmark.ljust(21), str(num_machines).center(12), 'FAIL'.center(8),
-                             ''.ljust(13), ''.ljust(13),
+                             ''.ljust(13), ''.ljust(11),
                              ''.ljust(10), ''.ljust(10), ''.ljust(18)))
 
-summary_file.write("_" * 130)
+summary_file.write("_" * 145)
 summary_file.write("\n\n")
 
 for num_machines in num_machines_list:
