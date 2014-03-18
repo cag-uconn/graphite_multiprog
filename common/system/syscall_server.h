@@ -69,6 +69,9 @@ private:
    void marshallRmdirCall(core_id_t core_id);
    void marshallUnlinkCall(core_id_t core_id);
    void marshallGetCwdCall(core_id_t core_id);
+
+   void marshallGetTargetStartTimeCall(core_id_t core_id);
+
    void marshallSchedSetAffinityCall(core_id_t core_id);
    void marshallSchedGetAffinityCall(core_id_t core_id);
 
@@ -80,8 +83,10 @@ private:
    void futexWake(core_id_t core_id, int *addr, int val, UInt64 curr_time);
    void futexWakeOp(core_id_t core_id, int *addr1, int val1, int val2, int *addr2, int val3, UInt64 curr_time);
    void futexCmpRequeue(core_id_t core_id, int *addr1, int val1, int val2, int *addr2, int val3, UInt64 curr_time);
-
    int __futexWake(int *addr, int val, UInt64 curr_time);
+
+   // Utilities
+   double getTime();
 
    // Private data fields
    // Note: These structures are shared with the MCP
@@ -90,6 +95,9 @@ private:
    UnstructuredBuffer & m_recv_buff;
    const UInt32 m_SYSCALL_SERVER_MAX_BUFF;
    char * const m_scratch;
+
+   // Starting target time
+   double m_target_start_time;
 
    // Handling Futexes
    typedef std::map<IntPtr, SimFutex> FutexMap;

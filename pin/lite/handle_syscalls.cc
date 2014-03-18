@@ -29,9 +29,7 @@ void handleFutexSyscall(CONTEXT* ctx)
    args.arg5 = PIN_GetContextReg (ctx, LEVEL_BASE::REG_R9);
 
    Core* core = Sim()->getTileManager()->getCurrentCore();
-   
    LOG_ASSERT_ERROR(core != NULL, "Core(NULL)");
-
    LOG_PRINT("Enter Syscall (202)");
    
    core->getSyscallMdl()->runEnter(syscall_number, args);
@@ -41,37 +39,75 @@ void syscallEnterRunModel(THREADID threadIndex, CONTEXT* ctx, SYSCALL_STANDARD s
 {
    Core* core = Sim()->getTileManager()->getCurrentCore();
    LOG_ASSERT_ERROR(core, "Core(NULL)");
-
    IntPtr syscall_number = PIN_GetSyscallNumber(ctx, syscall_standard);
-   
-   if (syscall_number != SYS_futex)
-      LOG_PRINT("Enter Syscall(%i)", (int) syscall_number);
-
+  
    // Save the syscall number
    core->getSyscallMdl()->saveSyscallNumber(syscall_number);
-   if (syscall_number == SYS_futex)
-   {
+   
+   switch (syscall_number)
+   { 
+   // Inter-thread synchronization 
+   case SYS_futex:
       PIN_SetSyscallNumber(ctx, syscall_standard, SYS_getpid);
+      break;
+
+   // Time manipulation
+   case SYS_gettimeofday:
+   case SYS_clock_gettime:
+   case SYS_clock_getres:
+      {
+         SyscallMdl::syscall_args_t args = syscallArgs(ctx, syscall_standard);
+         IntPtr new_syscall = core->getSyscallMdl()->runEnter(syscall_number, args);
+         PIN_SetSyscallNumber (ctx, syscall_standard, new_syscall);
+      }
+      break;
+
+   default:
+      break;
    }
 }
 
 void syscallExitRunModel(THREADID threadIndex, CONTEXT* ctx, SYSCALL_STANDARD syscall_standard, void* v)
 {
    Core* core = Sim()->getTileManager()->getCurrentCore();
-   LOG_ASSERT_ERROR(core, "Core(NULL)");
-
+   assert(core);
    IntPtr syscall_number = core->getSyscallMdl()->retrieveSyscallNumber();
-   IntPtr syscall_return = PIN_GetSyscallReturn(ctx, syscall_standard);
 
-   if (syscall_number == SYS_futex)
+   switch (syscall_number)
    {
-      IntPtr old_return_val = syscall_return;
-      syscall_return = core->getSyscallMdl()->runExit(old_return_val);
-      PIN_SetContextReg(ctx, REG_GAX, syscall_return);
+   // Time manipulation
+   case SYS_gettimeofday:
+   case SYS_clock_gettime:
+   case SYS_clock_getres:
+  
+   // Inter-thread synchronization 
+   case SYS_futex:
+   
+      {
+         IntPtr old_return_val = PIN_GetSyscallReturn (ctx, syscall_standard);
+         IntPtr syscall_return = core->getSyscallMdl()->runExit(old_return_val);
+         PIN_SetContextReg (ctx, REG_GAX, syscall_return);
 
+         LOG_PRINT("Syscall(%p) returned (%p)", syscall_number, syscall_return);
+      }
+      break;
+
+   default:
+      break;
    }
+}
 
-   LOG_PRINT("Exit Syscall(%i) - Return Value(%#llx)", (int) syscall_number, (long long unsigned int) syscall_return);
+SyscallMdl::syscall_args_t syscallArgs(CONTEXT *ctxt, SYSCALL_STANDARD syscall_standard)
+{
+   SyscallMdl::syscall_args_t args;
+   args.arg0 = PIN_GetSyscallArgument (ctxt, syscall_standard, 0);
+   args.arg1 = PIN_GetSyscallArgument (ctxt, syscall_standard, 1);
+   args.arg2 = PIN_GetSyscallArgument (ctxt, syscall_standard, 2);
+   args.arg3 = PIN_GetSyscallArgument (ctxt, syscall_standard, 3);
+   args.arg4 = PIN_GetSyscallArgument (ctxt, syscall_standard, 4);
+   args.arg5 = PIN_GetSyscallArgument (ctxt, syscall_standard, 5);
+
+   return args;
 }
 
 }

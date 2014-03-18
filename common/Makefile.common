@@ -50,6 +50,9 @@ LD_LIBS += -lcarbon_sim
 BOOST_SUFFIX = mt
 LD_LIBS += -lboost_filesystem-$(BOOST_SUFFIX) -lboost_system-$(BOOST_SUFFIX)
 
+# For clock_gettime & clock_getres
+LD_LIBS += -lrt
+
 # Include paths
 CXXFLAGS += $(foreach dir,$(INCLUDE_DIRECTORIES),-I$(dir)) \
             -Wall -Werror -Wno-deprecated-declarations -Wno-unknown-pragmas \

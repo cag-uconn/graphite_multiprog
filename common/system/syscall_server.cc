@@ -21,6 +21,8 @@
 
 #include "log.h"
 
+#define SIMULATION_MODE    (Config::getSingleton()->getSimulationMode())
+
 using namespace std;
 
 SyscallServer::SyscallServer(Network & network,
@@ -32,6 +34,7 @@ SyscallServer::SyscallServer(Network & network,
    , m_recv_buff(recv_buff_)
    , m_SYSCALL_SERVER_MAX_BUFF(SERVER_MAX_BUFF)
    , m_scratch(scratch_)
+   , m_target_start_time(getTime())
 {
 }
 
@@ -129,6 +132,15 @@ void SyscallServer::handleSyscall(core_id_t core_id)
 
    case SYS_getcwd:
       marshallGetCwdCall (core_id);
+      break;
+
+   case SYS_gettimeofday:
+   case SYS_clock_gettime:
+      marshallGetTargetStartTimeCall (core_id);
+      break;
+
+   case SYS_sched_setaffinity:
+      marshallSchedSetAffinityCall (core_id);
       break;
 
    case SYS_sched_getaffinity:
@@ -875,12 +887,12 @@ void SyscallServer::futexWait(core_id_t core_id, int *addr, int val, UInt64 curr
    SimFutex *sim_futex = &m_futexes[(IntPtr) addr];
 
    int curr_val;
-   if (Config::getSingleton()->getSimulationMode() == Config::FULL)
+   if (SIMULATION_MODE == Config::FULL)
    {
       Core* core = m_network.getTile()->getCore();
       core->accessMemory(Core::NONE, Core::READ, (IntPtr) addr, (char*) &curr_val, sizeof(curr_val));
    }
-   else // (Config::getSingleton()->getSimulationMode() == Config::LITE)
+   else // (SIMULATION_MODE == Config::LITE)
    {
       curr_val = *addr;
    }
@@ -905,12 +917,12 @@ void SyscallServer::futexWait(core_id_t core_id, int *addr, int val, UInt64 curr
 void SyscallServer::futexWaitClockReal(core_id_t core_id, int *addr, int val, UInt64 curr_time)
 {
    int curr_val;
-   if (Config::getSingleton()->getSimulationMode() == Config::FULL)
+   if (SIMULATION_MODE == Config::FULL)
    {
       Core* core = m_network.getTile()->getCore();
       core->accessMemory(Core::NONE, Core::READ, (IntPtr) addr, (char*) &curr_val, sizeof(curr_val));
    }
-   else // (Config::getSingleton()->getSimulationMode() == Config::LITE)
+   else // (SIMULATION_MODE == Config::LITE)
    {
       curr_val = *addr;
    }
@@ -956,12 +968,12 @@ void SyscallServer::futexWakeOp(core_id_t core_id, int *addr1, int val1, int val
 
    // Get the old value of addr2
    int oldval;
-   if (Config::getSingleton()->getSimulationMode() == Config::FULL)
+   if (SIMULATION_MODE == Config::FULL)
    {
       Core* core = m_network.getTile()->getCore();
       core->accessMemory(Core::NONE, Core::READ, (IntPtr) addr2, (char*) &oldval, sizeof(oldval));
    }
-   else // (Config::getSingleton()->getSimulationMode() == Config::LITE)
+   else // (SIMULATION_MODE == Config::LITE)
    {
       oldval = *addr2;
    }
@@ -999,12 +1011,12 @@ void SyscallServer::futexWakeOp(core_id_t core_id, int *addr1, int val1, int val
    }
    
    // Write the newval into addr2
-   if (Config::getSingleton()->getSimulationMode() == Config::FULL)
+   if (SIMULATION_MODE == Config::FULL)
    {
       Core* core = m_network.getTile()->getCore();
       core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) addr2, (char*) &newval, sizeof(newval));
    }
-   else // (Config::getSingleton()->getSimulationMode() == Config::LITE)
+   else // (SIMULATION_MODE == Config::LITE)
    {
       *addr2 = newval;
    }
@@ -1058,12 +1070,12 @@ void SyscallServer::futexWakeOp(core_id_t core_id, int *addr1, int val1, int val
 void SyscallServer::futexCmpRequeue(core_id_t core_id, int *addr1, int val1, int val2, int *addr2, int val3, UInt64 curr_time)
 {
    int curr_val;
-   if (Config::getSingleton()->getSimulationMode() == Config::FULL)
+   if (SIMULATION_MODE == Config::FULL)
    {
       Core* core = m_network.getTile()->getCore();
       core->accessMemory(Core::NONE, Core::READ, (IntPtr) addr1, (char*) &curr_val, sizeof(curr_val));
    }
-   else // (Config::getSingleton()->getSimulationMode() == Config::LITE)
+   else // (SIMULATION_MODE == Config::LITE)
    {
       curr_val = *addr1;
    }
@@ -1171,4 +1183,18 @@ core_id_t SimFutex::dequeueWaiter()
       Sim()->getThreadManager()->resumeThread(core_id);
       return core_id;
    }
+}
+
+void SyscallServer::marshallGetTargetStartTimeCall(core_id_t core_id)
+{
+   m_send_buff << m_target_start_time;
+   m_network.netSend(core_id, MCP_RESPONSE_TYPE, m_send_buff.getBuffer(), m_send_buff.size());
+}
+
+// Utilities
+double SyscallServer::getTime()
+{
+   struct timespec ts;
+   clock_gettime(CLOCK_REALTIME, &ts);
+   return ((double) ts.tv_sec) + ((double) ts.tv_nsec / 1.0e9); 
 }

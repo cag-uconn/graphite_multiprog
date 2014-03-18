@@ -81,11 +81,10 @@ VOID handleFutexSyscall(CONTEXT *ctx)
    args.arg3 = PIN_GetContextReg (ctx, LEVEL_BASE::REG_R10); 
    args.arg4 = PIN_GetContextReg (ctx, LEVEL_BASE::REG_R8);
    args.arg5 = PIN_GetContextReg (ctx, LEVEL_BASE::REG_R9);
-   Core *core = Sim()->getTileManager()->getCurrentCore();
    
-   string core_null = core ? "CORE != NULL" : "CORE == NULL";
-   LOG_PRINT("syscall_number %d, %s", syscall_number, core_null.c_str());
+   Core *core = Sim()->getTileManager()->getCurrentCore();
    LOG_ASSERT_ERROR(core != NULL, "Core(NULL)");
+   LOG_PRINT("syscall_number %d", syscall_number);
 
    core->getSyscallMdl()->runEnter(syscall_number, args);
 }
@@ -93,178 +92,174 @@ VOID handleFutexSyscall(CONTEXT *ctx)
 void syscallEnterRunModel(THREADID threadIndex, CONTEXT *ctx, SYSCALL_STANDARD syscall_standard, void* v)
 {
    Core *core = Sim()->getTileManager()->getCurrentCore();
+   assert(core);
    IntPtr syscall_number = PIN_GetSyscallNumber (ctx, syscall_standard);
-   
-   string core_null = core ? "CORE != NULL" : "CORE == NULL";
-   LOG_PRINT("syscall_number %d, %s", syscall_number, core_null.c_str());
+   LOG_PRINT("syscall_number %d", syscall_number);
 
-   if (core)
+   // Save the syscall number
+   core->getSyscallMdl()->saveSyscallNumber(syscall_number);
+  
+   switch (syscall_number)
    {
-      // Save the syscall number
-      core->getSyscallMdl()->saveSyscallNumber(syscall_number);
-      
-      if (  (syscall_number == SYS_open) ||
-            (syscall_number == SYS_read) ||
-            (syscall_number == SYS_write) ||
-            (syscall_number == SYS_writev) ||
-            (syscall_number == SYS_close) ||
-            (syscall_number == SYS_lseek) ||
-            (syscall_number == SYS_access) ||
-            (syscall_number == SYS_rmdir) ||
-            (syscall_number == SYS_unlink) ||
-            (syscall_number == SYS_clock_gettime) ||
-            (syscall_number == SYS_getcwd) ||
-            (syscall_number == SYS_sched_setaffinity) ||
-            (syscall_number == SYS_sched_getaffinity) ||
-            (syscall_number == SYS_stat) ||
-            (syscall_number == SYS_fstat) ||
-            (syscall_number == SYS_lstat) ||
-            (syscall_number == SYS_ioctl) ||
-            (syscall_number == SYS_getpid) ||
-            (syscall_number == SYS_readahead) ||
-            (syscall_number == SYS_pipe) ||
-            (syscall_number == SYS_brk) ||
-            (syscall_number == SYS_mmap) ||
-            (syscall_number == SYS_munmap))
+   // File operations
+   case SYS_open:
+   case SYS_read:
+   case SYS_write:
+   case SYS_writev:
+   case SYS_close:
+   case SYS_lseek:
+   case SYS_access:
+   case SYS_rmdir:
+   case SYS_unlink:
+   case SYS_getcwd:
+   case SYS_stat:
+   case SYS_fstat:
+   case SYS_lstat:
+   case SYS_ioctl:
+   case SYS_readahead:
+   case SYS_pipe:
+
+   // Get process ID
+   case SYS_getpid:
+   
+   // Time manipulation
+   case SYS_gettimeofday:
+   case SYS_clock_gettime:
+   case SYS_clock_getres:
+
+   // Scheduling
+   case SYS_sched_setaffinity:
+   case SYS_sched_getaffinity:
+
+   // Memory management
+   case SYS_brk:
+   case SYS_mmap:
+   case SYS_munmap:
+
       {
          SyscallMdl::syscall_args_t args = syscallArgs (ctx, syscall_standard);
          IntPtr new_syscall = core->getSyscallMdl()->runEnter(syscall_number, args);
          PIN_SetSyscallNumber (ctx, syscall_standard, new_syscall);
       }
-      
-      else if (syscall_number == SYS_futex)
-      {
-         PIN_SetSyscallNumber (ctx, syscall_standard, SYS_getpid);
-      }
+      break;
 
-      else if (syscall_number == SYS_mprotect)
-      {
-         PIN_SetSyscallNumber (ctx, syscall_standard, SYS_getpid);
-      }
+   case SYS_futex:
+   case SYS_mprotect:
+   case SYS_madvise:
+   case SYS_set_tid_address:
+   case SYS_set_robust_list:
+      PIN_SetSyscallNumber (ctx, syscall_standard, SYS_getpid);
+      break;
 
-      else if (syscall_number == SYS_madvise)
-      {
-         PIN_SetSyscallNumber (ctx, syscall_standard, SYS_getpid);
-      }
+   case SYS_rt_sigprocmask:
+      modifyRtsigprocmaskContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_rt_sigsuspend:
+      modifyRtsigsuspendContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_rt_sigaction:
+      modifyRtsigactionContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_nanosleep:
+      modifyNanosleepContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_set_tid_address)
-      {
-         PIN_SetSyscallNumber (ctx, syscall_standard, SYS_getpid);
-      }
+   case SYS_uname:
+      modifyUnameContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_rt_sigprocmask)
-      {
-         modifyRtsigprocmaskContext (ctx, syscall_standard);
-      }
-      
-      else if (syscall_number == SYS_rt_sigsuspend)
-      {
-         modifyRtsigsuspendContext (ctx, syscall_standard);
-      }
-      
-      else if (syscall_number == SYS_rt_sigaction)
-      {
-         modifyRtsigactionContext (ctx, syscall_standard);
-      }
-      
-      else if (syscall_number == SYS_nanosleep)
-      {
-         modifyNanosleepContext (ctx, syscall_standard);
-      }
+   case SYS_set_thread_area:
+      modifySet_thread_areaContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_clone:
+      modifyCloneContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_uname)
-      {
-         modifyUnameContext (ctx, syscall_standard);
-      }
+   case SYS_time:
+      modifyTimeContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_set_thread_area)
-      {
-         modifySet_thread_areaContext (ctx, syscall_standard);
-      }
-      
-      else if (syscall_number == SYS_clone)
-      {
-         modifyCloneContext (ctx, syscall_standard);
-      }
+   case SYS_arch_prctl:
+      modifyArch_prctlContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_time)
-      {
-         modifyTimeContext (ctx, syscall_standard);
-      }
+   case SYS_getrlimit:
+      modifyGetrlimitContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_exit:
+   case SYS_exit_group:
+   case SYS_kill:
+   case SYS_gettid:
 
-      else if (syscall_number == SYS_gettimeofday)
-      {
-         modifyGettimeofdayContext (ctx, syscall_standard);
-      }
-
-      else if (syscall_number == SYS_arch_prctl)
-      {
-         modifyArch_prctlContext (ctx, syscall_standard);
-      }
-
-      else if (syscall_number == SYS_getrlimit)
-      {
-         modifyGetrlimitContext (ctx, syscall_standard);
-      }
-      
-      // Syscalls encountered on lenny systems
-      else if (syscall_number == SYS_set_robust_list)
-      {
-         PIN_SetSyscallNumber (ctx, syscall_standard, SYS_getpid);
-      }
-
-      else if ( (syscall_number == SYS_exit) ||
-            (syscall_number == SYS_exit_group) ||
-            (syscall_number == SYS_kill) ||
-            (syscall_number == SYS_gettid) ||
-            (syscall_number == SYS_geteuid) ||
-            (syscall_number == SYS_getuid) ||
-            (syscall_number == SYS_getegid) ||
-            (syscall_number == SYS_getgid) )
-      {
-         // Let the syscall fall through
-      }
-
-      else
+   case SYS_geteuid:
+   case SYS_getuid:
+   case SYS_getegid:
+   case SYS_getgid:
+      // Let the syscall fall through
+      break;
+   
+   default:
       {
          SyscallMdl::syscall_args_t args = syscallArgs (ctx, syscall_standard);
-         LOG_ASSERT_ERROR (false, "Unhandled syscall[enter] %d at RIP(%p)\n, arg0(%p), arg1(%p), arg2(%p), arg3(%p), arg4(%p), arg5(%p)", syscall_number, PIN_GetContextReg(ctx, REG_INST_PTR), args.arg0, args.arg1, args.arg2, args.arg3, args.arg4, args.arg5);
+         LOG_PRINT_ERROR ("Unhandled syscall[enter] %d at RIP(%p)\n, "
+                          "arg0(%p), arg1(%p), arg2(%p), arg3(%p), arg4(%p), arg5(%p)",
+                          syscall_number, PIN_GetContextReg(ctx, REG_INST_PTR),
+                          args.arg0, args.arg1, args.arg2, args.arg3, args.arg4, args.arg5);
       }
+      break;
    }
 }
 
 void syscallExitRunModel(THREADID threadIndex, CONTEXT *ctx, SYSCALL_STANDARD syscall_standard, void* v)
 {
    Core *core = Sim()->getTileManager()->getCurrentCore();
-   
-   if (core)
+   assert(core);
+   IntPtr syscall_number = core->getSyscallMdl()->retrieveSyscallNumber();
+  
+   switch (syscall_number)
    {
-      IntPtr syscall_number = core->getSyscallMdl()->retrieveSyscallNumber();
+   case SYS_open:
+   case SYS_read:
+   case SYS_write:
+   case SYS_writev:
+   case SYS_close:
+   case SYS_lseek:
+   case SYS_access:
+   case SYS_rmdir:
+   case SYS_unlink:
+   case SYS_getcwd:
+   case SYS_stat:
+   case SYS_fstat:
+   case SYS_lstat:
+   case SYS_ioctl:
+   case SYS_readahead:
+   case SYS_pipe:
+   
+   // Get process ID
+   case SYS_getpid:
+   
+   // Time manipulation
+   case SYS_gettimeofday:
+   case SYS_clock_gettime:
+   case SYS_clock_getres:
+   
+   // Scheduling
+   case SYS_sched_setaffinity:
+   case SYS_sched_getaffinity:
+   
+   // Memory management
+   case SYS_brk:
+   case SYS_mmap:
+   case SYS_munmap:
+  
+   // Inter-thread synchronization 
+   case SYS_futex:
       
-      if (  (syscall_number == SYS_open) ||
-            (syscall_number == SYS_read) ||
-            (syscall_number == SYS_write) ||
-            (syscall_number == SYS_writev) ||
-            (syscall_number == SYS_close) ||
-            (syscall_number == SYS_lseek) ||
-            (syscall_number == SYS_access) ||
-            (syscall_number == SYS_rmdir) ||
-            (syscall_number == SYS_unlink) ||
-            (syscall_number == SYS_clock_gettime) ||
-            (syscall_number == SYS_getcwd) ||
-            (syscall_number == SYS_sched_setaffinity) ||
-            (syscall_number == SYS_sched_getaffinity) ||
-            (syscall_number == SYS_stat) ||
-            (syscall_number == SYS_fstat) ||
-            (syscall_number == SYS_lstat) ||
-            (syscall_number == SYS_ioctl) ||
-            (syscall_number == SYS_getpid) ||
-            (syscall_number == SYS_readahead) ||
-            (syscall_number == SYS_pipe) ||
-            (syscall_number == SYS_brk) ||
-            (syscall_number == SYS_mmap) ||
-            (syscall_number == SYS_munmap) ||
-            (syscall_number == SYS_futex))
       {
          IntPtr old_return_val = PIN_GetSyscallReturn (ctx, syscall_standard);
          IntPtr syscall_return = core->getSyscallMdl()->runExit(old_return_val);
@@ -272,96 +267,68 @@ void syscallExitRunModel(THREADID threadIndex, CONTEXT *ctx, SYSCALL_STANDARD sy
 
          LOG_PRINT("Syscall(%p) returned (%p)", syscall_number, syscall_return);
       }
-      else if (syscall_number == SYS_mprotect)
-      {
-         PIN_SetContextReg (ctx, REG_GAX, 0);
-      }
-      
-      else if (syscall_number == SYS_madvise)
-      {
-         PIN_SetContextReg (ctx, REG_GAX, 0);
-      }
+      break;
 
+   case SYS_mprotect:
+   case SYS_madvise:
+   case SYS_set_robust_list:
+      PIN_SetContextReg (ctx, REG_GAX, 0);
+      break;
+   
+   case SYS_set_tid_address:
+      break;
+   
+   case SYS_rt_sigprocmask:
+      restoreRtsigprocmaskContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_rt_sigsuspend:
+      restoreRtsigsuspendContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_rt_sigaction:
+      restoreRtsigactionContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_nanosleep:
+      restoreNanosleepContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_set_tid_address)
-      {
-         // Do nothing
-      }
-      
-      else if (syscall_number == SYS_rt_sigprocmask)
-      {
-         restoreRtsigprocmaskContext (ctx, syscall_standard);
-      }
-      
-      else if (syscall_number == SYS_rt_sigsuspend)
-      {
-         restoreRtsigsuspendContext (ctx, syscall_standard);
-      }
-      
-      else if (syscall_number == SYS_rt_sigaction)
-      {
-         restoreRtsigactionContext (ctx, syscall_standard);
-      }
-      
-      else if (syscall_number == SYS_nanosleep)
-      {
-         restoreNanosleepContext (ctx, syscall_standard);
-      }
+   case SYS_uname:
+      restoreUnameContext (ctx, syscall_standard);
+      break;
+  
+   case SYS_set_thread_area:
+      restoreSet_thread_areaContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_uname)
-      {
-         restoreUnameContext (ctx, syscall_standard);
-      }
-     
-      else if (syscall_number == SYS_set_thread_area)
-      {
-         restoreSet_thread_areaContext (ctx, syscall_standard);
-      }
+   case SYS_clone:
+      restoreCloneContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_clone)
-      {
-         restoreCloneContext (ctx, syscall_standard);
-      }
+   case SYS_time:
+      restoreTimeContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_arch_prctl:
+      restoreArch_prctlContext (ctx, syscall_standard);
+      break;
 
-      else if (syscall_number == SYS_time)
-      {
-         restoreTimeContext (ctx, syscall_standard);
-      }
-      
-      else if (syscall_number == SYS_gettimeofday)
-      {
-         restoreGettimofdayContext (ctx, syscall_standard);
-      }
-     
-      else if (syscall_number == SYS_arch_prctl)
-      {
-         restoreArch_prctlContext (ctx, syscall_standard);
-      }
+   case SYS_getrlimit:
+      restoreGetrlimitContext (ctx, syscall_standard);
+      break;
+   
+   case SYS_gettid:
+   case SYS_geteuid:
+   case SYS_getuid:
+   case SYS_getegid:
+   case SYS_getgid:
+      // Let the syscall fall through
+      break;
 
-      else if (syscall_number == SYS_getrlimit)
-      {
-         restoreGetrlimitContext (ctx, syscall_standard);
-      }
-      
-      // Syscalls entered on lenny systems
-      else if (syscall_number == SYS_set_robust_list)
-      {
-         PIN_SetContextReg (ctx, REG_GAX, 0);
-      }
-
-      else if ( (syscall_number == SYS_gettid) ||
-            (syscall_number == SYS_geteuid) ||
-            (syscall_number == SYS_getuid) ||
-            (syscall_number == SYS_getegid) ||
-            (syscall_number == SYS_getgid) )
-      {
-         // Let the syscall fall through
-      }
-
-      else
-      {
-         LOG_ASSERT_ERROR (false, "Unhandled syscall[exit] %d", syscall_number);
-      }
+   default:
+      LOG_PRINT_ERROR("Unhandled syscall[exit] %d", syscall_number);
+      break;
    }
 }
 
@@ -723,56 +690,6 @@ void restoreTimeContext (CONTEXT *ctxt, SYSCALL_STANDARD syscall_standard)
       {
          core->getSyscallMdl()->copyArgFromBuffer (0, (IntPtr) t, sizeof (time_t));
          PIN_SetSyscallArgument (ctxt, syscall_standard, 0, (ADDRINT) t);
-      }
-   }
-}
-
-void modifyGettimeofdayContext (CONTEXT *ctxt, SYSCALL_STANDARD syscall_standard)
-{
-   Core *core = Sim()->getTileManager()->getCurrentCore();
-   if (core)
-   {
-      SyscallMdl::syscall_args_t args = syscallArgs (ctxt, syscall_standard);
-      core->getSyscallMdl()->saveSyscallArgs (args);
-
-      struct timeval *tv = (struct timeval*) args.arg0;
-      struct timezone *tz = (struct timezone*) args.arg1;
-
-      if (tv)
-      {
-         struct timeval *tv_arg = (struct timeval*) core->getSyscallMdl()->copyArgToBuffer (0, (IntPtr) tv, sizeof (struct timeval));
-         PIN_SetSyscallArgument (ctxt, syscall_standard, 0, (ADDRINT) tv_arg);
-      }
-
-      if (tz)
-      {
-         struct timezone *tz_arg = (struct timezone*) core->getSyscallMdl()->copyArgToBuffer (1, (IntPtr) tz, sizeof (struct timezone));
-         PIN_SetSyscallArgument (ctxt, syscall_standard, 1, (ADDRINT) tz_arg);
-      }
-   }
-}
-
-void restoreGettimofdayContext (CONTEXT *ctxt, SYSCALL_STANDARD syscall_standard)
-{
-   Core *core = Sim()->getTileManager()->getCurrentCore();
-   if (core)
-   {
-      SyscallMdl::syscall_args_t args;
-      core->getSyscallMdl()->retrieveSyscallArgs (args);
-
-      struct timeval *tv = (struct timeval*) args.arg0;
-      struct timezone *tz = (struct timezone*) args.arg1;
-
-      if (tv)
-      {
-         core->getSyscallMdl()->copyArgFromBuffer (0, (IntPtr) tv, sizeof (struct timeval));
-         PIN_SetSyscallArgument (ctxt, syscall_standard, 0, (ADDRINT) tv);
-      }
-
-      if (tz)
-      {
-         core->getSyscallMdl()->copyArgFromBuffer (1, (IntPtr) tz, sizeof (struct timezone));
-         PIN_SetSyscallArgument (ctxt, syscall_standard, 1, (ADDRINT) tz);
       }
    }
 }
