@@ -266,24 +266,29 @@ DVFSManager::initializeDVFSLevels()
 
    string input_filename = Sim()->getGraphiteHome() + "/technology/dvfs_levels_" + convertToString<UInt32>(technology_node) + "nm.cfg";
    ifstream input_file(input_filename.c_str());
-   while (1)
-   {
-      char line_c[1024];
-      input_file.getline(line_c, 1024);
-      string line(line_c);
-      if (input_file.gcount() == 0)
-         break;
-      line = trimSpaces(line);
-      if (line == "")
-         continue;
-      if (line[0] == '#')  // Comment
-         continue;
-      
-      vector<string> tokens;
-      splitIntoTokens(line, tokens, " ");
-      double voltage = convertFromString<double>(tokens[0]);
-      double frequency_factor = convertFromString<double>(tokens[1]);
-      _dvfs_levels.push_back(make_pair(voltage, frequency_factor * _max_frequency));
+   if (input_file.is_open()){
+      while (1)
+      {
+         char line_c[1024];
+         input_file.getline(line_c, 1024);
+         string line(line_c);
+         if (input_file.gcount() == 0)
+            break;
+         line = trimSpaces(line);
+         if (line == "")
+            continue;
+         if (line[0] == '#')  // Comment
+            continue;
+         
+         vector<string> tokens;
+         splitIntoTokens(line, tokens, " ");
+         double voltage = convertFromString<double>(tokens[0]);
+         double frequency_factor = convertFromString<double>(tokens[1]);
+         _dvfs_levels.push_back(make_pair(voltage, frequency_factor * _max_frequency));
+      }
+   }
+   else{
+      LOG_PRINT_ERROR("Could not open technology file %s\n",input_filename.c_str());
    }
 }
 
