@@ -134,6 +134,7 @@ void SyscallServer::handleSyscall(core_id_t core_id)
       marshallGetCwdCall (core_id);
       break;
 
+   case SYS_time:
    case SYS_gettimeofday:
    case SYS_clock_gettime:
       marshallGetTargetStartTimeCall (core_id);

@@ -52,6 +52,7 @@ void syscallEnterRunModel(THREADID threadIndex, CONTEXT* ctx, SYSCALL_STANDARD s
       break;
 
    // Time manipulation
+   case SYS_time:
    case SYS_gettimeofday:
    case SYS_clock_gettime:
    case SYS_clock_getres:
@@ -76,6 +77,7 @@ void syscallExitRunModel(THREADID threadIndex, CONTEXT* ctx, SYSCALL_STANDARD sy
    switch (syscall_number)
    {
    // Time manipulation
+   case SYS_time:
    case SYS_gettimeofday:
    case SYS_clock_gettime:
    case SYS_clock_getres:

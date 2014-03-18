@@ -123,6 +123,7 @@ void syscallEnterRunModel(THREADID threadIndex, CONTEXT *ctx, SYSCALL_STANDARD s
    case SYS_getpid:
    
    // Time manipulation
+   case SYS_time:
    case SYS_gettimeofday:
    case SYS_clock_gettime:
    case SYS_clock_getres:
@@ -177,10 +178,6 @@ void syscallEnterRunModel(THREADID threadIndex, CONTEXT *ctx, SYSCALL_STANDARD s
    
    case SYS_clone:
       modifyCloneContext (ctx, syscall_standard);
-      break;
-
-   case SYS_time:
-      modifyTimeContext (ctx, syscall_standard);
       break;
 
    case SYS_arch_prctl:
@@ -244,6 +241,7 @@ void syscallExitRunModel(THREADID threadIndex, CONTEXT *ctx, SYSCALL_STANDARD sy
    case SYS_getpid:
    
    // Time manipulation
+   case SYS_time:
    case SYS_gettimeofday:
    case SYS_clock_gettime:
    case SYS_clock_getres:
@@ -306,10 +304,6 @@ void syscallExitRunModel(THREADID threadIndex, CONTEXT *ctx, SYSCALL_STANDARD sy
       restoreCloneContext (ctx, syscall_standard);
       break;
 
-   case SYS_time:
-      restoreTimeContext (ctx, syscall_standard);
-      break;
-   
    case SYS_arch_prctl:
       restoreArch_prctlContext (ctx, syscall_standard);
       break;
@@ -655,42 +649,6 @@ void restoreCloneContext (CONTEXT *ctxt, SYSCALL_STANDARD syscall_standard)
 
       // Release the lock now that we have copied all results to simulated memory
       PIN_ReleaseLock (&clone_memory_update_lock);
-   }
-}
-
-void modifyTimeContext (CONTEXT *ctxt, SYSCALL_STANDARD syscall_standard)
-{
-   Core *core = Sim()->getTileManager()->getCurrentCore();
-   if (core)
-   {
-      SyscallMdl::syscall_args_t args = syscallArgs (ctxt, syscall_standard);
-      core->getSyscallMdl()->saveSyscallArgs (args);
-
-      time_t *t = (time_t*) args.arg0;
-
-      if (t)
-      {
-         time_t *t_arg = (time_t*) core->getSyscallMdl()->copyArgToBuffer (0, (IntPtr) t, sizeof (time_t));
-         PIN_SetSyscallArgument (ctxt, syscall_standard, 0, (ADDRINT) t_arg);
-      }
-   }
-}
-
-void restoreTimeContext (CONTEXT *ctxt, SYSCALL_STANDARD syscall_standard)
-{
-   Core *core = Sim()->getTileManager()->getCurrentCore();
-   if (core)
-   {
-      SyscallMdl::syscall_args_t args;
-      core->getSyscallMdl()->retrieveSyscallArgs (args);
-
-      time_t *t = (time_t*) args.arg0;
-
-      if (t)
-      {
-         core->getSyscallMdl()->copyArgFromBuffer (0, (IntPtr) t, sizeof (time_t));
-         PIN_SetSyscallArgument (ctxt, syscall_standard, 0, (ADDRINT) t);
-      }
    }
 }
 

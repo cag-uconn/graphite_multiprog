@@ -68,8 +68,23 @@ void clock_getres_test()
 
    // Can use CLOCK_REALTIME or CLOCK_MONOTONIC
    ret = clock_getres(CLOCK_MONOTONIC, &res);
-   printf("\nclock_getres TEST:\nResult(%lu sec, %lu nsec)\n\n",
+   printf("\nclock_getres TEST:\nResult(%lu sec, %lu nsec)\n",
           res.tv_sec, res.tv_nsec);
+}
+
+void time_test()
+{
+   time_t start_time, start_time1, end_time;
+
+   start_time = time(&start_time1);
+   assert(start_time == start_time1);
+
+   doWork();
+
+   end_time = time(NULL);
+
+   printf("\ntime TEST:\nStart(%lu sec), End(%lu sec), Duration(%lu sec)\n\n",
+          start_time, end_time, end_time - start_time);
 }
 
 int main(int argc, char* argv[])
@@ -84,6 +99,9 @@ int main(int argc, char* argv[])
 
    // (3) clock_getres
    clock_getres_test();
+
+   // (4) time
+   time_test();
 
    return 0;
 }

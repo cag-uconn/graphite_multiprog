@@ -230,6 +230,11 @@ IntPtr SyscallMdl::runEnter(IntPtr syscall_number, syscall_args_t &args)
       m_ret_val = marshallUnlinkCall(args);
       break;
 
+   case SYS_time:
+      m_called_enter = true;
+      m_ret_val = handleTimeCall(args);
+      break;
+
    case SYS_gettimeofday:
       m_called_enter = true;
       m_ret_val = handleGetTimeofDayCall(args);
@@ -1135,6 +1140,26 @@ IntPtr SyscallMdl::marshallUnlinkCall(syscall_args_t &args)
 IntPtr SyscallMdl::marshallRmdirCall(syscall_args_t &args)
 {
   return(this->marshallUnlinkCall(args));
+}
+
+IntPtr SyscallMdl::handleTimeCall(syscall_args_t &args)
+{
+   time_t* t = (time_t*) args.arg0;
+
+   Core* core = Sim()->getTileManager()->getCurrentCore();
+   // compute the elapsed time
+   double elapsed_time = ((double) core->getModel()->getCurrTime().toNanosec())/1000000000.0;
+   time_t curr_time = (time_t) (getStartTime() + elapsed_time);
+
+   // Copy time into the provided buffer
+   if (t)
+   {
+      if (SIMULATION_MODE == Config::FULL)
+         core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) t, (char*) (&curr_time), sizeof(curr_time));
+      else // (SIMULATION_MODE == Config::LITE)
+         memcpy(t, &curr_time, sizeof(curr_time));
+   }
+   return curr_time;
 }
 
 IntPtr SyscallMdl::handleGetTimeofDayCall(syscall_args_t &args)

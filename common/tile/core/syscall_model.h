@@ -82,6 +82,7 @@ class SyscallMdl
       IntPtr marshallUnlinkCall(syscall_args_t &args);
       IntPtr marshallRmdirCall(syscall_args_t &args);
 
+      IntPtr handleTimeCall(syscall_args_t &args);
       IntPtr handleGetTimeofDayCall(syscall_args_t &args);
       IntPtr handleClockGettimeCall(syscall_args_t &args);
       IntPtr handleClockGetResCall(syscall_args_t &args);
