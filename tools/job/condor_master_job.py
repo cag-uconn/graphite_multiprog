@@ -32,7 +32,7 @@ class CondorMasterJob(MasterJob):
          if (not self.proc in running_procs):
             if self.batch_job == "false":
                os.system("cat %s/output" % (self.output_dir))
-            return
+            return 0
       time.sleep(0.5)
 
    def kill(self):

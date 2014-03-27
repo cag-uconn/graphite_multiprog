@@ -3,7 +3,7 @@ SOURCES = shared_mem_test1.cc
 
 CORES ?= 2
 ENABLE_SM ?= true
-MODE ?= 
+MODE ?= native
 APP_SPECIFIC_CXX_FLAGS ?= -I$(SIM_ROOT)/common/tile \
 								  -I$(SIM_ROOT)/common/tile/core \
 								  -I$(SIM_ROOT)/common/tile/core/performance_models \
