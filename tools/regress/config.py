@@ -1,59 +1,24 @@
 #!/usr/bin/env python
 
-config_filename = "carbon_sim.cfg"
+# scheduler: Use 'condor' for the condor scheduling system or 'basic' for using Graphite's scheduling algorithm
+scheduler = "condor"
+
+# results_dir: Directory where the simulation results are placed
 results_dir = "./tools/regress/simulation_results"
+# config_filename: Config file to use for the simulation
+config_filename = "carbon_sim.cfg"
 
 # Do not use 'localhost' or '127.0.0.1', use the machine name
 machines = [
-    "cagnode1",
-    "cagnode2",
-    "cagnode3",
-    "cagnode4",
-    "cagnode5",
-    "cagnode6",
+    "draco1",
+    "draco2",
+    "draco3",
+    "draco4",
+    "draco5",
+    "draco6",
     ]
-
-splash2_list = [
-      "fft",
-      "radix",
-      "lu_contiguous",
-      "lu_non_contiguous",
-      "cholesky",
-      "barnes",
-      "fmm",
-      "ocean_contiguous",
-      "ocean_non_contiguous",
-      "water-nsquared",
-      "water-spatial",
-      "raytrace",
-      "volrend",
-      "radiosity",
-      ]
-
-parsec_list = [
-      "blackscholes",
-      "swaptions",
-      "canneal",
-      "fluidanimate",
-      "streamcluster",
-      "facesim",
-      "freqmine",
-      "dedup",
-      "ferret",
-      "bodytrack",
-      ]
 
 #benchmark_list = splash2_list + parsec_list
 benchmark_list = splash2_list
-
-lite_mode_list = [
-      "freqmine",
-      "dedup",
-      "ferret",
-      "bodytrack",
-      ]
-
-app_flags_map = {
-      }
 
 num_machines_list = [1,2]
