@@ -2,6 +2,7 @@
 
 import sys
 import os
+import shutil
 
 sys.path.append("./tools/")
 sys.path.append("./tools/scheduler")
