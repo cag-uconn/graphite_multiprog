@@ -37,7 +37,7 @@ class BasicSlaveJob(SlaveJob):
          return_code = self.proc.poll()
          if return_code != None:
             try:
-               os.killpg(graphite_proc.pid, signal.SIGKILL)
+               os.killpg(self.proc.pid, signal.SIGKILL)
             except OSError:
                pass
             print "Process: %d exited with ReturnCode: %d" % (self.proc_num, return_code)

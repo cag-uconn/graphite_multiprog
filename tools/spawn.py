@@ -99,28 +99,16 @@ def getMachineList(command, num_processes):
 if __name__=="__main__":
   
    scheduler = sys.argv[1]
-   print "Scheduler: %s" % (scheduler)
    mode = sys.argv[2]
-   print "Mode: %s" % (mode)
    batch_job = sys.argv[3]
-   print "Batch Job: %s" % (batch_job)
    pin_run = sys.argv[4]
-   print "Pin Run: %s" % (pin_run)
    sim_flags = sys.argv[5]
-   print "Sim Flags: %s" % (sim_flags)
    exec_command = sys.argv[6]
-   print "Exec Command: %s" % (exec_command)
    config_filename = getConfigFilename(sim_flags)
-   print "Config Filename: %s" % (config_filename)
    output_dir = getOutputDir(sim_flags)
-   print "Output Dir: %s" % (output_dir)
    num_processes = getNumProcesses(sim_flags)
-   print "Num Processes: %d" % (num_processes)
    machine_list = getMachineList(sim_flags, num_processes)
-   print "Machine List:"
-   print machine_list
    working_dir = os.getcwd()
-   print "Working Dir: %s" % (working_dir)
 
    if (mode == "pin"):
       command = "%s %s -- %s" % (pin_run, sim_flags, exec_command)

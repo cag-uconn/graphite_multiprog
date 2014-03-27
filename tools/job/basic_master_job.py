@@ -61,7 +61,7 @@ class BasicMasterJob(MasterJob):
                os.killpg(self.procs[i].pid, signal.SIGKILL)
          else:
             try:
-               os.killpg(graphite_procs[i].pid, signal.SIGKILL)
+               os.killpg(self.procs[i].pid, signal.SIGKILL)
             except OSError:
                pass
             print "Process: %d exited with ReturnCode: %d" % (i, return_code2)
