@@ -58,6 +58,8 @@ class SyscallMdl
       UnstructuredBuffer m_send_buff;
       UnstructuredBuffer m_recv_buff;
       Network *m_network;
+      // Target time when simulation was started
+      double m_target_start_time;
 
       IntPtr marshallOpenCall(syscall_args_t &args);
       IntPtr marshallReadCall(syscall_args_t &args);
@@ -80,12 +82,17 @@ class SyscallMdl
       IntPtr marshallUnlinkCall(syscall_args_t &args);
       IntPtr marshallRmdirCall(syscall_args_t &args);
 
+      IntPtr handleTimeCall(syscall_args_t &args);
+      IntPtr handleGetTimeofDayCall(syscall_args_t &args);
       IntPtr handleClockGettimeCall(syscall_args_t &args);
+      IntPtr handleClockGetResCall(syscall_args_t &args);
+      
       IntPtr marshallGetCwdCall(syscall_args_t &args);
       IntPtr marshallSchedSetAffinityCall(syscall_args_t &args);
       IntPtr marshallSchedGetAffinityCall(syscall_args_t &args);
 
       // Helper functions
+      double getStartTime();
       UInt32 getStrLen (char *str);
 
       struct mmap_arg_struct

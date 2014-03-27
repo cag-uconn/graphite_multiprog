@@ -5,12 +5,16 @@
 #include "mcpat_core_interface.h"
 #include "simulator.h"
 #include "dvfs_manager.h"
+#include "core_model.h"
+#include "core.h"
+#include "tile.h"
 
 //---------------------------------------------------------------------------
 // McPAT Core Interface Constructor
 //---------------------------------------------------------------------------
-McPATCoreInterface::McPATCoreInterface(double frequency, double voltage, UInt32 load_queue_size, UInt32 store_queue_size)
-   : _last_energy_compute_time(Time(0))
+McPATCoreInterface::McPATCoreInterface(CoreModel* core_model, double frequency, double voltage, UInt32 load_queue_size, UInt32 store_queue_size)
+   : _core_model(core_model)
+   , _last_energy_compute_time(Time(0))
 {
    LOG_ASSERT_ERROR(frequency != 0 && voltage != 0, "Frequency and voltage must be greater than zero.");
 
@@ -94,17 +98,17 @@ McPAT::CoreWrapper* McPATCoreInterface::createCoreWrapper(double voltage, double
 //---------------------------------------------------------------------------
 // setDVFS (change voltage and frequency)
 //---------------------------------------------------------------------------
-void McPATCoreInterface::setDVFS(double voltage, double frequency, const Time& curr_time)
+void McPATCoreInterface::setDVFS(double old_frequency, double new_voltage, double new_frequency, const Time& curr_time)
 {
    if (!_enable_area_or_power_modeling)
       return;
 
    // Compute leakage/dynamic energy for the previous interval of time
-   computeEnergy(curr_time);
+   computeEnergy(curr_time, old_frequency);
    
    // Check if a McPATInterface object has already been created
-   _core_wrapper = _core_wrapper_map[voltage];
-   LOG_ASSERT_ERROR(_core_wrapper, "McPAT core power model with Voltage(%g) has NOT been created", voltage);
+   _core_wrapper = _core_wrapper_map[new_voltage];
+   LOG_ASSERT_ERROR(_core_wrapper, "McPAT core power model with Voltage(%g) has NOT been created", new_voltage);
 }
 
 //---------------------------------------------------------------------------
@@ -161,10 +165,6 @@ void McPATCoreInterface::initializeEventCounters()
 {
    // Event Counters
    // |-- Used Event Counters
-   // |---- Cycle Counters
-   _total_cycles                             = 0;
-   _idle_cycles                              = 0;
-   _busy_cycles                              = 0;
    // |---- Instruction Counters
    _total_instructions                       = 0;
    _generic_instructions                     = 0;
@@ -206,10 +206,6 @@ void McPATCoreInterface::initializeEventCounters()
    _context_switches                         = 0;
 
    // Previous Event Counters
-   // SYSTEM STATS
-   _prev_cycles                              = 0;
-   _prev_busy_cycles                         = 0;
-   _prev_idle_cycles                         = 0;
    // SYSTEM.CORE STATS
    // |---- Instruction Counters
    _prev_instructions                        = 0;
@@ -372,8 +368,6 @@ void McPATCoreInterface::updateEventCounters(const McPATInstruction* instruction
    // A single instruction can access multiple execution units
    // Count access to multiple execution units as additional micro-ops
    updateExecutionUnitCounters(instruction);
-   // Update Cycle Counters
-   updateCycleCounters(cycle_count);
    // Total branch mispredictions   
    _branch_mispredictions = total_branch_misprediction_count;
 }
@@ -472,34 +466,29 @@ void McPATCoreInterface::updateExecutionUnitCounters(const McPATInstruction* ins
 }
 
 //---------------------------------------------------------------------------
-// Update Cycle Counters
-//---------------------------------------------------------------------------
-void McPATCoreInterface::updateCycleCounters(UInt64 cycle_count)
-{
-   _total_cycles = cycle_count;
-   _busy_cycles = cycle_count;
-   // TODO: Update for idle cycles later
-}
-
-//---------------------------------------------------------------------------
 // Compute Energy from McPAT
 //---------------------------------------------------------------------------
-void McPATCoreInterface::computeEnergy(const Time& curr_time)
+void McPATCoreInterface::computeEnergy(const Time& curr_time, double frequency)
 {
    // Compute the interval between current time and time when energy was last computed
-   double time_interval = (curr_time - _last_energy_compute_time).toSec();
+   Time energy_compute_time = curr_time;
+   if (energy_compute_time < _last_energy_compute_time)
+      energy_compute_time = _last_energy_compute_time;
+  
+   Time time_interval = energy_compute_time - _last_energy_compute_time;
+   UInt64 interval_cycles = time_interval.toCycles(frequency);
 
    // Fill the ParseXML's Core Stats with the event counters
-   fillCoreStatsIntoXML();
+   fillCoreStatsIntoXML(interval_cycles);
 
    // Compute Energy from Processor
    _core_wrapper->computeEnergy();
 
    // Update the output data structure
-   updateOutputDataStructure(time_interval);
+   updateOutputDataStructure(time_interval.toSec());
 
-   // Set _last_energy_compute_time to curr_time
-   _last_energy_compute_time = curr_time;
+   // Set _last_energy_compute_time to energy_compute_time
+   _last_energy_compute_time = energy_compute_time;
 }
 
 //---------------------------------------------------------------------------
@@ -788,16 +777,16 @@ double McPATCoreInterface::getLeakageEnergy()
 //---------------------------------------------------------------------------
 // Output Summary from McPAT
 //---------------------------------------------------------------------------
-void McPATCoreInterface::outputSummary(ostream &os, const Time& target_completion_time)
+void McPATCoreInterface::outputSummary(ostream &os, const Time& target_completion_time, double frequency)
 {
    displayStats(os);
    displayParam(os);
    
    if (_enable_area_or_power_modeling)
    {
-      os << "    Area and Power Model Summary:" << endl;
+      os << "    Area and Power Model Statistics: " << endl;
       // Compute leakage/dynamic energy for last time interval
-      computeEnergy(target_completion_time);
+      computeEnergy(target_completion_time, frequency);
       displayEnergy(os, target_completion_time);
    }
 }
@@ -820,132 +809,132 @@ void McPATCoreInterface::displayEnergy(ostream& os, const Time& target_completio
    string indent14(14, ' ');
    
    // Core
-   os << indent6 << "Area (in mm^2): " << _mcpat_core_out.core.area << endl;               
-   os << indent6 << "Average Leakage Power (in W): " << _mcpat_core_out.core.leakage_energy / target_completion_sec << endl;
+   os << indent6 << "Area (in mm^2): "               << _mcpat_core_out.core.area << endl;               
+   os << indent6 << "Average Static Power (in W): "  << _mcpat_core_out.core.leakage_energy / target_completion_sec << endl;
    os << indent6 << "Average Dynamic Power (in W): " << _mcpat_core_out.core.dynamic_energy / target_completion_sec << endl;
-   os << indent6 << "Total Leakage Energy (in J): " << _mcpat_core_out.core.leakage_energy << endl;
-   os << indent6 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.core.dynamic_energy << endl;
+   os << indent6 << "Total Static Energy (in J): "   << _mcpat_core_out.core.leakage_energy << endl;
+   os << indent6 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.core.dynamic_energy << endl;
    
    //    Instruction Fetch Unit
-   os << indent6 << "Instruction Fetch Unit:" << std::endl;
-   os << indent8 << "Area (in mm^2): "              << _mcpat_core_out.ifu.ifu.area << std::endl;               
-   os << indent8 << "Average Leakage Power (in W): " << _mcpat_core_out.ifu.ifu.leakage_energy / target_completion_sec << endl;
+   os << indent6 << "Instruction Fetch Unit:"        << endl;
+   os << indent8 << "Area (in mm^2): "               << _mcpat_core_out.ifu.ifu.area << endl;               
+   os << indent8 << "Average Static Power (in W): "  << _mcpat_core_out.ifu.ifu.leakage_energy / target_completion_sec << endl;
    os << indent8 << "Average Dynamic Power (in W): " << _mcpat_core_out.ifu.ifu.dynamic_energy / target_completion_sec << endl;
-   os << indent8 << "Total Leakage Energy (in J): " << _mcpat_core_out.ifu.ifu.leakage_energy << endl;
-   os << indent8 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.ifu.ifu.dynamic_energy << endl;
+   os << indent8 << "Total Static Energy (in J): "   << _mcpat_core_out.ifu.ifu.leakage_energy << endl;
+   os << indent8 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.ifu.ifu.dynamic_energy << endl;
    
    //       Instruction Buffer
-   os << indent8 << "Instruction Buffer:" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.ifu.IB.area << std::endl;               
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.ifu.IB.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Instruction Buffer:"             << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.ifu.IB.area << endl;               
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.ifu.IB.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.ifu.IB.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.ifu.IB.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.ifu.IB.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.ifu.IB.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.ifu.IB.dynamic_energy << endl;
    
    //       Instruction Decoder
-   os << indent8 << "Instruction Decoder:" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.ifu.ID.area << std::endl;               
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.ifu.ID.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Instruction Decoder:"            << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.ifu.ID.area << endl;               
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.ifu.ID.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.ifu.ID.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.ifu.ID.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.ifu.ID.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.ifu.ID.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.ifu.ID.dynamic_energy << endl;
    
    //       Branch Predictor Table
-   os << indent8 << "Branch Predictor Table:" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.ifu.BPT.area << std::endl;               
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.ifu.BPT.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Branch Predictor Table:"         << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.ifu.BPT.area << endl;               
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.ifu.BPT.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.ifu.BPT.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.ifu.BPT.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.ifu.BPT.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.ifu.BPT.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.ifu.BPT.dynamic_energy << endl;
    
    //       Branch Target Buffer
-   os << indent8 << "Branch Target Buffer:" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.ifu.BTB.area << std::endl;               
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.ifu.BTB.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Branch Target Buffer:"           << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.ifu.BTB.area << endl;               
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.ifu.BTB.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.ifu.BTB.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.ifu.BTB.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.ifu.BTB.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.ifu.BTB.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.ifu.BTB.dynamic_energy << endl;
    
    //    Load Store Unit
-   os << indent6 << "Load Store Unit:" << std::endl;
-   os << indent8 << "Area (in mm^2): "              << _mcpat_core_out.lsu.lsu.area << std::endl;               
-   os << indent8 << "Average Leakage Power (in W): " << _mcpat_core_out.lsu.lsu.leakage_energy / target_completion_sec << endl;
-   os << indent8 << "Average Dynamic Power (in W): " << _mcpat_core_out.lsu.lsu.dynamic_energy / target_completion_sec << endl;
-   os << indent8 << "Total Leakage Energy (in J): " << _mcpat_core_out.lsu.lsu.leakage_energy << endl;
-   os << indent8 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.lsu.lsu.dynamic_energy << endl;
+   os << indent6 << "Load Store Unit:"                << endl;
+   os << indent8 << "Area (in mm^2): "                << _mcpat_core_out.lsu.lsu.area << endl;               
+   os << indent8 << "Average Static Power (in W): "   << _mcpat_core_out.lsu.lsu.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Average Dynamic Power (in W): "  << _mcpat_core_out.lsu.lsu.dynamic_energy / target_completion_sec << endl;
+   os << indent8 << "Total Static Energy (in J): "    << _mcpat_core_out.lsu.lsu.leakage_energy << endl;
+   os << indent8 << "Total Dynamic Energy (in J): "   << _mcpat_core_out.lsu.lsu.dynamic_energy << endl;
    
    //       Load/Store Queue
-   os << indent8 << "Load/Store Queue:" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.lsu.LSQ.area << std::endl;               
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.lsu.LSQ.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Load/Store Queue:"               << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.lsu.LSQ.area << endl;               
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.lsu.LSQ.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.lsu.LSQ.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.lsu.LSQ.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.lsu.LSQ.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.lsu.LSQ.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.lsu.LSQ.dynamic_energy << endl;
 
    //    Execution Unit
-   os << indent6 << "Execution Unit:" << std::endl;
-   os << indent8 << "Area (in mm^2): "              << _mcpat_core_out.exu.exu.area << std::endl;                         
-   os << indent8 << "Average Leakage Power (in W): " << _mcpat_core_out.exu.exu.leakage_energy / target_completion_sec << endl;
-   os << indent8 << "Average Dynamic Power (in W): " << _mcpat_core_out.exu.exu.dynamic_energy / target_completion_sec << endl;
-   os << indent8 << "Total Leakage Energy (in J): " << _mcpat_core_out.exu.exu.leakage_energy << endl;
-   os << indent8 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.exu.exu.dynamic_energy << endl;
+   os << indent6 << "Execution Unit:"                 << endl;
+   os << indent8 << "Area (in mm^2): "                << _mcpat_core_out.exu.exu.area << endl;                         
+   os << indent8 << "Average Static Power (in W): "   << _mcpat_core_out.exu.exu.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Average Dynamic Power (in W): "  << _mcpat_core_out.exu.exu.dynamic_energy / target_completion_sec << endl;
+   os << indent8 << "Total Static Energy (in J): "    << _mcpat_core_out.exu.exu.leakage_energy << endl;
+   os << indent8 << "Total Dynamic Energy (in J): "   << _mcpat_core_out.exu.exu.dynamic_energy << endl;
 
    //       Register Files
-   os << indent8 << "Register Files:" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.exu.rfu.rfu.area << std::endl;                          
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.exu.rfu.rfu.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Register Files:"                 << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.exu.rfu.rfu.area << endl;                          
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.exu.rfu.rfu.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.exu.rfu.rfu.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.exu.rfu.rfu.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.exu.rfu.rfu.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.exu.rfu.rfu.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.exu.rfu.rfu.dynamic_energy << endl;
 
    //          Integer RF
-   os << indent10 << "Integer RF:" << std::endl;
-   os << indent12 << "Area (in mm^2): "              << _mcpat_core_out.exu.rfu.IRF.area << std::endl;                            
-   os << indent12 << "Average Leakage Power (in W): " << _mcpat_core_out.exu.rfu.IRF.leakage_energy / target_completion_sec << endl;
+   os << indent10 << "Integer RF:"                    << endl;
+   os << indent12 << "Area (in mm^2): "               << _mcpat_core_out.exu.rfu.IRF.area << endl;                            
+   os << indent12 << "Average Static Power (in W): "  << _mcpat_core_out.exu.rfu.IRF.leakage_energy / target_completion_sec << endl;
    os << indent12 << "Average Dynamic Power (in W): " << _mcpat_core_out.exu.rfu.IRF.dynamic_energy / target_completion_sec << endl;
-   os << indent12 << "Total Leakage Energy (in J): " << _mcpat_core_out.exu.rfu.IRF.leakage_energy << endl;
-   os << indent12 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.exu.rfu.IRF.dynamic_energy << endl;
+   os << indent12 << "Total Static Energy (in J): "   << _mcpat_core_out.exu.rfu.IRF.leakage_energy << endl;
+   os << indent12 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.exu.rfu.IRF.dynamic_energy << endl;
 
    //          Floating Point RF
-   os << indent10 << "Floating Point RF:" << std::endl;
-   os << indent12 << "Area (in mm^2): "              << _mcpat_core_out.exu.rfu.FRF.area << std::endl;                          
-   os << indent12 << "Average Leakage Power (in W): " << _mcpat_core_out.exu.rfu.FRF.leakage_energy / target_completion_sec << endl;
+   os << indent10 << "Floating Point RF:"             << endl;
+   os << indent12 << "Area (in mm^2): "               << _mcpat_core_out.exu.rfu.FRF.area << endl;                          
+   os << indent12 << "Average Static Power (in W): "  << _mcpat_core_out.exu.rfu.FRF.leakage_energy / target_completion_sec << endl;
    os << indent12 << "Average Dynamic Power (in W): " << _mcpat_core_out.exu.rfu.FRF.dynamic_energy / target_completion_sec << endl;
-   os << indent12 << "Total Leakage Energy (in J): " << _mcpat_core_out.exu.rfu.FRF.leakage_energy << endl;
-   os << indent12 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.exu.rfu.FRF.dynamic_energy << endl;
+   os << indent12 << "Total Static Energy (in J): "   << _mcpat_core_out.exu.rfu.FRF.leakage_energy << endl;
+   os << indent12 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.exu.rfu.FRF.dynamic_energy << endl;
 
    
    //       Integer ALUs
-   os << indent8 << "Integer ALUs:" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.exu.exeu.area << std::endl;                       
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.exu.exeu.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Integer ALUs:"                   << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.exu.exeu.area << endl;                       
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.exu.exeu.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.exu.exeu.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.exu.exeu.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.exu.exeu.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.exu.exeu.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.exu.exeu.dynamic_energy << endl;
 
    //       Floating Point Units (FPUs)
-   os << indent8 << "Floating Point Units (FPUs):" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.exu.fp_u.area << std::endl;                          
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.exu.fp_u.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Floating Point Units (FPUs):"    << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.exu.fp_u.area << endl;                          
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.exu.fp_u.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.exu.fp_u.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.exu.fp_u.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.exu.fp_u.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.exu.fp_u.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.exu.fp_u.dynamic_energy << endl;
 
    //       Complex ALUs (Mul/Div)
-   os << indent8 << "Complex ALUs (Mul/Div):" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.exu.mul.area << std::endl;                          
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.exu.mul.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Complex ALUs (Mul/Div):"         << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.exu.mul.area << endl;                          
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.exu.mul.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.exu.mul.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.exu.mul.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.exu.mul.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.exu.mul.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.exu.mul.dynamic_energy << endl;
 
    //       Results Broadcast Bus
-   os << indent8 << "Results Broadcast Bus:" << std::endl;
-   os << indent10 << "Area (in mm^2): "              << _mcpat_core_out.exu.bypass.area << std::endl;                       
-   os << indent10 << "Average Leakage Power (in W): " << _mcpat_core_out.exu.bypass.leakage_energy / target_completion_sec << endl;
+   os << indent8 << "Results Broadcast Bus:"          << endl;
+   os << indent10 << "Area (in mm^2): "               << _mcpat_core_out.exu.bypass.area << endl;                       
+   os << indent10 << "Average Static Power (in W): "  << _mcpat_core_out.exu.bypass.leakage_energy / target_completion_sec << endl;
    os << indent10 << "Average Dynamic Power (in W): " << _mcpat_core_out.exu.bypass.dynamic_energy / target_completion_sec << endl;
-   os << indent10 << "Total Leakage Energy (in J): " << _mcpat_core_out.exu.bypass.leakage_energy << endl;
-   os << indent10 << "Total Dynamic Energy (in J): "    << _mcpat_core_out.exu.bypass.dynamic_energy << endl;
+   os << indent10 << "Total Static Energy (in J): "   << _mcpat_core_out.exu.bypass.leakage_energy << endl;
+   os << indent10 << "Total Dynamic Energy (in J): "  << _mcpat_core_out.exu.bypass.dynamic_energy << endl;
 }
 
 //---------------------------------------------------------------------------
@@ -954,46 +943,46 @@ void McPATCoreInterface::displayEnergy(ostream& os, const Time& target_completio
 void McPATCoreInterface::displayParam(std::ostream &os)
 {
    /*
-   os << "  Core Parameters:" << std::endl;
+   os << "  Core Parameters:" << endl;
    // Architectural Parameters
    // |---- General Parameters
-   os << "    Instruction Length : " << _instruction_length << std::endl;
-   os << "    Opcode Width : " << _opcode_width << std::endl;
-   os << "    Machine Type : " << _machine_type << std::endl;
-   os << "    Num Hardware Threads : " << _num_hardware_threads << std::endl;
-   os << "    Fetch Width : " << _fetch_width << std::endl;
-   os << "    Num Instruction Fetch Ports : " << _num_instruction_fetch_ports << std::endl;
-   os << "    Decode Width : " << _decode_width << std::endl;
-   os << "    Issue Width : " << _issue_width << std::endl;
-   os << "    Commit Width : " << _commit_width << std::endl;
-   os << "    FP Issue Width : " << _fp_issue_width << std::endl;
-   os << "    Prediction Width : " << _prediction_width << std::endl;
-   os << "    Integer Pipeline Depth : " << _integer_pipeline_depth << std::endl;
-   os << "    FP Pipeline Depth : " << _fp_pipeline_depth << std::endl;
-   os << "    ALU Per Core : " << _ALU_per_core << std::endl;
-   os << "    MUL Per Core : " << _MUL_per_core << std::endl;
-   os << "    FPU Per Core : " << _FPU_per_core << std::endl;
-   os << "    Instruction Buffer Size : " << _instruction_buffer_size << std::endl;
-   os << "    Decoded Stream Buffer Size : " << _decoded_stream_buffer_size << std::endl;
+   os << "    Instruction Length : " << _instruction_length << endl;
+   os << "    Opcode Width : " << _opcode_width << endl;
+   os << "    Machine Type : " << _machine_type << endl;
+   os << "    Num Hardware Threads : " << _num_hardware_threads << endl;
+   os << "    Fetch Width : " << _fetch_width << endl;
+   os << "    Num Instruction Fetch Ports : " << _num_instruction_fetch_ports << endl;
+   os << "    Decode Width : " << _decode_width << endl;
+   os << "    Issue Width : " << _issue_width << endl;
+   os << "    Commit Width : " << _commit_width << endl;
+   os << "    FP Issue Width : " << _fp_issue_width << endl;
+   os << "    Prediction Width : " << _prediction_width << endl;
+   os << "    Integer Pipeline Depth : " << _integer_pipeline_depth << endl;
+   os << "    FP Pipeline Depth : " << _fp_pipeline_depth << endl;
+   os << "    ALU Per Core : " << _ALU_per_core << endl;
+   os << "    MUL Per Core : " << _MUL_per_core << endl;
+   os << "    FPU Per Core : " << _FPU_per_core << endl;
+   os << "    Instruction Buffer Size : " << _instruction_buffer_size << endl;
+   os << "    Decoded Stream Buffer Size : " << _decoded_stream_buffer_size << endl;
    // |---- Register File
-   os << "    Arch Regs Int RF Size : " << _arch_regs_IRF_size << std::endl;
-   os << "    Arch Regs FP RF Size : " << _arch_regs_FRF_size << std::endl;
-   os << "    Phy Regs Int RF Size : " << _phy_regs_IRF_size << std::endl;
-   os << "    Phy Regs FP RF Size : " << _phy_regs_FRF_size << std::endl;
+   os << "    Arch Regs Int RF Size : " << _arch_regs_IRF_size << endl;
+   os << "    Arch Regs FP RF Size : " << _arch_regs_FRF_size << endl;
+   os << "    Phy Regs Int RF Size : " << _phy_regs_IRF_size << endl;
+   os << "    Phy Regs FP RF Size : " << _phy_regs_FRF_size << endl;
    // |---- Load-Store Unit
-   os << "    LSU Order : " << _LSU_order << std::endl;
-   os << "    Store Buffer Size : " << _store_buffer_size << std::endl;
-   os << "    Load Buffer Size : " << _load_buffer_size << std::endl;
-   os << "    Num Memory Ports : " << _num_memory_ports << std::endl;
-   os << "    RAS Size : " << _RAS_size << std::endl;
+   os << "    LSU Order : " << _LSU_order << endl;
+   os << "    Store Buffer Size : " << _store_buffer_size << endl;
+   os << "    Load Buffer Size : " << _load_buffer_size << endl;
+   os << "    Num Memory Ports : " << _num_memory_ports << endl;
+   os << "    RAS Size : " << _RAS_size << endl;
    // |---- OoO Core
-   os << "    Instruction Window Scheme : " << _instruction_window_scheme << std::endl;
-   os << "    Instruction Window Size : " << _instruction_window_size << std::endl;
-   os << "    FP Instruction Window Size : " << _fp_instruction_window_size << std::endl;
-   os << "    ROB Size : " << _ROB_size << std::endl;
-   os << "    Rename Scheme : " << _rename_scheme << std::endl;
+   os << "    Instruction Window Scheme : " << _instruction_window_scheme << endl;
+   os << "    Instruction Window Size : " << _instruction_window_size << endl;
+   os << "    FP Instruction Window Size : " << _fp_instruction_window_size << endl;
+   os << "    ROB Size : " << _ROB_size << endl;
+   os << "    Rename Scheme : " << _rename_scheme << endl;
    // |---- Register Windows (specific to Sun processors)
-   os << "    Register Windows Size : " << _register_windows_size << std::endl;
+   os << "    Register Windows Size : " << _register_windows_size << endl;
    */
 }
 
@@ -1004,43 +993,43 @@ void McPATCoreInterface::displayStats(std::ostream &os)
 {
    // |---- Micro-Op Counters
    os << "    Micro-Op Statistics: " << endl;
-   os << "      Total: "          << _total_instructions << std::endl;
-   os << "      Generic: "        << _generic_instructions << std::endl;
-   os << "      Integer: "        << _int_instructions << std::endl;
-   os << "      Floating Point: " << _fp_instructions << std::endl;
-   os << "      Branch: "         << _branch_instructions << std::endl;
-   os << "      Load: "           << _load_instructions << std::endl;
-   os << "      Store: "          << _store_instructions << std::endl;
+   os << "      Total: "          << _total_instructions << endl;
+   os << "      Generic: "        << _generic_instructions << endl;
+   os << "      Integer: "        << _int_instructions << endl;
+   os << "      Floating Point: " << _fp_instructions << endl;
+   os << "      Branch: "         << _branch_instructions << endl;
+   os << "      Load: "           << _load_instructions << endl;
+   os << "      Store: "          << _store_instructions << endl;
 
    // |---- Reg File Access Counters
    os << "    Register File Statistics: " << endl;
-   os << "      Integer Reads : "         << _int_regfile_reads << std::endl;
-   os << "      Integer Writes : "        << _int_regfile_writes << std::endl;
-   os << "      Floating Point Reads : "  << _fp_regfile_reads << std::endl;
-   os << "      Floating Point Writes : " << _fp_regfile_writes << std::endl;
+   os << "      Integer Reads : "         << _int_regfile_reads << endl;
+   os << "      Integer Writes : "        << _int_regfile_writes << endl;
+   os << "      Floating Point Reads : "  << _fp_regfile_reads << endl;
+   os << "      Floating Point Writes : " << _fp_regfile_writes << endl;
 
    // |---- Execution Unit Access Counters
    os << "    Execution Unit Statistics: " << endl;
-   os << "      ALU Accesses: "            << _ialu_accesses << std::endl;
-   os << "      Mul Accesses: "            << _mul_accesses << std::endl;
-   os << "      FPU Accesses: "            << _fpu_accesses << std::endl;
+   os << "      ALU Accesses: "            << _ialu_accesses << endl;
+   os << "      Mul Accesses: "            << _mul_accesses << endl;
+   os << "      FPU Accesses: "            << _fpu_accesses << endl;
 
 /*
    // |-- Unused Event Counters
    // |---- OoO Core Event Counters
-   os << "    Inst Window Reads : "                << _inst_window_reads << std::endl;
-   os << "    Inst Window Writes : "               << _inst_window_writes << std::endl;
-   os << "    Inst Window Wakeup Accesses : "      << _inst_window_wakeup_accesses << std::endl;
-   os << "    FP Inst Window Reads : "             << _fp_inst_window_reads << std::endl;
-   os << "    FP Inst Window Writes : "            << _fp_inst_window_writes << std::endl;
-   os << "    FP Inst Window Wakeup Accesses : "   << _fp_inst_window_wakeup_accesses << std::endl;
-   os << "    ROB Reads : "                        << _ROB_reads << std::endl;
-   os << "    ROB Writes : "                       << _ROB_writes << std::endl;
-   os << "    Rename Accesses : "                  << _rename_accesses << std::endl;
-   os << "    FP Rename Accesses : "               << _fp_rename_accesses << std::endl;
+   os << "    Inst Window Reads : "                << _inst_window_reads << endl;
+   os << "    Inst Window Writes : "               << _inst_window_writes << endl;
+   os << "    Inst Window Wakeup Accesses : "      << _inst_window_wakeup_accesses << endl;
+   os << "    FP Inst Window Reads : "             << _fp_inst_window_reads << endl;
+   os << "    FP Inst Window Writes : "            << _fp_inst_window_writes << endl;
+   os << "    FP Inst Window Wakeup Accesses : "   << _fp_inst_window_wakeup_accesses << endl;
+   os << "    ROB Reads : "                        << _ROB_reads << endl;
+   os << "    ROB Writes : "                       << _ROB_writes << endl;
+   os << "    Rename Accesses : "                  << _rename_accesses << endl;
+   os << "    FP Rename Accesses : "               << _fp_rename_accesses << endl;
    // |---- Function Calls and Context Switches
-   os << "    Function Calls : "                   << _function_calls << std::endl;
-   os << "    Context Switches : "                 << _context_switches << std::endl;
+   os << "    Function Calls : "                   << _function_calls << endl;
+   os << "    Context Switches : "                 << _context_switches << endl;
 */
 }
 
@@ -1120,10 +1109,10 @@ void McPATCoreInterface::fillCoreParamsIntoXML(UInt32 technology_node, UInt32 te
 //---------------------------------------------------------------------------
 // Fill ParseXML Event Counters
 //---------------------------------------------------------------------------
-void McPATCoreInterface::fillCoreStatsIntoXML()
+void McPATCoreInterface::fillCoreStatsIntoXML(UInt64 interval_cycles)
 {
    // SYSTEM STATS
-   _xml->sys.total_cycles                             = _total_cycles - _prev_cycles;
+   _xml->sys.total_cycles                             = interval_cycles;
    // SYSTEM.CORE STATS
    // |-- Used Event Counters
    // |---- Instruction Counters
@@ -1138,21 +1127,18 @@ void McPATCoreInterface::fillCoreStatsIntoXML()
    _xml->sys.core[0].committed_int_instructions       = _committed_int_instructions       - _prev_committed_int_instructions;
    _xml->sys.core[0].committed_fp_instructions        = _committed_fp_instructions        - _prev_committed_fp_instructions;
    // |---- Pipeline duty cycle
-   if ((_total_cycles-_prev_cycles) > 0)
-      _xml->sys.core[0].pipeline_duty_cycle           = (_total_instructions - _prev_instructions) / (_total_cycles - _prev_cycles);
+   _xml->sys.core[0].pipeline_duty_cycle              = (interval_cycles > 0) ?
+                                                        (_total_instructions - _prev_instructions) / interval_cycles : 0;
    // |---- Cycle Counters
-   //cout << "|---- Cycle Counters" << endl;
-   _xml->sys.core[0].total_cycles                     = _total_cycles                     - _prev_cycles;
-   _xml->sys.core[0].busy_cycles                      = _busy_cycles                      - _prev_busy_cycles;
-   _xml->sys.core[0].idle_cycles                      = _idle_cycles                      - _prev_idle_cycles;
+   _xml->sys.core[0].total_cycles                     = interval_cycles;
+   _xml->sys.core[0].busy_cycles                      = interval_cycles;
+   _xml->sys.core[0].idle_cycles                      = 0;
    // |---- Reg File Access Counters
-   //cout << "|---- Reg File Access Counters" << endl;
    _xml->sys.core[0].int_regfile_reads                = _int_regfile_reads                - _prev_int_regfile_reads;
    _xml->sys.core[0].int_regfile_writes               = _int_regfile_writes               - _prev_int_regfile_writes;
    _xml->sys.core[0].float_regfile_reads              = _fp_regfile_reads                 - _prev_fp_regfile_reads;
    _xml->sys.core[0].float_regfile_writes             = _fp_regfile_writes                - _prev_fp_regfile_writes;
    // |---- Execution Unit Access Counters
-   //cout << "|---- Execution Unit Access Counters" << endl;
    _xml->sys.core[0].ialu_accesses                    = _ialu_accesses                    - _prev_ialu_accesses;
    _xml->sys.core[0].mul_accesses                     = _mul_accesses                     - _prev_mul_accesses;
    _xml->sys.core[0].fpu_accesses                     = _fpu_accesses                     - _prev_fpu_accesses;
@@ -1161,7 +1147,6 @@ void McPATCoreInterface::fillCoreStatsIntoXML()
    _xml->sys.core[0].cdb_fpu_accesses                 = _cdb_fpu_accesses                 - _prev_cdb_fpu_accesses;
    // |-- Unused Event Counters
    // |---- OoO Core Event Counters
-   //cout << "|---- OoO Core Event Counters" << endl;
    _xml->sys.core[0].inst_window_reads                = _inst_window_reads                - _prev_inst_window_reads;
    _xml->sys.core[0].inst_window_writes               = _inst_window_writes               - _prev_inst_window_writes;
    _xml->sys.core[0].inst_window_wakeup_accesses      = _inst_window_wakeup_accesses      - _prev_inst_window_wakeup_accesses;
@@ -1173,15 +1158,10 @@ void McPATCoreInterface::fillCoreStatsIntoXML()
    _xml->sys.core[0].rename_accesses                  = _rename_accesses                  - _prev_rename_accesses;
    _xml->sys.core[0].fp_rename_accesses               = _fp_rename_accesses               - _prev_fp_rename_accesses;
    // |---- Function Calls and Context Switches
-   //cout << "|---- Function Calls and Context Switches" << endl;
    _xml->sys.core[0].function_calls                   = _function_calls - _prev_function_calls;
    _xml->sys.core[0].context_switches                 = _context_switches - _prev_context_switches;
 
    // Set previous event counters
-   // SYSTEM STATS
-   _prev_cycles                              = _total_cycles;
-   _prev_busy_cycles                         = _busy_cycles;
-   _prev_idle_cycles                         = _idle_cycles;
    // SYSTEM.CORE STATS
    // |---- Instruction Counters
    _prev_instructions                        = _total_instructions;

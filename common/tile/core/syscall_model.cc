@@ -4,6 +4,7 @@
 #include "sys/syscall.h"
 #include "transport.h"
 #include "config.h"
+#include "config.h"
 
 #include <cmath>
 #include <cstring>
@@ -39,12 +40,15 @@
 // ------ Included for writev
 #include <sys/uio.h>
 
+#define SIMULATION_MODE    (Config::getSingleton()->getSimulationMode())
+
 using namespace std;
 
 SyscallMdl::SyscallMdl(Core *core)
    : m_called_enter(false)
    , m_ret_val(0)
    , m_network(core->getTile()->getNetwork())
+   , m_target_start_time(0.0)
 {
 }
 
@@ -226,9 +230,24 @@ IntPtr SyscallMdl::runEnter(IntPtr syscall_number, syscall_args_t &args)
       m_ret_val = marshallUnlinkCall(args);
       break;
 
+   case SYS_time:
+      m_called_enter = true;
+      m_ret_val = handleTimeCall(args);
+      break;
+
+   case SYS_gettimeofday:
+      m_called_enter = true;
+      m_ret_val = handleGetTimeofDayCall(args);
+      break;
+
    case SYS_clock_gettime:
       m_called_enter = true;
       m_ret_val = handleClockGettimeCall(args);
+      break;
+
+   case SYS_clock_getres:
+      m_called_enter = true;
+      m_ret_val = handleClockGetResCall(args);
       break;
 
    case SYS_getcwd:
@@ -1123,6 +1142,54 @@ IntPtr SyscallMdl::marshallRmdirCall(syscall_args_t &args)
   return(this->marshallUnlinkCall(args));
 }
 
+IntPtr SyscallMdl::handleTimeCall(syscall_args_t &args)
+{
+   time_t* t = (time_t*) args.arg0;
+
+   Core* core = Sim()->getTileManager()->getCurrentCore();
+   // compute the elapsed time
+   double elapsed_time = ((double) core->getModel()->getCurrTime().toNanosec())/1000000000.0;
+   time_t curr_time = (time_t) (getStartTime() + elapsed_time);
+
+   // Copy time into the provided buffer
+   if (t)
+   {
+      if (SIMULATION_MODE == Config::FULL)
+         core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) t, (char*) (&curr_time), sizeof(curr_time));
+      else // (SIMULATION_MODE == Config::LITE)
+         memcpy(t, &curr_time, sizeof(curr_time));
+   }
+   return curr_time;
+}
+
+IntPtr SyscallMdl::handleGetTimeofDayCall(syscall_args_t &args)
+{
+   struct timeval* tv = (struct timeval*) args.arg0;
+   struct timezone* tz = (struct timezone*) args.arg1;
+   LOG_ASSERT_WARNING(tz == NULL, "SYS_gettimeofday - timezone argument ignored");
+
+   Core* core = Sim()->getTileManager()->getCurrentCore();
+   double frequency = core->getFrequency();
+   // compute the elapsed time
+   double elapsed_time = ((double) core->getModel()->getCurrTime().toNanosec())/1000000000.0;
+   double curr_time = getStartTime() + elapsed_time;
+
+   struct timeval temp_tv;
+   temp_tv.tv_sec = (time_t) floor(curr_time);
+   temp_tv.tv_usec = (suseconds_t) ((curr_time - floor(curr_time))* 1000000.0);
+
+   // Write the results to memory
+   if (SIMULATION_MODE == Config::FULL)
+      core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) tv, (char*) (&temp_tv), sizeof(temp_tv));
+   else // (SIMULATION_MODE == Config::LITE)
+      memcpy(tv, &temp_tv, sizeof(temp_tv));
+   
+   LOG_PRINT("gettimeofday: frequency=%lf GHz, secs=%ld, usecs=%ld\n",
+             frequency, (long) temp_tv.tv_sec, (long) temp_tv.tv_usec);
+
+   return 0;
+}
+
 IntPtr SyscallMdl::handleClockGettimeCall(syscall_args_t &args)
 {
    /* Notes
@@ -1136,35 +1203,52 @@ IntPtr SyscallMdl::handleClockGettimeCall(syscall_args_t &args)
       (2) if the core gets reset then 'time' also gets reset
    */
 
-   clockid_t clk_id = (clockid_t ) args.arg0;
+   clockid_t clk_id = (clockid_t) args.arg0;
    struct timespec *ts = (struct timespec *) args.arg1;
 
-   struct timespec temp_ts;
-   UInt64 cycles = 0;
-   double frequency = 0.0;
-   double elapsed_time = 0.0;
-   CoreModel* perf_model = 0L;
-
-   if (clk_id != CLOCK_REALTIME) {
-     /* we currently do not support anything but CLOCK_REALTIME */
-     return -1;
-   }
+   LOG_ASSERT_ERROR(clk_id == CLOCK_REALTIME || clk_id == CLOCK_MONOTONIC,
+                    "clock_gettime: Supports only REALTIME and MONOTONIC clocks");
 
    Core* core = Sim()->getTileManager()->getCurrentCore();
+   double frequency = core->getFrequency();
    // compute the elapsed time
-   perf_model = core->getModel();
-   frequency = core->getFrequency();
-   cycles = perf_model->getCurrTime().toCycles(frequency);
-   elapsed_time = ((float) perf_model->getCurrTime().toNanosec())/1000000000.0;
+   double elapsed_time = ((double) core->getModel()->getCurrTime().toNanosec())/1000000000.0;
+   double curr_time = getStartTime() + elapsed_time;
 
-   temp_ts.tv_sec = (time_t) floor(elapsed_time);
-   temp_ts.tv_nsec = (long) ((elapsed_time - floor(elapsed_time))* 1000000000.0);
+   struct timespec temp_ts;
+   temp_ts.tv_sec = (time_t) floor(curr_time);
+   temp_ts.tv_nsec = (long) ((curr_time - floor(curr_time))* 1000000000.0);
 
-   // Write the data to memory
-   core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) ts, (char*) (&temp_ts), sizeof(temp_ts));
+   // Write the results to memory
+   if (SIMULATION_MODE == Config::FULL)
+      core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) ts, (char*) (&temp_ts), sizeof(temp_ts));
+   else // (SIMULATION_MODE == Config::LITE)
+      memcpy(ts, &temp_ts, sizeof(temp_ts));
    
-   LOG_PRINT("clock_gettime called: cycles=%lu, frequency=%lf, elapse=%1.9lf, secs=%ld, nsecs=%ld\n",
-             cycles, frequency, elapsed_time, (long) temp_ts.tv_sec, temp_ts.tv_nsec);
+   LOG_PRINT("clock_gettime: frequency=%lf GHz, secs=%ld, nsecs=%ld\n",
+             frequency, (long) temp_ts.tv_sec, (long) temp_ts.tv_nsec);
+
+   return 0;
+}
+
+IntPtr SyscallMdl::handleClockGetResCall(syscall_args_t &args)
+{
+   clockid_t clk_id = (clockid_t) args.arg0;
+   struct timespec *res = (struct timespec *) args.arg1;
+
+   LOG_ASSERT_ERROR(clk_id == CLOCK_REALTIME || clk_id == CLOCK_MONOTONIC,
+                    "clock_getres: Supports only REALTIME and MONOTONIC clocks");
+   // Supports nanosec resolution
+   struct timespec temp_ts;
+   temp_ts.tv_sec = 0;
+   temp_ts.tv_nsec = 1;
+
+   Core* core = Sim()->getTileManager()->getCurrentCore();
+   // Write the data to memory
+   if (SIMULATION_MODE == Config::FULL)
+      core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) res, (char*) (&temp_ts), sizeof(temp_ts));
+   else // (SIMULATION_MODE == Config::LITE)
+      memcpy(res, &temp_ts, sizeof(temp_ts));
 
    return 0;
 }
@@ -1329,6 +1413,22 @@ IntPtr SyscallMdl::marshallSchedGetAffinityCall(syscall_args_t &args)
 }
 
 // Helper functions
+double SyscallMdl::getStartTime()
+{
+   if (m_target_start_time == 0.0)
+   {
+      // Ask MCP for the start time
+      Core* core = Sim()->getTileManager()->getCurrentCore();
+      m_network->netSend(Config::getSingleton()->getMCPCoreId(), MCP_REQUEST_TYPE, m_send_buff.getBuffer(), m_send_buff.size());
+
+      NetPacket recv_pkt;
+      recv_pkt = m_network->netRecv(Config::getSingleton()->getMCPCoreId(), core->getId(), MCP_RESPONSE_TYPE);
+      m_recv_buff << make_pair(recv_pkt.data, recv_pkt.length);
+      m_recv_buff >> m_target_start_time;
+   }
+   return m_target_start_time;
+}
+
 UInt32 SyscallMdl::getStrLen (char *str)
 {
    UInt32 len = 0;

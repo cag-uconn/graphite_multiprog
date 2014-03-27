@@ -11,6 +11,8 @@ using std::map;
 #include "mcpat_instruction.h"
 #include "contrib/mcpat/mcpat.h"
 
+class CoreModel;
+
 //---------------------------------------------------------------------------
 // McPAT Core Interface Data Structures for Area and Power
 //---------------------------------------------------------------------------
@@ -80,29 +82,28 @@ class McPATCoreInterface
 public:
    
    // McPAT Core Interface Constructor
-   McPATCoreInterface(double frequency, double voltage, UInt32 load_buffer_size, UInt32 store_buffer_size);
+   McPATCoreInterface(CoreModel* core_model, double frequency, double voltage, UInt32 load_buffer_size, UInt32 store_buffer_size);
    // McPAT Core Interface Destructor
    ~McPATCoreInterface();
 
    // Output summary
-   void outputSummary(ostream& os, const Time& target_completion_time);
+   void outputSummary(ostream& os, const Time& target_completion_time, double frequency);
 
    // Set DVFS
-   void setDVFS(double voltage, double frequency, const Time& curr_time);
+   void setDVFS(double old_frequency, double new_voltage, double new_frequency, const Time& curr_time);
 
    // Update Event Counters
    void updateEventCounters(const McPATInstruction* instruction, UInt64 cycle_count,
                             UInt64 total_branch_misprediction_count);
-   void updateCycleCounters(UInt64 cycle_count);
-   
    // Compute Energy from McPat
-   void computeEnergy(const Time& curr_time);
+   void computeEnergy(const Time& curr_time, double frequency);
 
    // Collect Energy from McPAT
    double getDynamicEnergy();
    double getLeakageEnergy();
 
 private:
+   CoreModel* _core_model;
    // McPAT Objects
    typedef map<double,McPAT::CoreWrapper*> CoreWrapperMap;
    CoreWrapperMap _core_wrapper_map;
@@ -155,10 +156,6 @@ private:
 
    // Current Event Counters
    // |-- Used Event Counters
-   // |---- Cycle Counters
-   UInt64 _total_cycles;
-   UInt64 _idle_cycles;
-   UInt64 _busy_cycles;
    // |---- Instruction Counters
    UInt64 _total_instructions;
    UInt64 _generic_instructions;
@@ -201,10 +198,6 @@ private:
 
    // Prev Event Counters
    // |-- Used Event Counters
-   // |---- Cycle Counters
-   UInt64 _prev_cycles;
-   UInt64 _prev_idle_cycles;
-   UInt64 _prev_busy_cycles;
    // |---- Instruction Counters
    UInt64 _prev_instructions;
    UInt64 _prev_generic_instructions;
@@ -256,7 +249,7 @@ private:
    McPAT::CoreWrapper* createCoreWrapper(double voltage, double max_frequency_at_voltage);
    // Initialize XML Object
    void fillCoreParamsIntoXML(UInt32 technology_node, UInt32 temperature);
-   void fillCoreStatsIntoXML();
+   void fillCoreStatsIntoXML(UInt64 interval_cycles);
    
    // Initialize Architectural Parameters
    void initializeArchitecturalParameters(UInt32 load_queue_size, UInt32 store_queue_size);

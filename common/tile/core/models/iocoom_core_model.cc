@@ -206,7 +206,7 @@ void IOCOOMCoreModel::handleInstruction(Instruction *instruction)
    {
       const DynamicMemoryInfo& info = getDynamicMemoryInfo();
       LOG_ASSERT_ERROR(!info._read, "Expected memory write info");
-      
+ 
       // This just updates the contents of the store buffer
       Time store_allocate_time = executeStore(write_operands_ready, info);
 
@@ -221,7 +221,8 @@ void IOCOOMCoreModel::handleInstruction(Instruction *instruction)
    //    load_queue_ready        read_operands_ready         write_operands_ready          store_queue_ready
    //            |    load_latency         |            cost           |                            |
   
-   Time memory_stall_time(0);
+   Time l1_icache_stall_time(0);
+   Time l1_dcache_stall_time(0);
    Time execution_unit_stall_time(0);
 
    // update cycle count with instruction cost
@@ -230,17 +231,17 @@ void IOCOOMCoreModel::handleInstruction(Instruction *instruction)
    // Just add the cost for dynamic instructions since they involve pipeline stalls
 
    // L1-I Cache
-   memory_stall_time += (instruction_ready - _curr_time);
+   l1_icache_stall_time += (instruction_ready - _curr_time);
    _total_l1icache_stall_time += (instruction_ready - _curr_time);
 
    // Register Read Operands
    execution_unit_stall_time += (register_operands_ready__execution_unit - instruction_ready);
    _total_inter_ins_execution_unit_stall_time += (register_operands_ready__execution_unit - instruction_ready);
-   memory_stall_time += (register_operands_ready - register_operands_ready__execution_unit);
+   l1_dcache_stall_time += (register_operands_ready - register_operands_ready__execution_unit);
    _total_inter_ins_l1dcache_stall_time += (register_operands_ready - register_operands_ready__execution_unit);
 
    // Memory Read Operands - Load Buffer Stall
-   memory_stall_time += (load_queue_ready - register_operands_ready);
+   l1_dcache_stall_time += (load_queue_ready - register_operands_ready);
    _total_load_queue_stall_time += (load_queue_ready - register_operands_ready);
    
    _curr_time = load_queue_ready;
@@ -248,7 +249,7 @@ void IOCOOMCoreModel::handleInstruction(Instruction *instruction)
    if (!instruction->isSimpleMovMemoryLoad())
    {
       // Memory Read Operands - Wait for L1-D Cache
-      memory_stall_time += (read_memory_operands_ready - load_queue_ready);
+      l1_dcache_stall_time += (read_memory_operands_ready - load_queue_ready);
       _total_intra_ins_l1dcache_stall_time += (read_memory_operands_ready - load_queue_ready);
 
       _curr_time = read_operands_ready;
@@ -259,7 +260,7 @@ void IOCOOMCoreModel::handleInstruction(Instruction *instruction)
          execution_unit_stall_time += (write_operands_ready - read_operands_ready);
          _total_intra_ins_execution_unit_stall_time += (write_operands_ready - read_operands_ready);
          // Memory Write Operands - Store Buffer Stall
-         memory_stall_time += (store_queue_ready - write_operands_ready);
+         l1_dcache_stall_time += (store_queue_ready - write_operands_ready);
          _total_store_queue_stall_time += (store_queue_ready - write_operands_ready);
 
          _curr_time = store_queue_ready;
@@ -267,9 +268,13 @@ void IOCOOMCoreModel::handleInstruction(Instruction *instruction)
       }
    }
 
+   // Update time by ONE-CYCLE incase there is no memory (L1-D cache) or execution unit stall for this instruction
+   if (_curr_time == instruction_ready)
+      _curr_time += _ONE_CYCLE;
+
    // Update memory fence / pipeline stall counters
    updateMemoryFenceCounters(instruction);
-   updatePipelineStallCounters(memory_stall_time, execution_unit_stall_time);
+   updatePipelineStallCounters(l1_icache_stall_time, l1_dcache_stall_time, execution_unit_stall_time);
 
    // Update McPAT counters
    updateMcPATCounters(instruction);

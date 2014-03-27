@@ -94,10 +94,14 @@ void CoreModel::outputSummary(ostream& os, const Time& target_completion_time)
    os << "    Completion Time (in nanoseconds): " << _curr_time.toNanosec() << endl;
    os << "    Average Frequency (in GHz): " << _average_frequency << endl;
    // Pipeline stall / dynamic instruction counters
-   os << "    Synchronization Stalls: " << _total_sync_instructions << endl;
-   os << "    Network Recv Stalls: " << _total_recv_instructions << endl;
+   os << "    Stalls Breakdown: " << endl;
+   os << "      Front-End Pipeline: " << _total_frontend_stalls << endl;
+   os << "      Back-End Pipeline: " << _total_backend_stalls << endl;
+   os << "      Synchronization: " << _total_sync_instructions << endl;
+   os << "      Network Recv: " << _total_recv_instructions << endl;
    os << "    Stall Time Breakdown (in nanoseconds): " << endl;
-   os << "      Memory: " << _total_memory_stall_time.toNanosec() << endl;
+   os << "      L1-I Cache: " << _total_l1_icache_stall_time.toNanosec() << endl;
+   os << "      L1-D Cache: " << _total_l1_dcache_stall_time.toNanosec() << endl;
    os << "      Execution Unit: " << _total_execution_unit_stall_time.toNanosec() << endl;
    os << "      Synchronization: " << _total_sync_instruction_stall_time.toNanosec() << endl;
    os << "      Network Recv: " << _total_recv_instruction_stall_time.toNanosec() << endl;
@@ -106,7 +110,7 @@ void CoreModel::outputSummary(ostream& os, const Time& target_completion_time)
    if (_bp)
       _bp->outputSummary(os);
 
-   _mcpat_core_interface->outputSummary(os, target_completion_time);
+   _mcpat_core_interface->outputSummary(os, target_completion_time, _core->getFrequency());
    
    // Memory fence counters
    os << "    Fence Instructions: " << endl;
@@ -119,7 +123,7 @@ void CoreModel::initializeMcPATInterface(UInt32 num_load_buffer_entries, UInt32 
    // For Power/Area Modeling
    double frequency = _core->getFrequency();
    double voltage = _core->getVoltage();
-   _mcpat_core_interface = new McPATCoreInterface(frequency, voltage, num_load_buffer_entries, num_store_buffer_entries);
+   _mcpat_core_interface = new McPATCoreInterface(this, frequency, voltage, num_load_buffer_entries, num_store_buffer_entries);
 }
 
 void CoreModel::updateMcPATCounters(Instruction* instruction)
@@ -135,9 +139,7 @@ void CoreModel::updateMcPATCounters(Instruction* instruction)
 
 void CoreModel::computeEnergy(const Time& curr_time)
 {
-   UInt64 curr_cycles = _curr_time.toCycles(_core->getFrequency());
-   _mcpat_core_interface->updateCycleCounters(curr_cycles);
-   _mcpat_core_interface->computeEnergy(_curr_time);
+   _mcpat_core_interface->computeEnergy(curr_time, _core->getFrequency());
 }
 
 double CoreModel::getDynamicEnergy()
@@ -170,7 +172,7 @@ void CoreModel::setDVFS(double old_frequency, double new_voltage, double new_fre
 {
    recomputeAverageFrequency(old_frequency);
    updateInstructionCosts(new_frequency);
-   _mcpat_core_interface->setDVFS(new_voltage, new_frequency, curr_time);
+   _mcpat_core_interface->setDVFS(old_frequency, new_voltage, new_frequency, curr_time);
 }
 
 void CoreModel::setCurrTime(Time time)
@@ -209,7 +211,10 @@ void CoreModel::initializeDynamicInstructionCounters()
 
 void CoreModel::initializePipelineStallCounters()
 {
-   _total_memory_stall_time = Time(0);
+   _total_frontend_stalls = 0;
+   _total_backend_stalls = 0;
+   _total_l1_icache_stall_time = Time(0);
+   _total_l1_dcache_stall_time = Time(0);
    _total_execution_unit_stall_time = Time(0);
 }
 
@@ -259,9 +264,15 @@ void CoreModel::updateDynamicInstructionCounters(const Instruction* instruction,
    }
 }
 
-void CoreModel::updatePipelineStallCounters(const Time& memory_stall_time, const Time& execution_unit_stall_time)
+void CoreModel::updatePipelineStallCounters(const Time& l1_icache_stall_time, const Time& l1_dcache_stall_time,
+                                            const Time& execution_unit_stall_time)
 {
-   _total_memory_stall_time += memory_stall_time;
+   if (l1_icache_stall_time > 0)
+      _total_frontend_stalls ++;
+   if (l1_dcache_stall_time > 0 || execution_unit_stall_time > 0)
+      _total_backend_stalls ++;
+   _total_l1_icache_stall_time += l1_icache_stall_time;
+   _total_l1_dcache_stall_time += l1_dcache_stall_time;
    _total_execution_unit_stall_time += execution_unit_stall_time;
 }
 

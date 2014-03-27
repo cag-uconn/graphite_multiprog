@@ -38,8 +38,10 @@ for benchmark in benchmark_list:
 
       # Generate SIM_FLAGS
       sim_flags = "--general/total_cores=64 " + \
+                  "--general/enable_shared_mem=true " + \
                   "--general/mode=%s " % (simulation_mode) + \
-                  "--general/trigger_models_within_application=true"
+                  "--general/enable_power_modeling=true " + \
+                  "--general/trigger_models_within_application=true "
 
       # Generate sub_dir where results are going to be placed
       sub_dir = "%s--procs-%i" % (benchmark, num_machines)

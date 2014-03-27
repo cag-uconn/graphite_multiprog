@@ -422,14 +422,14 @@ MemoryManager::outputSummary(std::ostream &os, const Time& target_completion_tim
    if (_dram_cntlr_present)
    {
       _dram_directory_cntlr->outputSummary(os);
-      os << "Dram Directory Cache Summary:\n";
+      os << "Dram Directory Summary:\n";
       _dram_directory_cntlr->getDramDirectoryCache()->outputSummary(os);
       _dram_cntlr->getDramPerfModel()->outputSummary(os);
    }
    else
    {
       DramDirectoryCntlr::dummyOutputSummary(os);
-      os << "Dram Directory Cache Summary:\n";
+      os << "Dram Directory Summary:\n";
       DirectoryCache::dummyOutputSummary(os, getTile()->getId());
       DramPerfModel::dummyOutputSummary(os);
    }
@@ -642,7 +642,7 @@ MemoryManager::getDVFS(module_t module_type, double &frequency, double &voltage)
          break;
 
       default:
-         rc = -1;
+         rc = -2;
          break;
    }
    return rc;
@@ -671,7 +671,7 @@ MemoryManager::setDVFS(module_t module_type, double frequency, voltage_option_t 
          break;
 
       default:
-         rc = -1;
+         rc = -2;
          break;
    }
    return rc;
