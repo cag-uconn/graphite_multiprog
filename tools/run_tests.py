@@ -8,7 +8,7 @@ sys.path.append("./tools/scheduler")
 sys.path.append("./tools/job")
 
 from simulate import *
-from config import *
+from benchmark_config import *
 from utils import *
 from sim_job import SimJob
 
@@ -19,7 +19,7 @@ def getAppFlags(benchmark):
    return app_flags
 
 # scheduler: Use 'condor' for the condor scheduling system or 'basic' for using Graphite's scheduling system
-scheduler = "condor"
+scheduler = "basic"
 # mode: Use either 'pin' or 'native'
 simulation_mode = "pin"
 
@@ -41,7 +41,8 @@ machines = [
     ]
 
 # benchmark_list: List of benchmarks to use (now includes SPLASH-2 & PARSEC)
-benchmark_list = splash2_list + parsec_list
+#benchmark_list = splash2_list + parsec_list
+benchmark_list = splash2_list
 
 # First, build all the benchmarks
 compileBenchmarks(benchmark_list)

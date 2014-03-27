@@ -19,8 +19,6 @@ class CondorSlaveJob(SlaveJob):
 if __name__=="__main__":
    command = " ".join(sys.argv[1:])
    graphite_home = getGraphiteHome(sys.argv[0])
-   print "Command: %s" % (command)
-   print "Graphite Home: %s" % (graphite_home)
 
    job = CondorSlaveJob(command, graphite_home)
    job.spawn()

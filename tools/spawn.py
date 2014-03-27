@@ -15,6 +15,7 @@ import signal
 sys.path.append("%s/tools/job/" % os.environ.get('GRAPHITE_HOME'))
 from basic_master_job import BasicMasterJob
 from condor_master_job import CondorMasterJob
+from termcolors import *
 
 # Read output_dir from the command string
 def getOutputDir(command):
@@ -134,10 +135,11 @@ if __name__=="__main__":
    job.spawn()
 
    try:
-      sys.exit(job.wait())
+      return_code = job.wait()
+      print "%s\n" % (pReturnCode(return_code))
+      sys.exit(return_code)
    except KeyboardInterrupt:
-      msg = 'Keyboard interrupt. Killing simulation'
+      msg = colorstr('Keyboard interrupt. Killing simulation', 'RED')
       print msg
       job.kill()
       sys.exit(signal.SIGINT)
-      print "%s\n" % (pReturnCode(return_code))

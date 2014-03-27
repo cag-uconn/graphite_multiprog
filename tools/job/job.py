@@ -14,7 +14,6 @@ class Job:
    def spawn(self, proc_num):
       # Set LD_LIBRARY_PATH using PIN_HOME from Makefile.config
       os.environ['LD_LIBRARY_PATH'] =  "%s/intel64/runtime" % self.getPinHome()
-      print "Pin Home: %s" % (self.getPinHome())
       os.environ['CARBON_PROCESS_INDEX'] = "%d" % (proc_num)
       os.environ['GRAPHITE_HOME'] = self.graphite_home
       self.proc = subprocess.Popen(self.command, shell=True, preexec_fn=os.setsid, env=os.environ)

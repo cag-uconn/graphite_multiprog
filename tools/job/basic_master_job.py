@@ -65,8 +65,6 @@ class BasicMasterJob(MasterJob):
             except OSError:
                pass
             print "Process: %d exited with ReturnCode: %d" % (i, return_code2)
-
-      print "%s\n" % (pReturnCode(return_code))
       return return_code
 
    # wait:

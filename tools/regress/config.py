@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+from benchmark_config import *
+
 # scheduler: Use 'condor' for the condor scheduling system or 'basic' for using Graphite's scheduling algorithm
-scheduler = "condor"
+scheduler = "basic"
 
 # results_dir: Directory where the simulation results are placed
 results_dir = "./tools/regress/simulation_results"
