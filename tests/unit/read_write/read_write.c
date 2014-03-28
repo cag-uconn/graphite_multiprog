@@ -8,8 +8,8 @@ int main(int argc, char *argv[])
 {
    CarbonStartSim(argc, argv);
 
-   char* read_file = "./tests/unit/read_write/read_file";
-   char* write_file = "./tests/unit/read_write/write_file";
+   char* read_file = "read_file";
+   char* write_file = "write_file";
    char* str1[2] = {"read1\n", "read2\n"};
    char* str2[2] = {"write1\n", "write2\n"};
    char read_buf[10];
