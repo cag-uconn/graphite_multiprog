@@ -54,8 +54,9 @@ class SimJob:
       self.command += " SCHEDULER=\"%s\"" % (self.scheduler)
       self.command += " BATCH_JOB=\"true\""
       if (self.scheduler == "basic"):
-         self.command += " > %s/output 2>&1" % (self.output_dir)
-
+         self.command += " > %s/output 2> %s/error" % (self.output_dir, self.output_dir)
+      self.createOutputDir();
+      print self.command
 
    def makeSimFlags(self):
       self.sim_flags += " -c %s" % (self.config_filename) + \
@@ -64,3 +65,10 @@ class SimJob:
       if (self.scheduler == "basic"):
          for i in range(0,len(self.machines)):
             self.sim_flags += " --process_map/process%d=%s" % (i, self.machines[i])
+
+   def createOutputDir(self):
+      try:
+         os.mkdir(self.output_dir)
+      except OSError:
+         pass
+      

@@ -28,16 +28,13 @@ class MasterJob(Job):
       return graphite_home
 
    def createOutputDir(self):
-      # create output directory
-      try:
-         os.mkdir(self.output_dir)
-      except OSError:
-         pass
-      os.system("echo \"%s\" > %s/command" % (self.command, self.output_dir))
-      shutil.copyfile(self.config_filename, "%s/carbon_sim.cfg" % (self.output_dir))
       if self.batch_job == "false":
          try:
+            os.mkdir(self.output_dir)
             os.remove("%s/results/latest" % (self.graphite_home))
+            os.symlink(self.output_dir, "%s/results/latest" % (self.graphite_home))
          except OSError:
-            pass         
-         os.symlink(self.output_dir, "%s/results/latest" % (self.graphite_home))
+            pass
+
+      os.system("echo \"%s\" > %s/command" % (self.command, self.output_dir))
+      shutil.copyfile(self.config_filename, "%s/carbon_sim.cfg" % (self.output_dir))
