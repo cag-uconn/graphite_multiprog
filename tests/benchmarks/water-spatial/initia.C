@@ -50,8 +50,7 @@ void INITIA()
     long mol = 0, XT[4], YT[4], Z;
 #endif
 
-    //random_numbers = fopen("random.in","r");
-    random_numbers = fopen("tests/benchmarks/water-spatial/random.in","r");
+    random_numbers = fopen("random.in","r");
     if (random_numbers == NULL) {
         fprintf(stderr,"Error in opening file random.in\n");
         fflush(stderr);

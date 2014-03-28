@@ -97,13 +97,13 @@ ifdef CLOCK_SKEW_MANAGEMENT_SCHEME
 endif
 SIM_FLAGS ?= $(call sim_flags_fn)
 
-EXEC ?= $(CURDIR)/$(TARGET) $(APP_FLAGS) # command thats actually executed
+EXEC ?= ./$(TARGET) $(APP_FLAGS) # command thats actually executed
 LAUNCH = python -u $(SIM_ROOT)/tools/spawn.py $(SCHEDULER) $(MODE) $(BATCH_JOB) "$(PIN_RUN)" "$(SIM_FLAGS)" "$(EXEC)"
 RUN = $(if $(findstring build,$(BUILD_MODE)), , $(LAUNCH))
 
 # Build targets
 all: $(TARGET)
-	export GRAPHITE_HOME=$(SIM_ROOT); cd $(SIM_ROOT); $(RUN)
+	export GRAPHITE_HOME=$(SIM_ROOT); $(RUN)
 
 # Compiler flags
 LD_FLAGS += -static -u CarbonStartSim -u CarbonStopSim -u pthread_create -u pthread_join
