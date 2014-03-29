@@ -4,6 +4,10 @@ import sys
 import os
 import re
 import numpy
+
+sys.path.append("./tools/")
+
+from benchmark_config import *
 from config import *
 
 def parseEventCounters(event, eventCounterInfo):
