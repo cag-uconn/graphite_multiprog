@@ -31,8 +31,8 @@ class CondorMasterJob(MasterJob):
          running_procs = commands.getoutput("condor_q -format \"%s\\n\" ClusterId" % (self.proc)).split()
          if (not self.proc in running_procs):
             if self.batch_job == "false":
-               os.system("cat %s/output" % (self.output_dir))
-               os.system("cat %s/error" % (self.output_dir))
+               os.system("cat %s/condor_job.output" % (self.output_dir))
+               os.system("cat %s/condor_job.error" % (self.output_dir))
             return 0 if os.path.isfile("%s/sim.out" % (self.output_dir)) else 1
       time.sleep(0.5)
 
@@ -52,8 +52,8 @@ class CondorMasterJob(MasterJob):
                         "RequestMemory = 7680\n" + \
                         "Requirements = (isDraco || isFos)\n" + \
                         "Rank = (isDraco || isFos)\n" + \
-                        "Error = %s/error\n" % (self.output_dir) + \
-                        "Output = %s/output\n" % (self.output_dir) + \
+                        "Error = %s/condor_job.error\n" % (self.output_dir) + \
+                        "Output = %s/condor_job.output\n" % (self.output_dir) + \
                         "queue 1\n"
       script_file = open("%s/condor_job.submit" % (self.output_dir), 'w')
       script_file.write(script_contents)
