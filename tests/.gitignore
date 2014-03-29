@@ -20,7 +20,6 @@ apps/1d_jacobi/jacobi
 # benchmarks
 benchmarks/barnes/*.[ch]
 benchmarks/barnes/barnes
-benchmarks/blackscholes/blackscholes
 benchmarks/fmm/*.[ch]
 benchmarks/fmm/fmm
 benchmarks/ocean_contiguous/*.[ch]

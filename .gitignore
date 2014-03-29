@@ -12,7 +12,6 @@
 # test output
 pin.log
 pintool.log
-sim.out
 
 # misc
 lib/libcarbon_sim.a
