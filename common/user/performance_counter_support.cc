@@ -14,7 +14,8 @@ void CarbonEnableModels()
 {
    if (Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
    {
-      fprintf(stderr, "[[Graphite]] --> [ Enabling Performance and Power Models ]\n");
+      printf("[[Graphite]] --> [ Enabling Performance and Power Models ]\n");
+      fflush(stdout);
       
       __attribute__((unused)) SInt32 curr_proc_num = Config::getSingleton()->getCurrentProcessNum();
       Core* core = Sim()->getTileManager()->getCurrentCore();
@@ -47,7 +48,8 @@ void CarbonDisableModels()
 {
    if (Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
    {
-      fprintf(stderr, "[[Graphite]] --> [ Disabling Performance and Power Models ]\n");
+      printf("[[Graphite]] --> [ Disabling Performance and Power Models ]\n");
+      fflush(stdout);
       
       __attribute__((unused)) SInt32 curr_proc_num = Config::getSingleton()->getCurrentProcessNum();
       Core* core = Sim()->getTileManager()->getCurrentCore();
