@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
+import sys
+
+sys.path.append("./tools/")
 from benchmark_config import *
 
-# scheduler: Use 'condor' for the condor scheduling system or 'basic' for using Graphite's scheduling algorithm
+# scheduler: Use 'condor' for the condor scheduling system or 'basic' for using Graphite's scheduling system
 scheduler = "basic"
 
 # results_dir: Directory where the simulation results are placed

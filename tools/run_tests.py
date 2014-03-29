@@ -20,8 +20,6 @@ def getAppFlags(benchmark):
 
 # scheduler: Use 'condor' for the condor scheduling system or 'basic' for using Graphite's scheduling system
 scheduler = "basic"
-# mode: Use either 'pin' or 'native'
-simulation_mode = "pin"
 
 # results_dir: Directory where the simulation results are placed
 results_dir = "./results/regress"
@@ -68,7 +66,7 @@ for benchmark in benchmark_list:
    print sub_dir
 
    # Append to jobs list
-   jobs.append(SimJob(command, 1, config_filename, results_dir, sub_dir, sim_flags, app_flags, simulation_mode, scheduler))
+   jobs.append(SimJob(command, 1, config_filename, results_dir, sub_dir, sim_flags, app_flags, "pin", scheduler))
 
 # Go!
 simulate(scheduler, jobs, machines, results_dir, config_filename)
