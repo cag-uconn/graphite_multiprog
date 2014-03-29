@@ -60,11 +60,6 @@ for benchmark in benchmark_list:
    # Generate sub_dir where results are going to be placed
    sub_dir = "%s" % (benchmark)
   
-   print command
-   print app_flags
-   print sim_flags
-   print sub_dir
-
    # Append to jobs list
    jobs.append(SimJob(command, 1, config_filename, results_dir, sub_dir, sim_flags, app_flags, "pin", scheduler))
 

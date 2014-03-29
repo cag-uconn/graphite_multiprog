@@ -10,7 +10,6 @@ class CondorScheduler(Scheduler):
 
    def start(self):
       # Schedule all the jobs
-      print self.jobs
       for job in self.jobs:
          job.spawn()
 

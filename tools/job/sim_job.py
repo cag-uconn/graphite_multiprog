@@ -53,8 +53,7 @@ class SimJob:
       self.command += " MODE=\"%s\"" % (self.mode)
       self.command += " SCHEDULER=\"%s\"" % (self.scheduler)
       self.command += " BATCH_JOB=\"true\""
-      if (self.scheduler == "basic"):
-         self.command += " > %s/output 2> %s/error" % (self.output_dir, self.output_dir)
+      self.command += " > %s/output 2> %s/error" % (self.output_dir, self.output_dir)
       self.createOutputDir();
       print self.command
 

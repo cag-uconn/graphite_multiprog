@@ -3,7 +3,7 @@
 import os
 import sys
 
-from config import *
+from benchmark_config import *
 
 def getCommand(benchmark):
    if benchmark in splash2_list:
