@@ -1,7 +1,6 @@
 TARGET = open_mp
 SOURCES = $(TARGET).cc
 CORES ?= 2
-SIM_ROOT ?= $(CURDIR)/../../..
 
 include ../../Makefile.tests
 

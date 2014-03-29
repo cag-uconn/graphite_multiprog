@@ -11,8 +11,8 @@ include ../splash_support/Makefile.config
 
 $(TARGET): glibps/glibps.a glibdumb/glib.a
 
-CFLAGS += -I$(CURDIR)/glibps -I$(CURDIR)/glibdumb
-LD_FLAGS += $(CURDIR)/glibps/glibps.a $(CURDIR)/glibdumb/glib.a
+CFLAGS += -Iglibps -Iglibdumb
+LD_FLAGS += glibps/glibps.a glibdumb/glib.a
 
 HHS = model.H parallel.H patch.H radiosity.H task.H
 HS = model.h parallel.h patch.h radiosity.h task.h

@@ -1,6 +1,6 @@
 TARGET = fmm
 OBJECTS = box.o construct_grid.o cost_zones.o defs.o fmm.o interactions.o memory.o particle.o partition_grid.o
-APP_FLAGS ?= \< $(CURDIR)/inputs/input.16384
+APP_FLAGS ?= < inputs/input.65536.64
 
 #MACROS := ../splash_support/c.m4.null.CARBON
 MACROS := ../splash_support/c.m4.null.POSIX
@@ -8,10 +8,6 @@ MACROS := ../splash_support/c.m4.null.POSIX
 include ../../Makefile.tests
 
 include ../splash_support/Makefile.config
-
-all:
-	rm -f $(SIM_ROOT)/times
-	$(RUN)
 
 defs.c: defs.h
 box.c: box.h

@@ -24,25 +24,28 @@ canneal_flags ?= 64 15000 2000 200000.nets 64
 dedup_flags ?= -c -p -v -t 20 -i media.dat -o output.dat.ddp
 streamcluster_flags ?= 10 20 64 8192 8192 1000 none output.txt 64
 
+BENCHMARK = $(patsubst %_parsec,%,$@)
+TYPE = $(if $(findstring $(BENCHMARK),$(APPS)),apps,kernels)
+DIRECTORY = $(PARSEC_LOCAL)/pkgs/$(TYPE)/$(BENCHMARK)
+APP_FLAGS ?= $($(BENCHMARK)_flags)
+EXEC ?= $(DIRECTORY)/inst/amd64-linux.graphite/bin/$(BENCHMARK) $(APP_FLAGS)
+
 include tests/Makefile.tests
 
-APP_FLAGS ?= $($(patsubst %_parsec,%,$@)_flags)
-DIRECTORY ?= $(if $(findstring $(patsubst %_parsec,%,$@),$(APPS)),apps,kernels)
-COMMAND ?= export GRAPHITE_HOME=$(SIM_ROOT); mkdir -p $(PARSEC_LOCAL)/pkgs/$(DIRECTORY)/$(patsubst %_parsec,%,$@)/run; cd $(PARSEC_LOCAL)/pkgs/$(DIRECTORY)/$(patsubst %_parsec,%,$@)/run; $(call run_fn,$(MODE),$(PARSEC_LOCAL)/pkgs/$(DIRECTORY)/$(patsubst %_parsec,%,$@)/inst/amd64-linux.graphite/bin/$(patsubst %_parsec,%,$@) $(APP_FLAGS),$(SIM_FLAGS))
+BUILD_COMMAND = export GRAPHITE_HOME=$(SIM_ROOT); $(PARSEC_LOCAL)/bin/parsecmgmt -a build -p $(BENCHMARK) -c graphite
+RUN_COMMAND = export GRAPHITE_HOME=$(SIM_ROOT); mkdir -p $(DIRECTORY)/run; cd $(DIRECTORY)/run; $(RUN)
 
 freqmine_parsec:
-	export GRAPHITE_HOME=$(SIM_ROOT);$(PARSEC_LOCAL)/bin/parsecmgmt -a build -p $(patsubst %_parsec,%,$@) -c graphite
-	export OMP_NUM_THREADS=64
-	$(COMMAND)
+	$(BUILD_COMMAND)
+	export OMP_NUM_THREADS=64; $(RUN_COMMAND)
 
 vips_parsec:
-	export GRAPHITE_HOME=$(SIM_ROOT);$(PARSEC_LOCAL)/bin/parsecmgmt -a build -p $(patsubst %_parsec,%,$@) -c graphite
-	export IM_CONCURRENCY=64
-	$(COMMAND)
+	$(BUILD_COMMAND)
+	export IM_CONCURRENCY=64; $(RUN_COMMAND)
 
 %_parsec:
-	export GRAPHITE_HOME=$(SIM_ROOT);$(PARSEC_LOCAL)/bin/parsecmgmt -a build -p $(patsubst %_parsec,%,$@) -c graphite
-	$(COMMAND)
+	$(BUILD_COMMAND)
+	$(RUN_COMMAND)
 
 setup_parsec:
 	cd $(PARSEC_HOME); find -type d  -name .git -prune -o -type d   -printf "mkdir -vp '$(PARSEC_LOCAL)/%p'\n" -o -type f -printf "ln -s '$(PARSEC_HOME)/%p' '$(PARSEC_LOCAL)/%p'\n" | sh

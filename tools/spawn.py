@@ -1,49 +1,145 @@
 #!/usr/bin/env python
 
 """
+This is the client process that distributes n simulators
 This is the python script that is responsible for spawning a simulation
 """
 
 import sys
 import os
-import commands
+import re
 import subprocess
+import time
+import signal
 
+sys.path.append("%s/tools/job/" % os.environ.get('GRAPHITE_HOME'))
+from basic_master_job import BasicMasterJob
+from condor_master_job import CondorMasterJob
 from termcolors import *
 
-# get GRAPHITE_HOME from environment variable, or use pwd
-def get_graphite_home():
-    graphite_home = os.environ.get('GRAPHITE_HOME')
-    if graphite_home == None:
-        cwd = os.getcwd()
-        warning_msg = "GRAPHITE_HOME undefined. Setting GRAPHITE_HOME to %s" % (cwd)
-        print "\n%s" % (pWARNING(warning_msg))
-        return cwd
+# Read output_dir from the command string
+def getOutputDir(command):
+   output_dir_match = re.match(r'.*--general/output_dir\s*=\s*([^\s]+)', command)
+   if output_dir_match:
+      return output_dir_match.group(1)
+   
+   print "*ERROR* Could not read output dir"
+   sys.exit(-1)
 
-    return graphite_home
+# Read config filename from the command string
+def getConfigFilename(command):
+   config_filename_match = re.match(r'.*-c\s+([^\s]+\.cfg)\s+', command)
+   if config_filename_match:
+      return config_filename_match.group(1)
+   
+   print "*ERROR* Could not read config filename"
+   sys.exit(-1)
 
-# get PIN_HOME from Makefile.config
-def get_pin_home(graphite_home):
-    return commands.getoutput("grep '^\s*PIN_HOME' %s/Makefile.config | sed 's/^\s*PIN_HOME\s*=\s*\(.*\)/\\1/'" % (graphite_home))
+# Read number of processes (from command string. If not found, from the config file)
+def getNumProcesses(command):
+   proc_match = re.match(r'.*--general/num_processes\s*=\s*([0-9]+)', command)
+   if proc_match:
+      return int(proc_match.group(1))
+   
+   config_filename = getConfigFilename(command)
+   config = open(config_filename, 'r').readlines()
+   
+   found_general = False
+   for line in config:
+      if found_general == True:
+         proc_match = re.match(r'\s*num_processes\s*=\s*([0-9]+)', line)
+         if proc_match:
+            return int(proc_match.group(1))
+      else: 
+         if re.match(r'\s*\[general\]', line):
+            found_general = True
 
-# spawn_job:
-#  start up a command on one machine
-#  can be called by spawn_master.py or spawn_slave.py
+   print "*ERROR* Could not read number of processes to start the simulation"
+   sys.exit(-1)
 
-def spawn_job(proc_num, command, graphite_home):
-    # Set LD_LIBRARY_PATH using PIN_HOME from Makefile.config
-    os.environ['LD_LIBRARY_PATH'] =  "%s/intel64/runtime" % get_pin_home(graphite_home)
-    os.environ['CARBON_PROCESS_INDEX'] = "%d" % (proc_num)
-    os.environ['GRAPHITE_HOME'] = graphite_home
-    proc = subprocess.Popen(command, shell=True, preexec_fn=os.setsid, env=os.environ)
-    return proc
+# Read machine list (from command string. If not found, from the config file)
+def getMachineList(command, num_processes):
+   machine_list = []
 
-# spawn_renew_permissions_proc:
-#  command to renew Kerberos/AFS tokens
-def spawn_renew_permissions_proc():
+   curr_process_num = 0
+   while True:
+      hostname_match = re.match(r'.*--process_map/process%d\s*=\s*([A-Za-z0-9.]+)' % (curr_process_num), command)
+      if hostname_match:
+         machine_list.append(hostname_match.group(1))
+         curr_process_num = curr_process_num + 1
+         if (curr_process_num == num_processes):
+            return machine_list
+      else:
+         break
+
+   if (curr_process_num > 0):
+      print "*ERROR* Found location of at least one process but not all processes from the command string"
+      sys.exit(-1)
+
+   
+   config_filename = getConfigFilename(command)
+   config = open(config_filename).readlines()
+   
+   found_process_map = False
+   for line in config:
+      if found_process_map == True:
+         hostname_match = re.match(r'\s*process%d\s*=\s*\"([A-Za-z0-9.]+)\"' % (curr_process_num), line)
+         if hostname_match:
+            machine_list.append(hostname_match.group(1))
+            curr_process_num = curr_process_num + 1
+            if curr_process_num == num_processes:
+               return machine_list
+      else: 
+         if re.match(r'\s*\[process_map\]', line):
+            found_process_map = True
+
+   print "*ERROR* Could not read process list from config file"
+   sys.exit(-1)
+
+# main -- if this is used as standalone script
+if __name__=="__main__":
+  
+   scheduler = sys.argv[1]
+   mode = sys.argv[2]
+   batch_job = sys.argv[3]
+   pin_run = sys.argv[4]
+   sim_flags = sys.argv[5]
+   exec_command = sys.argv[6]
+   config_filename = getConfigFilename(sim_flags)
+   output_dir = getOutputDir(sim_flags)
+   num_processes = getNumProcesses(sim_flags)
+   machine_list = getMachineList(sim_flags, num_processes)
+   working_dir = os.getcwd()
+
+   if (mode == "pin"):
+      command = "%s %s -- %s" % (pin_run, sim_flags, exec_command)
+   elif (mode == "native"):
+      command = "%s %s" % (exec_command, sim_flags)
+   else:
+      print "*ERROR* Unrecognized Mode: %s" % (mode)
+      sys.exit(2)
+
+   if (scheduler == "condor") and (num_processes != 1):
+      print "*ERROR* Only single process simulations allowed with condor scheduler"
+      sys.exit(3)
+
+   if (scheduler == "basic"):
+      job = BasicMasterJob(command, output_dir, config_filename, batch_job, machine_list)
+   elif (scheduler == "condor"):
+      job = CondorMasterJob(command, output_dir, config_filename, batch_job)
+   else:
+      print "*ERROR* Unrecognized Scheduler: %s" % (scheduler)
+      sys.exit(4)
+
+   # Spawn job
+   job.spawn()
+
    try:
-      test_proc = subprocess.Popen("krenew")
-   except OSError:
-      return None
-   test_proc.wait()
-   return subprocess.Popen("krenew -K 60 -t", shell=True, preexec_fn=os.setsid)
+      return_code = job.wait()
+      print "%s\n" % (pReturnCode(return_code))
+      sys.exit(return_code)
+   except KeyboardInterrupt:
+      msg = colorstr('Keyboard interrupt. Killing simulation', 'RED')
+      print msg
+      job.kill()
+      sys.exit(signal.SIGINT)

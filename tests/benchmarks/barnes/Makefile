@@ -1,6 +1,6 @@
 TARGET = barnes
 OBJECTS = code.o code_io.o load.o grav.o getparam.o util.o
-APP_FLAGS ?= \< $(CURDIR)/input
+APP_FLAGS ?= < inputs/input.65536.64
 
 #MACROS := ../splash_support/c.m4.null.CARBON
 MACROS := ../splash_support/c.m4.null.POSIX
@@ -16,4 +16,3 @@ getparam.o: getparam.C stdinc.h
 grav.o: grav.C stdinc.h
 load.o: load.C stdinc.h
 util.o: util.C stdinc.h
-
