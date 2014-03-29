@@ -107,8 +107,9 @@ for benchmark in benchmark_list:
       else:
          summary_file.write("%s | %s | %s |  %s |  %s | %s | %s | %s | %s |\n" % \
                             (benchmark.ljust(21), str(num_machines).center(12), 'FAIL'.center(8),
-                             ''.ljust(13), ''.ljust(11),
-                             ''.ljust(10), ''.ljust(10), ''.ljust(18)))
+                             ''.ljust(13), ''.ljust(13),
+                             ''.ljust(11), ''.ljust(10),
+                             ''.ljust(10), ''.ljust(18)))
 
 summary_file.write("_" * 145)
 summary_file.write("\n\n")
