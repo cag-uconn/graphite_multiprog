@@ -19,17 +19,17 @@ class CondorMasterJob(MasterJob):
       cluster_match = re.search(r'submitted to cluster ([0-9]+)', output)
       assert(cluster_match != None)
       self.proc = cluster_match.group(1)
-      
+
    def poll(self):
       # Check condor queue to see if the process is still active
-      running_procs = commands.getoutput("condor_q -format \"%s\\n\" ClusterId" % (self.proc)).split()
+      running_procs = commands.getoutput("condor_q | cut -d ' ' -f 2 | grep '^[0-9]' | cut -d '.' -f 1").split()
       return (self.proc in running_procs)
-
+      
    def wait(self):
       # Check condor queue to see if the process is still active
       while True:
-         running_procs = commands.getoutput("condor_q -format \"%s\\n\" ClusterId" % (self.proc)).split()
-         if (not self.proc in running_procs):
+         ret = self.poll()
+         if ret == False:
             if self.batch_job == "false":
                os.system("cat %s/condor_job.output" % (self.output_dir))
             return 0 if os.path.isfile("%s/sim.out" % (self.output_dir)) else 1
