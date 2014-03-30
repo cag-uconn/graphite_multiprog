@@ -55,7 +55,10 @@ for benchmark in benchmark_list:
    app_flags = getAppFlags(benchmark)
 
    # Generate SIM_FLAGS
-   sim_flags = "--general/total_cores=64"
+   sim_flags = "--general/total_cores=64 " + \
+               "--general/mode=lite " + \
+               "--general/enable_power_modeling=true " + \
+               "--general/trigger_models_within_application=true "
       
    # Generate sub_dir where results are going to be placed
    sub_dir = "%s" % (benchmark)
