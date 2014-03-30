@@ -211,7 +211,7 @@ VOID instructionCallback(INS ins, void *v)
          else rewriteMemOp (ins);
       }
    }
-   else // Sim()->getConfig()->getSimulationMode() == Config::LITE
+   else // (Sim()->getConfig()->getSimulationMode() == Config::LITE)
    {
       // Special handling for futex syscall because of internal Pin lock
       if (INS_IsSyscall(ins))
@@ -427,7 +427,7 @@ int main(int argc, char *argv[])
       PIN_AddSyscallExitFunction(syscallExitRunModel, 0);
       PIN_AddContextChangeFunction(contextChange, NULL);
    }
-   else // Sim()->getConfig()->getSimulationMode() == Config::LITE
+   else // (Sim()->getConfig()->getSimulationMode() == Config::LITE)
    {
       PIN_AddSyscallEntryFunction(lite::syscallEnterRunModel, 0);
       PIN_AddSyscallExitFunction(lite::syscallExitRunModel, 0);
