@@ -22,7 +22,7 @@ class CondorMasterJob(MasterJob):
 
    def poll(self):
       # Check condor queue to see if the process is still active
-      running_procs = commands.getoutput("condor_q | cut -d ' ' -f 2 | grep '^[0-9]' | cut -d '.' -f 1").split()
+      running_procs = commands.getoutput("condor_q -format \'%s,\' ClusterId").split(',')
       return (self.proc in running_procs)
       
    def wait(self):
