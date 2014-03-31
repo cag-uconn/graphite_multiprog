@@ -3,6 +3,7 @@
 import commands
 import re
 
+import condor_config
 from master_job import *
 
 # CondorJob:
@@ -47,10 +48,10 @@ class CondorMasterJob(MasterJob):
                         "Executable = /bin/bash\n" + \
                         "Arguments = %s/condor_job.sh\n" % (self.output_dir) + \
                         "Log = /tmp/echo.$ENV(USER).log\n" + \
-                        "RequestCpus = 32\n" + \
-                        "RequestMemory = 7680\n" + \
-                        "Requirements = (isDraco || isFos)\n" + \
-                        "Rank = (isDraco || isFos)\n" + \
+                        "RequestCpus = %s\n" % (condor_config.request_cpus) + \
+                        "RequestMemory = %s\n" % (condor_config.request_memory) + \
+                        "Requirements = %s\n" % (condor_config.requirements) + \
+                        "Rank = %s\n" % (condor_config.rank) + \
                         "Error = %s/condor_job.output\n" % (self.output_dir) + \
                         "Output = %s/condor_job.output\n" % (self.output_dir) + \
                         "queue 1\n"

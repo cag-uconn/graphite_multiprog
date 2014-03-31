@@ -13,6 +13,7 @@ results_dir = "./tools/regress/simulation_results"
 # config_filename: Config file to use for the simulation
 config_filename = "carbon_sim.cfg"
 
+# machines: List of machines to run the simulations on. Only used with the 'basic' scheduler
 # Do not use 'localhost' or '127.0.0.1', use the machine name
 machines = [
     "draco1",
