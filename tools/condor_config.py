@@ -2,7 +2,7 @@
 
 # machine_pool: Machine pool to run the Graphite simulations on
 # Right now, only choose one of ["fos","draco"]. This will be fixed later.
-machine_pool = "fos"
+machine_pool = "draco"
 
 # WARNING: Do not modify anything below this line
 if machine_pool == "draco":
