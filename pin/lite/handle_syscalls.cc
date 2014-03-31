@@ -11,6 +11,8 @@ using namespace std;
 namespace lite
 {
 
+static bool _application_running = true;
+
 void handleFutexSyscall(CONTEXT* ctx)
 {
    ADDRINT syscall_number = PIN_GetContextReg (ctx, REG_GAX);
@@ -29,26 +31,37 @@ void handleFutexSyscall(CONTEXT* ctx)
    args.arg5 = PIN_GetContextReg (ctx, LEVEL_BASE::REG_R9);
 
    Core* core = Sim()->getTileManager()->getCurrentCore();
-   LOG_ASSERT_ERROR(core != NULL, "Core(NULL)");
-   LOG_PRINT("Enter Syscall (202)");
-   
+   assert(core);
+ 
    core->getSyscallMdl()->runEnter(syscall_number, args);
 }
 
 void syscallEnterRunModel(THREADID threadIndex, CONTEXT* ctx, SYSCALL_STANDARD syscall_standard, void* v)
 {
    Core* core = Sim()->getTileManager()->getCurrentCore();
-   LOG_ASSERT_ERROR(core, "Core(NULL)");
+   assert(core);
    IntPtr syscall_number = PIN_GetSyscallNumber(ctx, syscall_standard);
   
    // Save the syscall number
    core->getSyscallMdl()->saveSyscallNumber(syscall_number);
    
    switch (syscall_number)
-   { 
+   {
+   // Process exiting
+   case SYS_exit_group:
+      {
+         _application_running = false; 
+         SyscallMdl::syscall_args_t args = syscallArgs(ctx, syscall_standard);
+         core->getSyscallMdl()->runEnter(syscall_number, args);
+      }
+      break;
+
    // Inter-thread synchronization 
    case SYS_futex:
-      PIN_SetSyscallNumber(ctx, syscall_standard, SYS_getpid);
+      {
+         if (_application_running)
+            PIN_SetSyscallNumber(ctx, syscall_standard, SYS_getpid);
+      }
       break;
 
    // Time manipulation

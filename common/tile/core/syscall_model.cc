@@ -255,6 +255,11 @@ IntPtr SyscallMdl::runEnter(IntPtr syscall_number, syscall_args_t &args)
       m_ret_val = marshallGetCwdCall(args);
       break;
 
+   case SYS_exit_group:
+      m_called_enter = true;
+      m_ret_val = marshallExitGroupCall(args);
+      break;
+
    case SYS_sched_setaffinity:
       m_called_enter = true;
       m_ret_val = marshallSchedSetAffinityCall(args);
@@ -265,7 +270,6 @@ IntPtr SyscallMdl::runEnter(IntPtr syscall_number, syscall_args_t &args)
       m_ret_val = marshallSchedGetAffinityCall(args);
       break;
 
-   case -1:
    default:
       break;
    }
@@ -1311,6 +1315,40 @@ IntPtr SyscallMdl::marshallGetCwdCall(syscall_args_t &args)
    delete [] (Byte*) recv_pkt.data;
 
    return (carbon_reg_t) buf;
+}
+
+IntPtr SyscallMdl::marshallExitGroupCall(syscall_args_t &args)
+{
+   if (Config::getSingleton()->isSimulatingSharedMemory())
+   {
+      Core *core = Sim()->getTileManager()->getCurrentCore();
+      LOG_ASSERT_ERROR(core, "Core = ((NULL))");
+
+      UInt64 curr_time = core->getModel()->getCurrTime().getTime();
+      m_send_buff.put(curr_time);
+
+      // send the data
+      m_network->netSend(Config::getSingleton()->getMCPCoreId(), MCP_REQUEST_TYPE, m_send_buff.getBuffer(), m_send_buff.size());
+
+      // Set the CoreState to 'STALLED'
+      core->setState(Core::STALLED);
+
+      // get a result
+      NetPacket recv_pkt;
+      recv_pkt = m_network->netRecv(Config::getSingleton()->getMCPCoreId(), core->getId(), MCP_RESPONSE_TYPE);
+
+      // Set the CoreState to 'RUNNING'
+      core->setState(Core::RUNNING);
+
+      // Delete the data buffer
+      delete [] (Byte*) recv_pkt.data;
+
+      return (carbon_reg_t) 0;
+   }
+   else
+   {
+      return (carbon_reg_t) syscall (SYS_exit_group);
+   }
 }
 
 IntPtr SyscallMdl::marshallSchedSetAffinityCall(syscall_args_t &args)

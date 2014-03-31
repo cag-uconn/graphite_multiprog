@@ -72,6 +72,8 @@ private:
 
    void marshallGetTargetStartTimeCall(core_id_t core_id);
 
+   void marshallExitGroupCall(core_id_t core_id);
+
    void marshallSchedSetAffinityCall(core_id_t core_id);
    void marshallSchedGetAffinityCall(core_id_t core_id);
 

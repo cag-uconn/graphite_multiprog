@@ -9,6 +9,8 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#define __STDC_LIMIT_MACROS
+#include <stdint.h>
 
 #include "syscall_server.h"
 #include "sys/syscall.h"
@@ -138,6 +140,10 @@ void SyscallServer::handleSyscall(core_id_t core_id)
    case SYS_gettimeofday:
    case SYS_clock_gettime:
       marshallGetTargetStartTimeCall (core_id);
+      break;
+
+   case SYS_exit_group:
+      marshallExitGroupCall (core_id);
       break;
 
    case SYS_sched_setaffinity:
@@ -770,6 +776,21 @@ void SyscallServer::marshallSchedGetAffinityCall(core_id_t core_id)
    CPU_FREE(mask);
 }
 
+void SyscallServer::marshallExitGroupCall(core_id_t core_id)
+{
+   UInt64 curr_time;
+   m_recv_buff.get(curr_time);
+
+   for (FutexMap::iterator it = m_futexes.begin(); it != m_futexes.end(); it++)
+   {
+      IntPtr address = (*it).first;
+      __futexWake((int*) address, INT32_MAX, curr_time);
+   }
+   
+   m_send_buff.clear();
+   m_send_buff << curr_time;
+   m_network.netSend(core_id, MCP_RESPONSE_TYPE, m_send_buff.getBuffer(), m_send_buff.size());
+}
 
 void SyscallServer::marshallFutexCall(core_id_t core_id)
 {

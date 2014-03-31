@@ -88,6 +88,9 @@ class SyscallMdl
       IntPtr handleClockGetResCall(syscall_args_t &args);
       
       IntPtr marshallGetCwdCall(syscall_args_t &args);
+      
+      IntPtr marshallExitGroupCall(syscall_args_t &args);
+      
       IntPtr marshallSchedSetAffinityCall(syscall_args_t &args);
       IntPtr marshallSchedGetAffinityCall(syscall_args_t &args);
 
