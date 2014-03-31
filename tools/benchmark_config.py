@@ -111,7 +111,7 @@ threads_table = {
       "fluidanimate"                               : 64,
       "canneal"                                    : 64,
       "streamcluster"                              : 64,
-      "freqmine"                                   : 8,
+      "freqmine"                                   : 64,
       "dedup"                                      : 63,
       "ferret"                                     : 63,
       "bodytrack"                                  : 63,
