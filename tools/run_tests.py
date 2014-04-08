@@ -12,12 +12,6 @@ from benchmark_config import *
 from utils import *
 from sim_job import SimJob
 
-def getAppFlags(benchmark):
-   app_flags = None
-   if benchmark in app_flags_table:
-      app_flags = app_flags_table[benchmark]
-   return app_flags
-
 # scheduler: Use 'condor' for the condor scheduling system or 'basic' for using Graphite's scheduling system
 scheduler = "basic"
 
