@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import time
+
 from scheduler import Scheduler
 from termcolors import *
 
@@ -12,6 +14,7 @@ class CondorScheduler(Scheduler):
       # Schedule all the jobs
       for job in self.jobs:
          job.spawn()
+         time.sleep(0.1)
 
    def iterate(self):
       # Poll jobs to see if any of them completed
