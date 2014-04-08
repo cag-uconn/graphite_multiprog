@@ -32,7 +32,8 @@ machines = [
     "draco6",
     ]
 
-# benchmark_list: List of benchmarks to use (now includes SPLASH-2 & PARSEC)
+# benchmark_list: List of benchmarks to use (includes SPLASH-2 & PARSEC)
+#   By default, only SPLASH-2 benchmarks are selected
 #benchmark_list = splash2_list + parsec_list
 benchmark_list = splash2_list
 
