@@ -34,6 +34,7 @@ class CondorMasterJob(MasterJob):
             if self.batch_job == "false":
                os.system("cat %s/condor_job.output" % (self.output_dir))
             exit_code = commands.getoutput("condor_history %s -long | grep ExitCode | cut -f 3 -d \' \'" % (self.proc))
+            assert(exit_code != "")
             return int(exit_code)
       time.sleep(0.5)
 
