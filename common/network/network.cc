@@ -205,7 +205,6 @@ SInt32 Network::netSend(NetPacket& packet)
 
 SInt32 Network::netSend(module_t module, NetPacket& packet)
 {
-
    NetworkModel* model = getNetworkModelFromPacketType(packet.type);
    packet.time += model->getSynchronizationDelay(module);
    return netSend(packet);
@@ -669,7 +668,6 @@ NetPacket::NetPacket(Time t, PacketType ty, SInt32 s,
    receiver = Tile::getMainCoreId(r);
 }
 
-
 NetPacket::NetPacket(Time t, PacketType ty, core_id_t s,
                      core_id_t r, UInt32 l, const void *d)
    : time(t)
@@ -688,7 +686,6 @@ NetPacket::NetPacket(Byte *buffer)
 {
    memcpy(this, buffer, sizeof(*this));
 
-   // LOG_ASSERT_ERROR(length > 0, "type(%u), sender(%i), receiver(%i), length(%u)", type, sender, receiver, length);
    if (length > 0)
    {
       Byte* data_buffer = new Byte[length];
