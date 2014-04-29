@@ -13,6 +13,7 @@ using std::stringstream;
 #include "fixed_types.h"
 #include "time_types.h"
 #include "mcpat_instruction.h"
+#include "micro_op.h"
 
 // forward declaration
 class CoreModel;
@@ -105,6 +106,8 @@ public:
    bool isAtomic() const
    { return _atomic; }
 
+   const MicroOpList& getMicroOps() const
+   { return _micro_ops; }
    const RegisterOperandList& getReadRegisterOperands() const
    { return _operands.getReadRegister(); }
    const RegisterOperandList& getWriteRegisterOperands() const
@@ -121,6 +124,8 @@ public:
    
    bool isSimpleMovMemoryLoad() const
    { return _simple_mov_memory_load; }
+   bool isSimpleMovMemoryStore() const
+   { return _simple_mov_memory_store; }
 
 private:
    InstructionType _type;
@@ -130,9 +135,11 @@ private:
    UInt32 _size;
    bool _atomic;
 
+   MicroOpList _micro_ops;
    const OperandList _operands;
    const McPATInstruction* _mcpat_instruction;
    bool _simple_mov_memory_load;
+   bool _simple_mov_memory_store;
 };
 
 // conditional branches

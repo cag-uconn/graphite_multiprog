@@ -1,31 +1,25 @@
-#ifndef IOCOOM_CORE_MODEL_H
-#define IOCOOM_CORE_MODEL_H
+#pragma once
+
+#include <iostream>
+using std::ostream;
+using std::pair;
 
 #include "core_model.h"
+#include "micro_op.h"
 /*
-  In-order core, out-of-order memory model.
-  We use a simple scoreboard to keep track of registers.
-  We also keep a store buffer to enable load bypassing.
+  Out-of-order core model.
  */
-class IOCOOMCoreModel : public CoreModel
+class OOOCoreModel : public CoreModel
 {
 private:
-   enum CoreUnit
-   {
-      INVALID_UNIT = 0,
-      LOAD_UNIT = 1,
-      STORE_UNIT = 2,
-      EXECUTION_UNIT = 3
-   };
-
    typedef vector<Time> Scoreboard;
 
 public:
-   IOCOOMCoreModel(Core* core);
-   ~IOCOOMCoreModel();
+   OOOCoreModel(Core* core);
+   ~OOOCoreModel();
 
    void outputSummary(ostream &os, const Time& target_completion_time);
-   
+
    class InstructionFetchStage
    {
    public:
@@ -57,32 +51,58 @@ public:
       Time _timestamp;
    };
 
-   class RegisterFetchStage
+   class RegisterRenameStage
    {
    public:
-      RegisterFetchStage(CoreModel* core_model);
+      RegisterRenameStage(CoreModel* core_model);
 
-      void handle(const Time& decode_ready, const Time& register_operands_ready);
+      void handle(const Time& decode_ready);
       Time sync(const Time& next_stage_timestamp);
-      const Time& getTimeStamp() const { return _timestamp; }
+      const Time& getTimeStamp() { return _timestamp; }
 
    private:
       CoreModel* _core_model;
       Time _timestamp;
    };
 
-   class DispatchStage
+   class AllocateStage
    {
    public:
-      DispatchStage(CoreModel* core_model);
+      AllocateStage(CoreModel* core_model);
 
-      void handle(const Time& register_fetch_ready, const Time& register_operands_ready);
+      void handle(const Time& rename_ready, const Time& allocate_latency);
       Time sync(const Time& next_stage_timestamp);
-      const Time& getTimeStamp() const { return _timestamp; }
+      const Time& getTimeStamp() { return _timestamp; }
+      void outputSummary(ostream& os);
 
    private:
       CoreModel* _core_model;
       Time _timestamp;
+      Time _total_stall_time;
+   };
+
+   class ReorderBuffer
+   {
+   public:
+      ReorderBuffer(CoreModel* core_model);
+      ~ReorderBuffer();
+
+      Time allocate(const MicroOp& micro_op, const Time& schedule_time);
+      void complete(const MicroOp& micro_op, const Time& completion_time);
+      void outputSummary(ostream& os);
+
+   private:
+      CoreModel* _core_model;
+      Scoreboard _scoreboard;
+      UInt32 _num_entries;
+      UInt32 _allocate_idx;
+      Time _total_stall_time;
+   };
+
+   class ExecutionUnit
+   {
+   public:
+      Time issue(const MicroOp& micro_op, const Time& issue_time, const Time& cost);
    };
 
    class LoadStoreUnit
@@ -108,14 +128,24 @@ public:
          pair<Time,Time> issue(const Time& issue_time, bool found_in_store_queue, const DynamicMemoryInfo& info);
          const Time& getLastDeallocateTime();
          void setFenceTime(const Time& fence_time);
+         void outputSummary(ostream& os);
 
       private:
          CoreModel* _core_model;
          Scoreboard _scoreboard;
          UInt32 _num_entries;
-         bool _speculative_loads_enabled;
+         bool _speculative_cacheable_loads_enabled;
+         bool _speculative_non_conflicting_loads_enabled;
          UInt32 _allocate_idx;
          Time _fence_time;
+
+         UInt64 _num_loads__RW_shared_data;
+         UInt64 _num_loads__RO_shared_data;
+         UInt64 _num_loads__RW_private_data;
+         UInt64 _num_loads__RO_private_data;
+         
+         void initializeCounters();
+         void updateCounters(const DynamicMemoryInfo& info);
       };
 
       class StoreQueue
@@ -136,46 +166,49 @@ public:
          const Time& getLastDeallocateTime();
          void setFenceTime(const Time& fence_time);
          Status isAddressAvailable(const Time& schedule_time, IntPtr address);
+         void outputSummary(ostream& os);
 
       private:
          CoreModel* _core_model;
          Scoreboard _scoreboard;
          vector<IntPtr> _addresses;
          UInt32 _num_entries;
-         bool _multiple_outstanding_RFOs_enabled;
+         bool _multiple_outstanding_cacheable_RFOs_enabled;
+         bool _multiple_outstanding_non_conflicting_RFOs_enabled;
          UInt32 _allocate_idx;
          Time _fence_time;
+
+         UInt64 _num_stores__RW_shared_data;
+         UInt64 _num_stores__RO_shared_data;
+         UInt64 _num_stores__RW_private_data;
+         UInt64 _num_stores__RO_private_data;
+         
+         void initializeCounters();
+         void updateCounters(const DynamicMemoryInfo& info);
       };
 
-private:
+   private:
+      CoreModel* _core_model;
+      LoadQueue* _load_queue;
+      StoreQueue* _store_queue;
+      Time _total_load_queue_stall_time;
+      Time _total_store_queue_stall_time;
+   };
 
+
+private:
    static const UInt32 _NUM_REGISTERS = 512;
    
-   StoreQueue *_store_queue;
-   LoadQueue *_load_queue;
-
+   InstructionFetchStage* _instruction_fetch_stage;
+   InstructionDecodeStage* _instruction_decode_stage;
+   RegisterRenameStage* _register_rename_stage;
+   AllocateStage* _allocate_stage;
+   ReorderBuffer* _reorder_buffer;
+   ExecutionUnit* _execution_unit;
+   LoadStoreUnit* _load_store_unit;
    Scoreboard _register_scoreboard;
-   vector<CoreUnit> _register_dependency_list;
-
-   Time _ONE_CYCLE;
 
    McPATCoreInterface* _mcpat_core_interface;
    
-   // Pipeline Stall Counters
-   Time _total_load_queue_stall_time;
-   Time _total_store_queue_stall_time;
-   Time _total_l1icache_stall_time;
-   Time _total_intra_ins_l1dcache_stall_time;
-   Time _total_inter_ins_l1dcache_stall_time;
-   Time _total_intra_ins_execution_unit_stall_time;
-   Time _total_inter_ins_execution_unit_stall_time;
-   
    void handleInstruction(Instruction *instruction);
-
-   pair<Time,Time> executeLoad(const Time& schedule_time, const DynamicMemoryInfo& info);
-   Time executeStore(const Time& schedule_time, const DynamicMemoryInfo& info);
-
-   void initializePipelineStallCounters();
 };
-
-#endif // IOCOOM_CORE_MODEL_H

@@ -14,7 +14,10 @@ class McPATCoreInterface;
 #include "instruction.h"
 #include "basic_block.h"
 #include "fixed_types.h"
-#include "dynamic_instruction_info.h"
+#include "dynamic_memory_info.h"
+#include "dynamic_branch_info.h"
+
+#define ONE_CYCLE    (_core_model->get_ONE_CYCLE())
 
 class CoreModel
 {
@@ -60,6 +63,11 @@ public:
 
    Core* getCore() { return _core; };
 
+   // Model L1-Instruction Cache
+   Time modelICache(const Instruction* instruction);
+
+   const Time& get_ONE_CYCLE() { return _ONE_CYCLE; }
+
 protected:
    enum RegType
    {
@@ -86,7 +94,9 @@ protected:
    Time _curr_time;
    UInt64 _instruction_count;
    
-   Time modelICache(const Instruction* instruction);
+   // 1 Cycle
+   Time _ONE_CYCLE;
+
    void updateMemoryFenceCounters(const Instruction* instruction);
    void updateDynamicInstructionCounters(const Instruction* instruction, const Time& cost);
    void updatePipelineStallCounters(const Time& l1_icache_stall_time, const Time& l1_dcache_stall_time,

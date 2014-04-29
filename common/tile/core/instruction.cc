@@ -20,7 +20,26 @@ Instruction::Instruction(InstructionType type, UInt64 opcode, IntPtr address, UI
    , _mcpat_instruction(mcpat_instruction)
 {
    bool simple_memory_load = ((_operands.getNumReadMemory() == 1) && (_operands.getNumWriteMemory() == 0));
+   bool simple_memory_store = ((_operands.getNumReadMemory() == 0) && (_operands.getNumWriteMemory() == 1));
    _simple_mov_memory_load = simple_memory_load && (_type == INST_MOV);
+   _simple_mov_memory_store = simple_memory_store && (_type == INST_MOV);
+  
+   bool explicit_fence = ((type == INST_LFENCE) || (type == INST_SFENCE) || (type == INST_MFENCE)); 
+   bool implicit_fence = _atomic;
+   
+   // Fill micro-op structure
+   for (UInt32 i = 0; i < _operands.getNumReadMemory(); i++)
+      _micro_ops.push_back(MicroOp(MicroOp::LOAD));
+   for (UInt32 i = 0; i < _operands.getNumWriteMemory(); i++)
+      _micro_ops.push_back(MicroOp(MicroOp::STORE));
+   if (!_simple_mov_memory_load && !_simple_mov_memory_store && !explicit_fence)
+      _micro_ops.push_back(MicroOp(MicroOp::EXEC));
+   if (_type == INST_LFENCE)
+      _micro_ops.push_back(MicroOp(MicroOp::LFENCE));
+   if (_type == INST_SFENCE)
+      _micro_ops.push_back(MicroOp(MicroOp::SFENCE));
+   if ((_type == INST_MFENCE) || implicit_fence)
+      _micro_ops.push_back(MicroOp(MicroOp::MFENCE));
 }
 
 Instruction::Instruction(InstructionType type, bool dynamic)

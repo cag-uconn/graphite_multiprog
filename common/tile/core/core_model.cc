@@ -3,6 +3,7 @@
 #include "core_model.h"
 #include "simple_core_model.h"
 #include "iocoom_core_model.h"
+#include "ooo_core_model.h"
 #include "branch_predictor.h"
 #include "simulator.h"
 #include "tile_manager.h"
@@ -16,10 +17,12 @@ CoreModel* CoreModel::create(Core* core)
 {
    string core_model = Config::getSingleton()->getCoreType(core->getTile()->getId());
 
-   if (core_model == "iocoom")
-      return new IOCOOMCoreModel(core);
-   else if (core_model == "simple")
+   if (core_model == "simple")
       return new SimpleCoreModel(core);
+   else if (core_model == "iocoom")
+      return new IOCOOMCoreModel(core);
+   else if (core_model == "ooo")
+      return new OOOCoreModel(core);
    else
    {
       LOG_PRINT_ERROR("Invalid core model type: %s", core_model.c_str());
@@ -52,7 +55,9 @@ CoreModel::CoreModel(Core *core)
 
    // Initialize instruction costs
    initializeInstructionCosts(_core->getFrequency());
-   
+
+   // One cycle
+   _ONE_CYCLE = Latency(1, _core->getFrequency());   
    LOG_PRINT("Initialized CoreModel.");
 }
 
@@ -312,7 +317,7 @@ void CoreModel::iterate()
 
 void CoreModel::pushDynamicMemoryInfo(const DynamicMemoryInfo& info)
 {
-   if (!_enabled)
+   if (_instruction_queue.empty() || !_enabled)
       return;
    assert(!_dynamic_memory_info_queue.full());
    _dynamic_memory_info_queue.push_back(info);
@@ -332,7 +337,7 @@ const DynamicMemoryInfo& CoreModel::getDynamicMemoryInfo()
 
 void CoreModel::pushDynamicBranchInfo(const DynamicBranchInfo& info)
 {
-   if (!_enabled)
+   if (_instruction_queue.empty() || !_enabled)
       return;
    assert(!_dynamic_branch_info_queue.full());
    _dynamic_branch_info_queue.push_back(info);

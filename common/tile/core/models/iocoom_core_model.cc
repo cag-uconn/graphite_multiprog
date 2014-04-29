@@ -37,9 +37,6 @@ IOCOOMCoreModel::IOCOOMCoreModel(Core *core)
 
    // Initialize McPAT
    initializeMcPATInterface(num_load_queue_entries, num_store_queue_entries);
-   
-   // One Cycle   
-   _ONE_CYCLE = Latency(1, _core->getFrequency());
 }
 
 IOCOOMCoreModel::~IOCOOMCoreModel()
@@ -51,13 +48,13 @@ IOCOOMCoreModel::~IOCOOMCoreModel()
 void
 IOCOOMCoreModel::initializePipelineStallCounters()
 {
-   _total_load_queue_stall_time = Time(0);
-   _total_store_queue_stall_time = Time(0);
-   _total_l1icache_stall_time = Time(0);
-   _total_intra_ins_l1dcache_stall_time = Time(0);
-   _total_inter_ins_l1dcache_stall_time = Time(0);
-   _total_intra_ins_execution_unit_stall_time = Time(0);
-   _total_inter_ins_execution_unit_stall_time = Time(0);
+   _total_load_queue__stall_time = Time(0);
+   _total_store_queue__stall_time = Time(0);
+   _total_instruction_fetch__stall_time = Time(0);
+   _total_intra_ins__memory_access__stall_time = Time(0);
+   _total_inter_ins__memory_access__stall_time = Time(0);
+   _total_intra_ins__execution_unit__stall_time = Time(0);
+   _total_inter_ins__execution_unit__stall_time = Time(0);
 }
 
 void
@@ -91,22 +88,265 @@ void IOCOOMCoreModel::handleInstruction(Instruction *instruction)
       return;
    }
 
-   // Model Instruction Fetch Stage
-   Time instruction_ready = _curr_time;
- 
-   Time instruction_memory_access_latency = modelICache(instruction);
-   if (instruction_memory_access_latency >= _ONE_CYCLE)
-      instruction_memory_access_latency -= _ONE_CYCLE;
-   instruction_ready += instruction_memory_access_latency;
+   const MicroOpList& micro_op_list = instruction->getMicroOps();
+
+   // Sync with instruction fetch stage
+   _curr_time = getMax<Time>(_curr_time, _instruction_fetch_stage->getTimeStamp());
+
+   // Front-end processing of instructions
+   // Model instruction fetch stage
+   _instruction_fetch_stage->handle(instruction, _curr_time);
+   Time instruction_fetch_ready = _instruction_fetch_stage->sync(_instruction_decode_stage->getTimeStamp());
+
+   // Model instruction decode stage
+   _instruction_decode_stage->handle(instruction_fetch_ready);
+   Time instruction_decode_ready = _instruction_decode_stage->sync(_register_fetch_stage->getTimeStamp());
+
+   // Model register fetch stage
+   _register_fetch_stage->handle(decode_ready);
+   Time register_fetch_ready = _register_fetch_stage->sync(_dispatch_stage->getTimeStamp()); 
+
+   // Model dispatch stage
+   _dispatch_stage->handle(register_fetch_ready, instruction);
 
    // Model instruction in the following steps:
    // - find when read operations are available
    // - find latency of instruction
    // - update write operands
-   const RegisterOperandList& read_register_operands = instruction->getReadRegisterOperands();
+  
+   Time load_allocate_time = register_operands_ready;
+   Time exec_issue_time = register_operands_ready;
+   Time store_allocate_time = register_operands_ready;
+
+   Time load_completion_time = register_operands_ready;
+   Time exec_completion_time = register_operands_ready;
+ 
+   // Back-end processing of micro-ops
+   for (MicroOpList::const_iterator it = micro_op_list.begin(); it != micro_op_list.end(); it++)
+   {
+      // Within the micro-ops, always the LOADS are first, EXECUTIONS are next, and STORES are last
+      const MicroOp& micro_op = *it;
+
+      switch (micro_op.getType())
+      {
+      case MicroOp::LOAD:
+         {
+            // An instruction can have two loads that can be issued in parallel
+            Time curr_load_allocate_time = _load_store_unit->allocateLoad(register_operands_ready);
+            load_allocate_time = getMax<Time>(load_allocate_time, curr_load_allocate_time);
+            pair<Time,Time> timing_info = _load_store_unit->issueLoad(load_allocate_time);
+            load_completion_time = getMax<Time>(load_completion_time, timing_info.first);
+         }
+         break;
+
+      case MicroOp::EXEC:
+         {
+            exec_issue_time = load_completion_time;
+            // Calculate the completion time of instruction (after fetching read operands + execution unit)
+            // Assume that there is no structural hazard at the execution unit
+            exec_completion_time = _execution_unit->issue(micro_op, exec_issue_time, cost);
+         }
+         break;
+
+      case MicroOp::STORE:
+         {
+            Time prev_completion_time = getMax<Time>(load_completion_time, exec_completion_time);
+            store_allocate_time = _load_store_unit->allocateStore(prev_completion_time);
+            __attribute__((unused)) Time store_deallocate_time = _load_store_unit->issueStore(store_allocate_time);
+         }
+         break;
+
+      case MicroOp::LFENCE:
+      case MicroOp::SFENCE:
+      case MicroOp::MFENCE:
+         {
+            // Can we make the timestamps corresponding to all entries in the load/store queue 
+            // equal to the max of the deallocate time of the last entry?
+            _load_store_unit->handleFence(micro_op.getType());
+         }
+         break;
+
+      default:
+         LOG_PRINT_ERROR("Unrecognized micro-op type (%u)", micro_op.getType());
+         break;
+      }
+   }
+   
+   // REGISTER write operands
+   // In this core model, we directly resolve WAR hazards since we wait
+   // for all the read operands of an instruction to be available before we issue it
+   // Assume that the register file can be written in one cycle
    const RegisterOperandList& write_register_operands = instruction->getWriteRegisterOperands();
-   UInt32 num_read_memory_operands = instruction->getNumReadMemoryOperands();
-   UInt32 num_write_memory_operands = instruction->getNumWriteMemoryOperands();
+   const Time write_operands_ready = getMax<Time>(load_completion_time, exec_completion_time);
+   for (unsigned int i = 0; i < write_register_operands.size(); i++)
+   {
+      const RegisterOperand& reg = write_register_operands[i];
+      LOG_ASSERT_ERROR(reg < _register_scoreboard.size(), "Register value out of range: %u", reg);
+      
+      // The only case where this assertion is not true is when the register is written
+      // into but is never read before the next write operation. We assume
+      // that this never happened
+      _register_scoreboard[reg] = write_operands_ready;
+      // Update the unit that the register is waiting for
+      _register_dependency_list[reg] = (instruction->isSimpleMovMemoryLoad()) ?
+                                       LOAD_UNIT : EXECUTION_UNIT;
+   }
+
+   //                   ----->  time
+   // -----------|-------------------------|---------------------------|----------------------------|-----------
+   //    load_queue_ready        read_operands_ready         write_operands_ready          store_queue_ready
+   //            |    load_latency         |            cost           |                            |
+  
+   Time instruction_fetch__stall_time(0);
+   Time memory_access__stall_time(0);
+   Time execution_unit__stall_time(0);
+
+   // update cycle count with instruction cost
+   // If it is a simple load instruction, execute the next instruction after load_queue_ready,
+   // else wait till all the operands are fetched to execute the next instruction
+   // Just add the cost for dynamic instructions since they involve pipeline stalls
+
+   // Register Read Operands
+   execution_unit__stall_time += (register_fetch_ready__execution_unit - decode_ready);
+   _total_inter_ins__execution_unit__stall_time += (register_fetch_ready__execution_unit - decode_ready);
+   memory_access__stall_time += (register_fetch_ready__load_unit - decode_ready);
+   _total_inter_ins__memory_access__stall_time += (register_fetch_ready__load_unit - decode_ready);
+
+   // Memory Read Operands - Load Buffer Stall
+   memory_access__stall_time += (load_allocate_time - register_operands_ready);
+   _total_load_queue_stall_time += (load_allocate_time - register_operands_ready);
+   
+   if (num_execute_microps > 0)
+   {
+      // Wait until memory is loaded
+      memory_access__stall_time += (load_completion_time - load_allocate_time);
+      _total_intra_ins__memory_access__stall_time += (load_completion_time - load_allocate_time);
+   }
+
+   if (num_store_microops > 0)
+   {
+      if (num_execute_microps > 0)
+      {
+         // Wait till execution unit finishes
+         execution_unit__stall_time += (exec_completion_time - exec_issue_time);
+         _total_intra_ins__execution_unit__stall_time += (exec_completion_time - exec_issue_time);
+      }
+      else if (num_load_microops > 0)
+      {
+         // Wait until memory is loaded
+         memory_access__stall_time += (load_completion_time - load_allocate_time);
+         _total_intra_ins__memory_access__stall_time += (load_completion_time - load_allocate_time);
+      }
+   }
+   if (store_issue_time > exec_issue_time)
+   {
+      execution_unit_stall_time += (exec_completion_time - exec_issue_time);
+      _total_intra_ins_execution_unit_stall_time += (exec_completion_time - exec_issue_time);
+         
+      // Memory Write Operands - Store Buffer Stall
+      memory_access_stall_time += (store_issue_time - exec_completion_time);
+      _total_store_queue_stall_time += (store_issue_time - exec_completion_time);
+   }
+
+   // Update memory fence counters
+   updateMemoryFenceCounters(instruction);
+ 
+   // Update pipeline stall counters
+   updatePipelineStallCounters(instruction_fetch__stall_time, memory_access__stall_time, execution_unit__stall_time);
+
+   // Update McPAT counters
+   updateMcPATCounters(instruction);
+}
+
+Time
+IOCOOMCoreModel::getRegisterOperandsReady(const Instruction* instruction)
+{
+}
+
+IOCOOMCoreModel::InstructionFetchStage::InstructionFetchStage(CoreModel* core_model)
+   : _core_model(core_model)
+   , _timestamp(0)
+   , _total_stall_time(0)
+{}
+
+void
+IOCOOMCoreModel::InstructionFetchStage::handle(const Instruction* instruction, const Time& curr_time)
+{
+   assert(_timestamp <= curr_time);
+
+   Time icache_access_time = _core_model->modelICache(instruction);
+   _timestamp = (curr_time + icache_access_time);
+
+   if (icache_access_time > ONE_CYCLE)
+   {
+      Time icache_stall_time = (icache_access_time - ONE_CYCLE);
+      _total_stall_time += icache_stall_time;
+   }
+}
+
+Time
+IOCOOMCoreModel::InstructionFetchStage::sync(const Time& next_stage_timestamp)
+{
+   _timestamp = getMax<Time>(_timestamp, next_stage_timestamp);
+   return _timestamp;
+}
+
+void
+IOCOOMCoreModel::InstructionFetchStage::outputSummary(ostream& os)
+{
+   // Stall Time
+   os << "    Total Instruction Fetch Stall Time (in nanoseconds): " << _total_stall_time.toNanosec() << endl;
+}
+
+IOCOOMCoreModel::InstructionDecodeStage::InstructionDecodeStage(CoreModel* core_model)
+   : _core_model(core_model)
+   , _timestamp(0)
+{}
+
+void
+IOCOOMCoreModel::InstructionDecodeStage::handle(const Time& fetch_ready)
+{
+   assert(_timestamp <= fetch_ready);
+   _timestamp = (fetch_ready + ONE_CYCLE);
+}
+
+Time
+IOCOOMCoreModel::InstructionDecodeStage::sync(const Time& next_stage_timestamp)
+{
+   _timestamp = getMax<Time>(_timestamp, next_stage_timestamp);
+   return _timestamp;
+}
+
+IOCOOMCoreModel::RegisterFetchStage::RegisterFetchStage(CoreModel* core_model)
+   : _core_model(core_model)
+   , _timestamp(0)
+{
+}
+
+void
+IOCOOMCoreModel::RegisterFetchStage::handle(const Time& decode_ready)
+{
+   assert(_timestamp <= decode_ready);
+   _timestamp = decode_ready + ONE_CYCLE;
+}
+
+Time
+IOCOOMCoreModel::RegisterFetchStage::sync(const Time& next_stage_timestamp)
+{
+   _timestamp = getMax<Time>(_timestamp, next_stage_timestamp);
+   return _timestamp;
+}
+
+IOCOOMCoreModel::DispatchStage::DispatchStage(CoreModel* core_model)
+   : _core_model(core_model)
+   , _timestamp(0)
+{
+}
+
+void
+IOCOOMCoreModel::DispatchStage::handle(const Instruction* instruction, const Time& register_fetch_ready)
+{
+   const RegisterOperandList& read_register_operands = instruction->getReadRegisterOperands();
 
    // Time when register operands are ready (waiting for either the load unit or the execution unit)
    Time register_operands_ready__load_unit = instruction_ready;
@@ -139,182 +379,134 @@ void IOCOOMCoreModel::handleInstruction(Instruction *instruction)
    }
    
    // The read register ready time is the max of this
-   Time register_operands_ready = getMax<Time>(register_operands_ready__load_unit,
-                                               register_operands_ready__execution_unit);
-  
-   // Assume memory is read only after all registers are read
-   // This may be required since some registers may be used as the address for memory operations
-   // Time when load unit and memory operands are ready
-   Time load_queue_ready = register_operands_ready;
-   Time read_memory_operands_ready = register_operands_ready;
-   // MEMORY read & write operands
-   for (unsigned int i = 0; i < num_read_memory_operands; i++)
-   {
-      const DynamicMemoryInfo &info = getDynamicMemoryInfo();
-      LOG_ASSERT_ERROR(info._read, "Expected memory read info");
-
-      pair<Time,Time> load_timing_info = executeLoad(register_operands_ready, info);
-      Time load_allocate_time = load_timing_info.first;
-      Time load_completion_time = load_timing_info.second;
-
-      // This 'ready' is related to a structural hazard in the LOAD Unit
-      if (load_queue_ready < load_allocate_time)
-         load_queue_ready = load_allocate_time;
-      
-      // Read memory completion time is when all the read operands are available and ready for execution unit
-      if (read_memory_operands_ready < load_completion_time)
-         read_memory_operands_ready = load_completion_time;
-      
-      popDynamicMemoryInfo();
-   }
-
-   assert(read_memory_operands_ready >= load_queue_ready);
-
-   // Time when read operands (both register and memory) are ready
-   Time read_operands_ready = read_memory_operands_ready;
-
-   // Calculate the completion time of instruction (after fetching read operands + execution unit)
-   // Assume that there is no structural hazard at the execution unit
-   Time execution_unit_completion_time = read_operands_ready + cost;
-
-   // Time when write operands are ready
-   Time write_operands_ready = execution_unit_completion_time;
-
-   // REGISTER write operands
-   // In this core model, we directly resolve WAR hazards since we wait
-   // for all the read operands of an instruction to be available before
-   // we issue it
-   // Assume that the register file can be written in one cycle
-   for (unsigned int i = 0; i < write_register_operands.size(); i++)
-   {
-      const RegisterOperand& reg = write_register_operands[i];
-
-      // The only case where this assertion is not true is when the register is written
-      // into but is never read before the next write operation. We assume
-      // that this never happened
-      _register_scoreboard[reg] = write_operands_ready;
-      // Update the unit that the register is waiting for
-      _register_dependency_list[reg] = (instruction->isSimpleMovMemoryLoad()) ?
-                                       LOAD_UNIT : EXECUTION_UNIT;
-   }
-
-   Time store_queue_ready = write_operands_ready;
-   // MEMORY write operands
-   // This is done before doing register
-   // operands to make sure the scoreboard is updated correctly
-   for (unsigned int i = 0; i < num_write_memory_operands; i++)
-   {
-      const DynamicMemoryInfo& info = getDynamicMemoryInfo();
-      LOG_ASSERT_ERROR(!info._read, "Expected memory write info");
- 
-      // This just updates the contents of the store buffer
-      Time store_allocate_time = executeStore(write_operands_ready, info);
-
-      if (store_queue_ready < store_allocate_time)
-         store_queue_ready = store_allocate_time;
- 
-      popDynamicMemoryInfo();
-   }
-
-   //                   ----->  time
-   // -----------|-------------------------|---------------------------|----------------------------|-----------
-   //    load_queue_ready        read_operands_ready         write_operands_ready          store_queue_ready
-   //            |    load_latency         |            cost           |                            |
-  
-   Time l1_icache_stall_time(0);
-   Time l1_dcache_stall_time(0);
-   Time execution_unit_stall_time(0);
-
-   // update cycle count with instruction cost
-   // If it is a simple load instruction, execute the next instruction after load_queue_ready,
-   // else wait till all the operands are fetched to execute the next instruction
-   // Just add the cost for dynamic instructions since they involve pipeline stalls
-
-   // L1-I Cache
-   l1_icache_stall_time += (instruction_ready - _curr_time);
-   _total_l1icache_stall_time += (instruction_ready - _curr_time);
-
-   // Register Read Operands
-   execution_unit_stall_time += (register_operands_ready__execution_unit - instruction_ready);
-   _total_inter_ins_execution_unit_stall_time += (register_operands_ready__execution_unit - instruction_ready);
-   l1_dcache_stall_time += (register_operands_ready - register_operands_ready__execution_unit);
-   _total_inter_ins_l1dcache_stall_time += (register_operands_ready - register_operands_ready__execution_unit);
-
-   // Memory Read Operands - Load Buffer Stall
-   l1_dcache_stall_time += (load_queue_ready - register_operands_ready);
-   _total_load_queue_stall_time += (load_queue_ready - register_operands_ready);
-   
-   _curr_time = load_queue_ready;
-
-   if (!instruction->isSimpleMovMemoryLoad())
-   {
-      // Memory Read Operands - Wait for L1-D Cache
-      l1_dcache_stall_time += (read_memory_operands_ready - load_queue_ready);
-      _total_intra_ins_l1dcache_stall_time += (read_memory_operands_ready - load_queue_ready);
-
-      _curr_time = read_operands_ready;
-      
-      if (num_write_memory_operands > 0)
-      {
-         // Wait till execution unit finishes
-         execution_unit_stall_time += (write_operands_ready - read_operands_ready);
-         _total_intra_ins_execution_unit_stall_time += (write_operands_ready - read_operands_ready);
-         // Memory Write Operands - Store Buffer Stall
-         l1_dcache_stall_time += (store_queue_ready - write_operands_ready);
-         _total_store_queue_stall_time += (store_queue_ready - write_operands_ready);
-
-         _curr_time = store_queue_ready;
-
-      }
-   }
-
-   // Update time by ONE-CYCLE incase there is no memory (L1-D cache) or execution unit stall for this instruction
-   if (_curr_time == instruction_ready)
-      _curr_time += _ONE_CYCLE;
-
-   // Update memory fence / pipeline stall counters
-   updateMemoryFenceCounters(instruction);
-   updatePipelineStallCounters(l1_icache_stall_time, l1_dcache_stall_time, execution_unit_stall_time);
-
-   // Update McPAT counters
-   updateMcPATCounters(instruction);
+   return register_operands_ready = getMax<Time>(register_operands_ready__load_unit,
+                                                 register_operands_ready__execution_unit);
 }
 
-pair<Time,Time>
-IOCOOMCoreModel::executeLoad(const Time& schedule_time, const DynamicMemoryInfo& info)
+IOCOOMCoreModel::LoadStoreUnit::LoadStoreUnit(CoreModel* core_model)
+   : _core_model(core_model)
 {
-   Time load_latency(info._latency);
-   // Increment by time taken to check the store queue
-   load_latency += _ONE_CYCLE;
-   
-   // Check if data is present in store queue, If yes, just bypass
-   StoreQueue::Status status = _store_queue->isAddressAvailable(schedule_time, info._address);
-   if (status == StoreQueue::VALID)
-      return make_pair(schedule_time, schedule_time + _ONE_CYCLE);
-   else // (status != StoreQueue::VALID)
-      return _load_queue->execute(schedule_time, load_latency);
+   _load_queue = new LoadQueue(core_model);
+   _store_queue = new StoreQueue(core_model);
+   _total_load_queue_stall_time = Time(0);
+   _total_store_queue_stall_time = Time(0);
+}
+
+IOCOOMCoreModel::LoadStoreUnit::~LoadStoreUnit()
+{
+   delete _store_queue;
+   delete _load_queue;
+}
+
+void
+IOCOOMCoreModel::LoadStoreUnit::outputSummary(ostream& os)
+{
+   // Stall Time
+   os << "    Total Load Queue Stall Time (in nanoseconds): " << _total_load_queue_stall_time.toNanosec() << endl;
+   os << "    Total Store Queue Stall Time (in nanoseconds): " << _total_store_queue_stall_time.toNanosec() << endl;
 }
 
 Time
-IOCOOMCoreModel::executeStore(const Time& schedule_time, const DynamicMemoryInfo& info)
+IOCOOMCoreModel::LoadStoreUnit::allocateLoad(const Time& schedule_time)
 {
-   Time store_latency(info._latency);
-   // Increment by time taken to check the load queue
-   store_latency += _ONE_CYCLE;
-  
+   Time load_allocate_time = _load_queue->allocate(schedule_time);
+   _total_load_queue_stall_time += (load_allocate_time - schedule_time);
+   return load_allocate_time;
+}
+
+Time
+IOCOOMCoreModel::LoadStoreUnit::allocateStore(const Time& schedule_time)
+{
+   Time store_allocate_time = _store_queue->allocate(schedule_time);
+   _total_store_queue_stall_time += (store_allocate_time - schedule_time);
+   return store_allocate_time;
+}
+
+pair<Time,Time>
+IOCOOMCoreModel::LoadStoreUnit::issueLoad(const Time& issue_time)
+{
+   // Assume memory is read only after all registers are read
+   // This may be required since some registers may be used as the address for memory operations
+   // Time when load unit and memory operands are ready
+   // MEMORY read operands
+   const DynamicMemoryInfo &info = _core_model->getDynamicMemoryInfo();
+   LOG_ASSERT_ERROR(info._read, "Expected memory read info");
+
+   Time load_completion_time;
+   Time load_deallocate_time;
+   // Check if data is present in store queue, If yes, just bypass
+   StoreQueue::Status status = _store_queue->isAddressAvailable(issue_time, info._address);
+   if (status == StoreQueue::VALID)
+   {
+      pair<Time,Time> timing_info = _load_queue->issue(issue_time, true, info);
+      load_completion_time = issue_time + ONE_CYCLE;
+      load_deallocate_time = timing_info.second;
+   }
+   else // (status != StoreQueue::VALID)
+   {
+      pair<Time,Time> timing_info = _load_queue->issue(issue_time, false, info);
+      load_completion_time = timing_info.first;
+      load_deallocate_time = timing_info.second;
+   }
+
+   _core_model->popDynamicMemoryInfo();
+   return make_pair(load_completion_time, load_deallocate_time); 
+}
+
+Time
+IOCOOMCoreModel::LoadStoreUnit::issueStore(const Time& issue_time)
+{
+   // MEMORY write operands
+   // This is done before doing register
+   // operands to make sure the scoreboard is updated correctly
+   const DynamicMemoryInfo& info = _core_model->getDynamicMemoryInfo();
+   LOG_ASSERT_ERROR(!info._read, "Expected memory write info");
+   
+   // This just updates the contents of the store buffer
    // Find the last load deallocate time
    Time last_load_deallocate_time = _load_queue->getLastDeallocateTime();
-   return _store_queue->execute(schedule_time, store_latency, last_load_deallocate_time, info._address);
+   Time store_deallocate_time = _store_queue->issue(issue_time, last_load_deallocate_time, info);
+
+   _core_model->popDynamicMemoryInfo();
+   return store_deallocate_time;
+}
+
+void
+IOCOOMCoreModel::LoadStoreUnit::handleFence(MicroOp::Type micro_op_type)
+{
+   Time last_load_deallocate_time = _load_queue->getLastDeallocateTime();
+   Time last_store_deallocate_time = _store_queue->getLastDeallocateTime();
+   Time last_memop_deallocate_time = getMax<Time>(last_load_deallocate_time, last_store_deallocate_time);
+   
+   switch (micro_op_type)
+   {
+   case MicroOp::LFENCE:
+      _load_queue->setFenceTime(last_load_deallocate_time);
+      break;
+   case MicroOp::SFENCE:
+      _store_queue->setFenceTime(last_store_deallocate_time);
+      break;
+   case MicroOp::MFENCE:
+      _load_queue->setFenceTime(last_memop_deallocate_time);
+      _store_queue->setFenceTime(last_memop_deallocate_time);
+      break;
+   default:
+      LOG_PRINT_ERROR("Unrecognized micro-op type: %u", micro_op_type);
+      break;
+   }
 }
 
 // Load Queue 
 
-IOCOOMCoreModel::LoadQueue::LoadQueue(CoreModel* core_model)
+IOCOOMCoreModel::LoadStoreUnit::LoadQueue::LoadQueue(CoreModel* core_model)
+   : _core_model(core_model)
+   , _fence_time(0)
 {
+   config::Config* cfg = Sim()->getCfg();
    try
    {
-      _num_entries = Sim()->getCfg()->getInt("core/iocoom/num_load_queue_entries");
-      _speculative_loads_enabled = Sim()->getCfg()->getBool("core/iocoom/speculative_loads_enabled");
+      _num_entries = cfg->getInt("core/iocoom/num_load_queue_entries");
+      _speculative_loads_enabled = cfg->getBool("core/iocoom/speculative_loads_enabled");
    }
    catch (...)
    {
@@ -322,73 +514,77 @@ IOCOOMCoreModel::LoadQueue::LoadQueue(CoreModel* core_model)
    }
    _scoreboard.resize(_num_entries, Time(0));
    _allocate_idx = 0;
-   // One Cycle   
-   _ONE_CYCLE = Latency(1, core_model->getCore()->getFrequency());
 }
 
-IOCOOMCoreModel::LoadQueue::~LoadQueue()
+IOCOOMCoreModel::LoadStoreUnit::LoadQueue::~LoadQueue()
 {
+}
+
+Time
+IOCOOMCoreModel::LoadStoreUnit::LoadQueue::allocate(const Time& schedule_time)
+{
+   return getMax<Time>(_scoreboard[_allocate_idx] + ONE_CYCLE, schedule_time);
 }
 
 pair<Time,Time>
-IOCOOMCoreModel::LoadQueue::execute(const Time& schedule_time, const Time& load_latency)
+IOCOOMCoreModel::LoadStoreUnit::LoadQueue::issue(const Time& issue_time, bool found_in_store_queue,
+                                              const DynamicMemoryInfo& info)
 {
+   const Time& load_latency = (found_in_store_queue) ? ONE_CYCLE : info._latency;
+   Time actual_issue_time = getMax<Time>(issue_time, _fence_time);
+
    // Issue loads to cache hierarchy one by one
-   Time allocate_time = getMax<Time>(_scoreboard[_allocate_idx], schedule_time);
    Time completion_time;
    Time deallocate_time;
    UInt32 last_idx = (_allocate_idx + _num_entries-1) % (_num_entries);
+
    if (_speculative_loads_enabled)
    {
       // With speculative loads, issue_time = allocate_time
-      Time issue_time = allocate_time;
-      completion_time = issue_time + load_latency;
+      completion_time = actual_issue_time + load_latency;
       // The load queue should be de-allocated in order for memory consistency purposes
       // Assumption: Only one load can be deallocated per cycle
-      deallocate_time = getMax<Time>(completion_time, _scoreboard[last_idx] + _ONE_CYCLE);
+      deallocate_time = getMax<Time>(completion_time, _scoreboard[last_idx] + ONE_CYCLE);
    }
    else // (!_speculative_loads_enabled)
    {
       // With non-speculative loads, loads can be issued and completed only in FIFO order
-      Time issue_time = getMax<Time>(_scoreboard[last_idx], schedule_time);
-      completion_time = issue_time + load_latency;
+      actual_issue_time = getMax<Time>(actual_issue_time, _scoreboard[last_idx]);
+      completion_time = actual_issue_time + load_latency;
       deallocate_time = completion_time;
    }
+
    _scoreboard[_allocate_idx] = deallocate_time;
    _allocate_idx = (_allocate_idx + 1) % (_num_entries);
-   return make_pair(allocate_time, completion_time);
+   return make_pair(completion_time, deallocate_time);
 }
 
 const Time&
-IOCOOMCoreModel::LoadQueue::getLastDeallocateTime()
+IOCOOMCoreModel::LoadStoreUnit::LoadQueue::getLastDeallocateTime()
 {
    UInt32 last_idx = (_allocate_idx + _num_entries-1) % _num_entries;
    return _scoreboard[last_idx];
 }
 
-ostringstream&
-operator<<(ostringstream& os, const IOCOOMCoreModel::LoadQueue& queue)
+void
+IOCOOMCoreModel::LoadStoreUnit::LoadQueue::setFenceTime(const Time& fence_time)
 {
-   os << "LoadQueue: (";
-   for (UInt32 i = 0; i < queue._num_entries; i++)
-   {
-      const Time& deallocate_time = queue._scoreboard[i];
-      os << deallocate_time.toNanosec() << ", ";
-   }
-   os << ")" << endl;
-   return os;
+   _fence_time = fence_time;
 }
 
 // Store Queue
 
-IOCOOMCoreModel::StoreQueue::StoreQueue(CoreModel* core_model)
+IOCOOMCoreModel::LoadStoreUnit::StoreQueue::StoreQueue(CoreModel* core_model)
+   : _core_model(core_model)
+   , _fence_time(0)
 {
    // The assumption is the store queue is reused as a store buffer
    // Committed stores have an additional "C" flag enabled
+   config::Config* cfg = Sim()->getCfg();
    try
    {
-      _num_entries = Sim()->getCfg()->getInt("core/iocoom/num_store_queue_entries");
-      _multiple_outstanding_RFOs_enabled = Sim()->getCfg()->getBool("core/iocoom/multiple_outstanding_RFOs_enabled");
+      _num_entries = cfg->getInt("core/iocoom/num_store_queue_entries");
+      _multiple_outstanding_RFOs_enabled = cfg->getBool("core/iocoom/multiple_outstanding_RFOs_enabled");
    }
    catch (...)
    {
@@ -398,57 +594,71 @@ IOCOOMCoreModel::StoreQueue::StoreQueue(CoreModel* core_model)
    _scoreboard.resize(_num_entries, Time(0));
    _addresses.resize(_num_entries, INVALID_ADDRESS);
    _allocate_idx = 0;
-   // One Cycle   
-   _ONE_CYCLE = Latency(1, core_model->getCore()->getFrequency());
 }
 
-IOCOOMCoreModel::StoreQueue::~StoreQueue()
+IOCOOMCoreModel::LoadStoreUnit::StoreQueue::~StoreQueue()
 {
 }
 
 Time
-IOCOOMCoreModel::StoreQueue::execute(const Time& schedule_time, const Time& store_latency,
-                                     const Time& last_load_deallocate_time, IntPtr address)
+IOCOOMCoreModel::LoadStoreUnit::StoreQueue::allocate(const Time& schedule_time)
 {
+   return getMax<Time>(_scoreboard[_allocate_idx] + ONE_CYCLE, schedule_time);
+}
+
+Time
+IOCOOMCoreModel::LoadStoreUnit::StoreQueue::issue(const Time& issue_time,
+                                                  const Time& last_load_deallocate_time,
+                                                  const DynamicMemoryInfo& info)
+{
+   const Time& store_latency = info._latency;
+   const IntPtr& address = info._address;
+   Time actual_issue_time = getMax<Time>(issue_time, _fence_time);
+
    // Note: basically identical to LoadQueue, except we need to track addresses as well.
    // We can't do store buffer coalescing. It violates x86 TSO memory consistency model.
    
-   Time allocate_time = getMax<Time>(_scoreboard[_allocate_idx], schedule_time);
    Time deallocate_time;
+   
    UInt32 last_idx = (_allocate_idx + _num_entries-1) % (_num_entries);
    const Time& last_store_deallocate_time = _scoreboard[last_idx];
    
    if (_multiple_outstanding_RFOs_enabled)
    {
       // With multiple outstanding RFOs, issue_time = allocate_time
-      Time issue_time = allocate_time;
-      Time completion_time = issue_time + store_latency;
+      Time RFO_completion_time = actual_issue_time + store_latency;
       // The store queue should be de-allocated in order for memory consistency purposes
       // Assumption: Only one store can be deallocated per cycle
-      deallocate_time = getMax<Time>(completion_time, last_store_deallocate_time + _ONE_CYCLE, last_load_deallocate_time);
+      deallocate_time = getMax<Time>(RFO_completion_time, last_store_deallocate_time, last_load_deallocate_time) + ONE_CYCLE;
    }
    else // (!_multiple_outstanding_RFOs_enabled)
    {
       // With multiple outstanding RFOs disabled, stores can be issued and completed only in FIFO order
-      Time issue_time = getMax<Time>(schedule_time, last_store_deallocate_time, last_load_deallocate_time);
-      Time completion_time = issue_time + store_latency;
-      deallocate_time = completion_time;
+      Time actual_issue_time = getMax<Time>(actual_issue_time, last_store_deallocate_time, last_load_deallocate_time);
+      deallocate_time = actual_issue_time + store_latency;
    }
+
    _scoreboard[_allocate_idx] = deallocate_time;
    _addresses[_allocate_idx] = address;
    _allocate_idx = (_allocate_idx + 1) % (_num_entries);
-   return allocate_time;
+   return deallocate_time;
 }
 
 const Time&
-IOCOOMCoreModel::StoreQueue::getLastDeallocateTime()
+IOCOOMCoreModel::LoadStoreUnit::StoreQueue::getLastDeallocateTime()
 {
    UInt32 last_idx = (_allocate_idx + _num_entries-1) % _num_entries;
    return _scoreboard[last_idx];
 }
 
-IOCOOMCoreModel::StoreQueue::Status
-IOCOOMCoreModel::StoreQueue::isAddressAvailable(const Time& schedule_time, IntPtr address)
+void
+IOCOOMCoreModel::LoadStoreUnit::StoreQueue::setFenceTime(const Time& fence_time)
+{
+   _fence_time = fence_time;
+}
+
+IOCOOMCoreModel::LoadStoreUnit::StoreQueue::Status
+IOCOOMCoreModel::LoadStoreUnit::StoreQueue::isAddressAvailable(const Time& schedule_time, IntPtr address)
 {
    for (unsigned int i = 0; i < _scoreboard.size(); i++)
    {
@@ -460,18 +670,3 @@ IOCOOMCoreModel::StoreQueue::isAddressAvailable(const Time& schedule_time, IntPt
    }
    return NOT_FOUND;
 }
-
-ostringstream&
-operator<<(ostringstream& os, const IOCOOMCoreModel::StoreQueue& queue)
-{
-   os << "StoreQueue (";
-   for (UInt32 i = 0; i < queue._num_entries; i++)
-   {
-      const Time& deallocate_time = queue._scoreboard[i];
-      const IntPtr& address = queue._addresses[i];
-      os << "<" << deallocate_time.toNanosec() << "," << hex << address << dec << ">, ";
-   }
-   os << ")" << endl;
-   return os;
-}
-
