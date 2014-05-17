@@ -51,11 +51,10 @@ namespace PrL1PrL2DramDirectoryMOSI
       void setL2CacheCntlr(L2CacheCntlr* L2_cache_cntlr);
 
       bool processMemOpFromCore(MemComponent::Type mem_component,
-            Core::lock_signal_t lock_signal,
-            Core::mem_op_t mem_op_type, 
-            IntPtr ca_address, UInt32 offset,
-            Byte* data_buf, UInt32 data_length,
-            bool modeled);
+                                Core::lock_signal_t lock_signal,
+                                Core::mem_op_t mem_op_type,
+                                IntPtr address, UInt32 offset,
+                                Byte* data_buf, UInt32 data_length);
 
       void insertCacheLine(MemComponent::Type mem_component,
                            IntPtr address, CacheState::Type cstate, Byte* data_buf,
@@ -79,7 +78,7 @@ namespace PrL1PrL2DramDirectoryMOSI
 
       void accessCache(MemComponent::Type mem_component,
             Core::mem_op_t mem_op_type, 
-            IntPtr ca_address, UInt32 offset,
+            IntPtr address, UInt32 offset,
             Byte* data_buf, UInt32 data_length);
       bool operationPermissibleinL1Cache(MemComponent::Type mem_component, 
             IntPtr address, Core::mem_op_t mem_op_type,

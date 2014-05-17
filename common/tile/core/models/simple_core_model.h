@@ -1,5 +1,4 @@
-#ifndef SIMPLE_CORE_MODEL_H
-#define SIMPLE_CORE_MODEL_H
+#pragma once
 
 #include "core_model.h"
 
@@ -14,5 +13,3 @@ public:
 private:
    void handleInstruction(Instruction *instruction);
 };
-
-#endif

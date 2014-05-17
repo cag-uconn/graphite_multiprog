@@ -63,16 +63,15 @@ namespace PrL1PrL2DramDirectoryMOSI
          map<IntPtr, Byte*> _data_list;
       };
 
-      // Functional Models
       MemoryManager* _memory_manager;
       DirectoryCache* _dram_directory_cache;
       DramCntlr* _dram_cntlr;
 
-      // Type of directory - (full_map, limited_broadcast, limited_no_broadcast, ackwise, limitless)
-      DirectoryType _directory_type;
-
       HashMapList<IntPtr,ShmemReq*> _dram_directory_req_queue;
       DataList _cached_data_list;
+
+      // Type of directory - (full_map, limited_no_broadcast, ackwise, limitless)
+      UInt32 _directory_type;
 
       bool _enabled;
 
@@ -138,6 +137,6 @@ namespace PrL1PrL2DramDirectoryMOSI
 
       // Add/Remove Sharer
       bool addSharer(DirectoryEntry* directory_entry, tile_id_t sharer_id);
-      void removeSharer(DirectoryEntry* directory_entry, tile_id_t sharer_id, bool reply_expected);
+      void removeSharer(DirectoryEntry* directory_entry, tile_id_t sharer_id);
    };
 }

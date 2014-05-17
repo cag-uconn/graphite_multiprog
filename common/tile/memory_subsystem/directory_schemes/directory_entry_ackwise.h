@@ -7,15 +7,16 @@ class DirectoryEntryAckwise : public DirectoryEntryLimited
 public:
    DirectoryEntryAckwise(SInt32 max_hw_sharers);
    ~DirectoryEntryAckwise();
-  
+
+   // Sharer list query operations 
+   bool isSharer(tile_id_t sharer_id) const;
+   bool getSharersList(vector<tile_id_t>& sharers_list) const;
+   SInt32 getNumSharers() const;
+   bool inBroadcastMode() const;
+   
+   // Sharer list manipulation operations  
    bool addSharer(tile_id_t sharer_id); 
-   void removeSharer(tile_id_t sharer_id, bool reply_expected);
-
-   bool inBroadcastMode();
-   bool getSharersList(vector<tile_id_t>& sharers_list);
-   SInt32 getNumSharers();
-
-   UInt32 getLatency();
+   void removeSharer(tile_id_t sharer_id);
 
 private:
    bool _global_enabled;

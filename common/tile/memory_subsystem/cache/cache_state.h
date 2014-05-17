@@ -25,16 +25,16 @@ public:
    ~CacheState() {}
 
    // readable() and writable() functions are only called in a private cache
-   bool readable()
+   bool readable() const
    {
       return (_cstate == MODIFIED) || (_cstate == EXCLUSIVE) || (_cstate == OWNED) || (_cstate == SHARED);
    }
-   bool writable()
+   bool writable() const
    {
       return (_cstate == MODIFIED) || (_cstate == EXCLUSIVE);
    }
 
-   bool dirty()
+   bool dirty() const
    {
       return (_cstate == MODIFIED) || (_cstate == OWNED) || (_cstate == DIRTY);
    }

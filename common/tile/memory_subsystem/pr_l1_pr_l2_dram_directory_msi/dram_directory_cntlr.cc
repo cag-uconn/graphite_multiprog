@@ -21,7 +21,7 @@ DramDirectoryCntlr::DramDirectoryCntlr(MemoryManager* memory_manager,
    , _dram_cntlr(dram_cntlr)
 {
    _dram_directory_cache = new DirectoryCache(_memory_manager->getTile(),
-                                              PR_L1_PR_L2_DRAM_DIRECTORY_MSI,
+                                              CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MSI,
                                               dram_directory_type_str,
                                               dram_directory_total_entries_str,
                                               dram_directory_associativity,
@@ -179,8 +179,7 @@ DramDirectoryCntlr::processNullifyReq(ShmemReq* shmem_req)
    DirectoryEntry* directory_entry = _dram_directory_cache->getDirectoryEntry(address);
    assert(directory_entry);
 
-   DirectoryBlockInfo* directory_block_info = directory_entry->getDirectoryBlockInfo();
-   DirectoryState::Type curr_dstate = directory_block_info->getDState();
+   DirectoryState::Type curr_dstate = directory_entry->getDState();
 
    switch (curr_dstate)
    {
@@ -248,8 +247,7 @@ DramDirectoryCntlr::processExReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_da
       directory_entry = processDirectoryEntryAllocationReq(shmem_req);
    }
 
-   DirectoryBlockInfo* directory_block_info = directory_entry->getDirectoryBlockInfo();
-   DirectoryState::Type curr_dstate = directory_block_info->getDState();
+   DirectoryState::Type curr_dstate = directory_entry->getDState();
 
    switch (curr_dstate)
    {
@@ -296,7 +294,7 @@ DramDirectoryCntlr::processExReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_da
          __attribute__((unused)) bool add_result = directory_entry->addSharer(requester);
          assert(add_result);
          directory_entry->setOwner(requester);
-         directory_block_info->setDState(DirectoryState::MODIFIED);
+         directory_entry->setDState(DirectoryState::MODIFIED);
 
          retrieveDataAndSendToL2Cache(ShmemMsg::EX_REP, requester, address, cached_data_buf, msg_modeled);
 
@@ -324,8 +322,7 @@ DramDirectoryCntlr::processShReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_da
       directory_entry = processDirectoryEntryAllocationReq(shmem_req);
    }
 
-   DirectoryBlockInfo* directory_block_info = directory_entry->getDirectoryBlockInfo();
-   DirectoryState::Type curr_dstate = directory_block_info->getDState();
+   DirectoryState::Type curr_dstate = directory_entry->getDState();
 
    switch (curr_dstate)
    {
@@ -364,7 +361,7 @@ DramDirectoryCntlr::processShReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_da
          // Modifiy the directory entry contents
          __attribute__((unused)) bool add_result = directory_entry->addSharer(requester);
          assert(add_result);
-         directory_block_info->setDState(DirectoryState::SHARED);
+         directory_entry->setDState(DirectoryState::SHARED);
 
          retrieveDataAndSendToL2Cache(ShmemMsg::SH_REP, requester, address, cached_data_buf, msg_modeled);
    
@@ -415,13 +412,12 @@ DramDirectoryCntlr::processInvRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_m
    DirectoryEntry* directory_entry = _dram_directory_cache->getDirectoryEntry(address);
    assert(directory_entry);
 
-   DirectoryBlockInfo* directory_block_info = directory_entry->getDirectoryBlockInfo();
-   assert(directory_block_info->getDState() == DirectoryState::SHARED);
+   assert(directory_entry->getDState() == DirectoryState::SHARED);
 
    directory_entry->removeSharer(sender);
    if (directory_entry->getNumSharers() == 0)
    {
-      directory_block_info->setDState(DirectoryState::UNCACHED);
+      directory_entry->setDState(DirectoryState::UNCACHED);
    }
 
    if (_dram_directory_req_queue.count(address) > 0)
@@ -435,7 +431,7 @@ DramDirectoryCntlr::processInvRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_m
       if (shmem_req->getShmemMsg()->getType() == ShmemMsg::EX_REQ)
       {
          // An ShmemMsg::EX_REQ caused the invalidation
-         if (directory_block_info->getDState() == DirectoryState::UNCACHED)
+         if (directory_entry->getDState() == DirectoryState::UNCACHED)
          {
             processExReqFromL2Cache(shmem_req);
          }
@@ -447,7 +443,7 @@ DramDirectoryCntlr::processInvRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_m
       }
       else // shmem_req->getShmemMsg()->getType() == ShmemMsg::NULLIFY_REQ
       {
-         if (directory_block_info->getDState() == DirectoryState::UNCACHED)
+         if (directory_entry->getDState() == DirectoryState::UNCACHED)
          {
             processNullifyReq(shmem_req);
          }
@@ -463,12 +459,11 @@ DramDirectoryCntlr::processFlushRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem
    DirectoryEntry* directory_entry = _dram_directory_cache->getDirectoryEntry(address);
    assert(directory_entry);
 
-   DirectoryBlockInfo* directory_block_info = directory_entry->getDirectoryBlockInfo();
-   assert(directory_block_info->getDState() == DirectoryState::MODIFIED);
+   assert(directory_entry->getDState() == DirectoryState::MODIFIED);
 
    directory_entry->removeSharer(sender);
    directory_entry->setOwner(INVALID_TILE_ID);
-   directory_block_info->setDState(DirectoryState::UNCACHED);
+   directory_entry->setDState(DirectoryState::UNCACHED);
 
    if (_dram_directory_req_queue.count(address) != 0)
    {
@@ -512,13 +507,11 @@ DramDirectoryCntlr::processWbRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_ms
    DirectoryEntry* directory_entry = _dram_directory_cache->getDirectoryEntry(address);
    assert(directory_entry);
    
-   DirectoryBlockInfo* directory_block_info = directory_entry->getDirectoryBlockInfo();
-
-   assert(directory_block_info->getDState() == DirectoryState::MODIFIED);
-   assert(directory_entry->hasSharer(sender));
+   assert(directory_entry->getDState() == DirectoryState::MODIFIED);
+   assert(directory_entry->isTrackedSharer(sender));
    
    directory_entry->setOwner(INVALID_TILE_ID);
-   directory_block_info->setDState(DirectoryState::SHARED);
+   directory_entry->setDState(DirectoryState::SHARED);
 
    if (_dram_directory_req_queue.count(address) != 0)
    {

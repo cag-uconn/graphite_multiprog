@@ -33,7 +33,6 @@ namespace PrL1PrL2DramDirectoryMOSI
                , MemComponent::Type receiver_mem_component
                , tile_id_t requester
                , tile_id_t single_receiver
-               , bool reply_expected
                , IntPtr address
                , bool modeled
                );
@@ -42,7 +41,6 @@ namespace PrL1PrL2DramDirectoryMOSI
                , MemComponent::Type receiver_mem_component
                , tile_id_t requester
                , tile_id_t single_receiver
-               , bool reply_expected
                , IntPtr address
                , Byte* data_buf
                , UInt32 data_length
@@ -67,7 +65,6 @@ namespace PrL1PrL2DramDirectoryMOSI
       MemComponent::Type getReceiverMemComponent() const { return _receiver_mem_component; }
       tile_id_t getRequester() const                     { return _requester; }
       tile_id_t getSingleReceiver() const                { return _single_receiver; }
-      bool isReplyExpected() const                       { return _reply_expected; }
       IntPtr getAddress() const                          { return _address; }
       Byte* getDataBuf() const                           { return _data_buf; }
       UInt32 getDataLength() const                       { return _data_length; }
@@ -82,7 +79,6 @@ namespace PrL1PrL2DramDirectoryMOSI
       MemComponent::Type _receiver_mem_component;
       tile_id_t _requester;
       tile_id_t _single_receiver;
-      bool _reply_expected;
       IntPtr _address;
       Byte* _data_buf;
       UInt32 _data_length;

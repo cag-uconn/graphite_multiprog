@@ -57,7 +57,7 @@ L2CacheReplacementPolicy::getReplacementWay(CacheLineInfo** cache_line_info_arra
          assert(_L2_cache_req_list.count(address) > 0);
          fprintf(stderr, "i(%u), Address(%#lx), CState(%u), DState(%u), Num Waiters(%u)\n",
                  i, address, L2_cache_line_info->getCState(),
-                 directory_entry->getDirectoryBlockInfo()->getDState(),
+                 directory_entry->getDState(),
                  (UInt32) _L2_cache_req_list.count(address));
       }
    }

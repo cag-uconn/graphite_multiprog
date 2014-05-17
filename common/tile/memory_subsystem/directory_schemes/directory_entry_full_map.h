@@ -4,24 +4,22 @@
 #include "bit_vector.h"
 #include "random.h"
 
-class DirectoryEntryFullMap : public DirectoryEntry
+class DirectoryEntryFullMap : virtual public DirectoryEntry
 {
 public:
    DirectoryEntryFullMap(SInt32 max_hw_sharers);
    ~DirectoryEntryFullMap();
-   
-   bool hasSharer(tile_id_t sharer_id);
-   bool addSharer(tile_id_t sharer_id);
-   void removeSharer(tile_id_t sharer_id, bool reply_expected);
-
-   tile_id_t getOwner();
-   void setOwner(tile_id_t owner_id);
-
-   bool getSharersList(vector<tile_id_t>& sharers_list);
+  
+   // Sharer list query operations 
+   bool isSharer(tile_id_t sharer_id) const;
+   bool isTrackedSharer(tile_id_t sharer_id) const;
+   bool getSharersList(vector<tile_id_t>& sharers_list) const;
    tile_id_t getOneSharer();
-   SInt32 getNumSharers();
+   SInt32 getNumSharers() const;
 
-   UInt32 getLatency();
+   // Sharer list manipulation operations
+   bool addSharer(tile_id_t sharer_id);
+   void removeSharer(tile_id_t sharer_id);
 
 private:
    BitVector* _sharers;

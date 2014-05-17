@@ -5,7 +5,6 @@ using std::ostream;
 using std::pair;
 
 #include "core_model.h"
-#include "micro_op.h"
 /*
   Out-of-order core model.
  */
@@ -118,6 +117,7 @@ public:
       void handleFence(MicroOp::Type micro_op_type);
       void outputSummary(ostream& os);
       
+   private:
       class LoadQueue
       {
       public:
@@ -128,24 +128,14 @@ public:
          pair<Time,Time> issue(const Time& issue_time, bool found_in_store_queue, const DynamicMemoryInfo& info);
          const Time& getLastDeallocateTime();
          void setFenceTime(const Time& fence_time);
-         void outputSummary(ostream& os);
 
       private:
          CoreModel* _core_model;
          Scoreboard _scoreboard;
          UInt32 _num_entries;
-         bool _speculative_cacheable_loads_enabled;
-         bool _speculative_non_conflicting_loads_enabled;
+         bool _speculative_loads_enabled;
          UInt32 _allocate_idx;
          Time _fence_time;
-
-         UInt64 _num_loads__RW_shared_data;
-         UInt64 _num_loads__RO_shared_data;
-         UInt64 _num_loads__RW_private_data;
-         UInt64 _num_loads__RO_private_data;
-         
-         void initializeCounters();
-         void updateCounters(const DynamicMemoryInfo& info);
       };
 
       class StoreQueue
@@ -166,33 +156,22 @@ public:
          const Time& getLastDeallocateTime();
          void setFenceTime(const Time& fence_time);
          Status isAddressAvailable(const Time& schedule_time, IntPtr address);
-         void outputSummary(ostream& os);
 
       private:
          CoreModel* _core_model;
          Scoreboard _scoreboard;
          vector<IntPtr> _addresses;
          UInt32 _num_entries;
-         bool _multiple_outstanding_cacheable_RFOs_enabled;
-         bool _multiple_outstanding_non_conflicting_RFOs_enabled;
+         bool _multiple_outstanding_RFOs_enabled;
          UInt32 _allocate_idx;
          Time _fence_time;
-
-         UInt64 _num_stores__RW_shared_data;
-         UInt64 _num_stores__RO_shared_data;
-         UInt64 _num_stores__RW_private_data;
-         UInt64 _num_stores__RO_private_data;
-         
-         void initializeCounters();
-         void updateCounters(const DynamicMemoryInfo& info);
       };
 
-   private:
       CoreModel* _core_model;
       LoadQueue* _load_queue;
       StoreQueue* _store_queue;
-      Time _total_load_queue_stall_time;
-      Time _total_store_queue_stall_time;
+      Time _total_load_queue__stall_time;
+      Time _total_store_queue__stall_time;
    };
 
 

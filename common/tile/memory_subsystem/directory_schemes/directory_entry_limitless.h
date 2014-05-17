@@ -9,14 +9,18 @@ public:
    DirectoryEntryLimitless(SInt32 max_hw_sharers, SInt32 max_num_sharers);
    ~DirectoryEntryLimitless();
    
-   bool hasSharer(tile_id_t sharer_id);
+   // Sharer list query operations
+   bool isSharer(tile_id_t sharer_id) const;
+   bool isTrackedSharer(tile_id_t sharer_id) const;
+   bool getSharersList(vector<tile_id_t>& sharers_list) const;
+   SInt32 getNumSharers() const;
+
+   // Sharer list manipulation operations
    bool addSharer(tile_id_t sharer_id);
-   void removeSharer(tile_id_t sharer_id, bool reply_expected);
+   void removeSharer(tile_id_t sharer_id);
 
-   bool getSharersList(vector<tile_id_t>& sharers_list);
-   SInt32 getNumSharers();
-
-   UInt32 getLatency();
+   // Latency for accessing directory entry
+   UInt32 getLatency() const;
 
 private:
    // Software Sharers

@@ -83,7 +83,7 @@ NetworkModelEMeshHopByHop::createRouterAndLinkModels()
    UInt32 num_flits_per_output_buffer = 0;
    // Link
    string link_type;
-   UInt64 link_delay = 0;
+   __attribute__((unused)) UInt64 link_delay = 0;
    // Contention Model
    string contention_model_type;
    try

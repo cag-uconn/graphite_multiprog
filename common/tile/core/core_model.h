@@ -1,5 +1,4 @@
-#ifndef CORE_MODEL_H
-#define CORE_MODEL_H
+#pragma once
 // This class represents the actual performance model for a given core
 
 #include <boost/circular_buffer.hpp>
@@ -32,7 +31,7 @@ public:
    void setDVFS(double old_frequency, double new_voltage, double new_frequency, const Time& curr_time);
    void recomputeAverageFrequency(double frequency); 
 
-   Time getCurrTime() { return _curr_time; }
+   Time getCurrTime() const { return _curr_time; }
    void setCurrTime(Time time);
 
    void pushDynamicMemoryInfo(const DynamicMemoryInfo &info);
@@ -92,21 +91,22 @@ protected:
    Core* _core;
 
    Time _curr_time;
-   UInt64 _instruction_count;
    
    // 1 Cycle
    Time _ONE_CYCLE;
 
    void updateMemoryFenceCounters(const Instruction* instruction);
    void updateDynamicInstructionCounters(const Instruction* instruction, const Time& cost);
-   void updatePipelineStallCounters(const Time& l1_icache_stall_time, const Time& l1_dcache_stall_time,
-                                    const Time& execution_unit_stall_time);
+   void updatePipelineStallCounters(const Time& instruction_fetch__stall_time,
+                                    const Time& memory_access__stall_time,
+                                    const Time& execution_unit__stall_time);
 
    // Power/Area modeling
    void initializeMcPATInterface(UInt32 num_load_buffer_entries, UInt32 num_store_buffer_entries);
    void updateMcPATCounters(Instruction* instruction);
 
 private:
+   UInt64 _instruction_count;
    double _average_frequency;
    Time _total_time;
    Time _checkpointed_time;
@@ -134,21 +134,21 @@ private:
    // Dynamic instruction counters
    UInt64 _total_recv_instructions;
    UInt64 _total_sync_instructions;
-   Time _total_recv_instruction_stall_time;
-   Time _total_sync_instruction_stall_time;
+   Time _total_recv_instruction__stall_time;
+   Time _total_sync_instruction__stall_time;
    // Pipeline stall counters
-   UInt64 _total_frontend_stalls;
-   UInt64 _total_backend_stalls;
-   Time _total_l1_icache_stall_time;
-   Time _total_l1_dcache_stall_time;
-   Time _total_execution_unit_stall_time;
+   Time _total_instruction_fetch__stall_time;
+   Time _total_memory_access__stall_time;
+   Time _total_execution_unit__stall_time;
 
    // Power/Area modeling
    McPATCoreInterface* _mcpat_core_interface;
-   
+  
    // Main instruction handling function
-   virtual void handleInstruction(Instruction *instruction) = 0;
+   virtual void handleInstruction(Instruction* instruction) = 0;
 
+   void __handleInstruction(Instruction* instruction); 
+   
    // Instruction costs
    void initializeInstructionCosts(double frequency);
    void updateInstructionCosts(double frequency);
@@ -158,5 +158,3 @@ private:
    void initializeDynamicInstructionCounters();
    void initializePipelineStallCounters();
 };
-
-#endif

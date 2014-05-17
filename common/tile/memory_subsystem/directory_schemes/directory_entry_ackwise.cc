@@ -2,13 +2,20 @@
 #include "log.h"
 
 DirectoryEntryAckwise::DirectoryEntryAckwise(SInt32 max_hw_sharers)
-   : DirectoryEntryLimited(max_hw_sharers)
+   : DirectoryEntry(max_hw_sharers)
+   , DirectoryEntryLimited(max_hw_sharers)
    , _global_enabled(false)
    , _num_untracked_sharers(0)
 {}
 
 DirectoryEntryAckwise::~DirectoryEntryAckwise()
 {}
+
+bool
+DirectoryEntryAckwise::isSharer(tile_id_t sharer_id) const
+{
+   return (_global_enabled) ? true : isTrackedSharer(sharer_id);
+}
 
 // Returns: Says whether the sharer was successfully added
 //              'True' if it was successfully added
@@ -37,15 +44,13 @@ DirectoryEntryAckwise::addSharer(tile_id_t sharer_id)
 }
 
 void
-DirectoryEntryAckwise::removeSharer(tile_id_t sharer_id, bool reply_expected)
+DirectoryEntryAckwise::removeSharer(tile_id_t sharer_id)
 {
-   LOG_ASSERT_ERROR(!reply_expected, "reply_expected(true)");
-
    if (_global_enabled) // (This sharer_id may or may not be explicitly tracked)
    {
       LOG_ASSERT_ERROR(_num_untracked_sharers > 0, "Num Untracked Sharers(%i)", _num_untracked_sharers);
 
-      if (DirectoryEntryLimited::hasSharer(sharer_id))   // Explicitly tracked
+      if (isTrackedSharer(sharer_id))   // Explicitly tracked
       {
          DirectoryEntryLimited::removeSharer(sharer_id);
       }
@@ -63,7 +68,7 @@ DirectoryEntryAckwise::removeSharer(tile_id_t sharer_id, bool reply_expected)
 }
 
 bool
-DirectoryEntryAckwise::inBroadcastMode()
+DirectoryEntryAckwise::inBroadcastMode() const
 {
    return _global_enabled;
 }
@@ -73,20 +78,14 @@ DirectoryEntryAckwise::inBroadcastMode()
 //              'False' if NOT all tiles are sharers
 // val.second :- A list of tracked sharers
 bool
-DirectoryEntryAckwise::getSharersList(vector<tile_id_t>& sharers_list)
+DirectoryEntryAckwise::getSharersList(vector<tile_id_t>& sharers_list) const
 {
    DirectoryEntryLimited::getSharersList(sharers_list);
    return _global_enabled;
 }
 
 SInt32
-DirectoryEntryAckwise::getNumSharers()
+DirectoryEntryAckwise::getNumSharers() const
 {
    return _num_tracked_sharers + _num_untracked_sharers;
-}
-
-UInt32
-DirectoryEntryAckwise::getLatency()
-{
-   return 0;
 }

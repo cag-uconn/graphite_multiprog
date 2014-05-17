@@ -1,23 +1,24 @@
 #pragma once
 
-#include "fixed_types.h"
 #include "utils.h"
 #include "constants.h"
+#include "hash_fn.h"
 
-class CacheHashFn
+class CacheHashFn : public HashFn
 {
 public:
-   CacheHashFn(UInt32 cache_size, UInt32 associativity, UInt32 cache_line_size)
-      : _num_sets(cache_size * k_KILO / (cache_line_size * associativity))
+   CacheHashFn(uint32_t cache_size, uint32_t associativity, uint32_t cache_line_size)
+      : HashFn()
+      , _num_sets(cache_size * k_KILO / (cache_line_size * associativity))
       , _log_cache_line_size(floorLog2(cache_line_size))
    {}
-   virtual ~CacheHashFn()
+   ~CacheHashFn()
    {}
 
-   virtual UInt32 compute(IntPtr address)
-   { return (address >> _log_cache_line_size) & (_num_sets-1); }
+   uint32_t compute(uintptr_t address)
+   { return ((uint32_t)(address >> _log_cache_line_size)) & (_num_sets-1); }
 
 protected:
-   UInt32 _num_sets;
-   UInt32 _log_cache_line_size;
+   uint32_t _num_sets;
+   uint32_t _log_cache_line_size;
 };

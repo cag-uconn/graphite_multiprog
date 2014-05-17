@@ -472,7 +472,7 @@ SockTransport::Socket::~Socket()
 
 void SockTransport::Socket::listen(SInt32 port, SInt32 max_pending)
 {
-   SInt32 err;
+   __attribute__((unused)) SInt32 err;
 
    LOG_ASSERT_ERROR(m_socket == -1, "Listening on already-open socket: %d", m_socket);
 
@@ -482,10 +482,6 @@ void SockTransport::Socket::listen(SInt32 port, SInt32 max_pending)
    SInt32 on = 1;
    err = ::setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
    LOG_ASSERT_ERROR(err >= 0, "Failed to set socket options.");
-
-// Not needed
-//    err = fcntl(m_server_socket, F_SETFL, O_NONBLOCK);
-//    LOG_ASSERT_ERROR(err >= 0, "Failed to set non-blocking.");
 
    struct sockaddr_in addr;
    memset(&addr, 0, sizeof(addr));
@@ -566,7 +562,7 @@ void SockTransport::Socket::connect(const char* addr, SInt32 port)
 
 void SockTransport::Socket::send(const void* buffer, UInt32 length)
 {
-   SInt32 sent;
+   __attribute__((unused)) SInt32 sent;
    sent = ::send(m_socket, buffer, length, 0);
    LOG_ASSERT_ERROR(sent == SInt32(length), "Failure sending packet on socket %d -- %d != %d", m_socket, sent, length);
 }
@@ -618,7 +614,7 @@ void SockTransport::Socket::close()
 {
    LOG_PRINT("Closing socket: %d", m_socket);
 
-   SInt32 err;
+   __attribute__((unused)) SInt32 err;
    err = ::close(m_socket);
    LOG_ASSERT_WARNING(err >= 0, "Failed to close socket: %d", err);
 

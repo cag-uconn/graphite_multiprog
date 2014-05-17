@@ -4,7 +4,7 @@
 using std::string;
 
 #include "fixed_types.h"
-#include "caching_protocol_type.h"
+#include "caching_protocol.h"
 
 class CacheLineInfo;
 

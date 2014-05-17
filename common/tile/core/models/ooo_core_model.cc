@@ -26,14 +26,17 @@ OOOCoreModel::OOOCoreModel(Core *core)
    _execution_unit = new ExecutionUnit();
    // Initialize load/store queues
    _load_store_unit = new LoadStoreUnit(this);
+ 
    // Initialize register scoreboard
    _register_scoreboard.resize(_NUM_REGISTERS, Time(0));
-   
+ 
    // For Power and Area Modeling
+   __attribute__((unused)) UInt32 num_reorder_buffer_entries = 0;
    UInt32 num_load_queue_entries = 0;
    UInt32 num_store_queue_entries = 0;
    try
    {
+      num_reorder_buffer_entries = Sim()->getCfg()->getInt("core/ooo/num_reorder_buffer_entries");
       num_load_queue_entries = Sim()->getCfg()->getInt("core/ooo/num_load_queue_entries");
       num_store_queue_entries = Sim()->getCfg()->getInt("core/ooo/num_store_queue_entries");
    }
@@ -43,7 +46,7 @@ OOOCoreModel::OOOCoreModel(Core *core)
    }
 
    // Initialize McPAT
-   initializeMcPATInterface(num_load_queue_entries, num_store_queue_entries);
+   initializeMcPATInterface(num_load_queue_entries, num_store_queue_entries/*, num_reorder_buffer_entries */);
 }
 
 OOOCoreModel::~OOOCoreModel()
@@ -62,7 +65,7 @@ OOOCoreModel::outputSummary(std::ostream &os, const Time& target_completion_time
 {
    CoreModel::outputSummary(os, target_completion_time);
 
-   os << "  OOO Model: " << endl;
+   os << "    Detailed Stall Time Breakdown (in nanoseconds): " << endl;
    _instruction_fetch_stage->outputSummary(os);
    _allocate_stage->outputSummary(os);
    _reorder_buffer->outputSummary(os);
@@ -76,9 +79,6 @@ OOOCoreModel::handleInstruction(Instruction *instruction)
    // abort further processing (via AbortInstructionException)
    Time cost = instruction->getCost(this);
    
-   // Update Statistics
-   _instruction_count++;
-
    // Special handling for dynamic instructions
    if (instruction->isDynamic())
    {
@@ -215,9 +215,6 @@ OOOCoreModel::handleInstruction(Instruction *instruction)
    // Update memory fence counters
    updateMemoryFenceCounters(instruction);
    
-   // Update pipeline stall counters
-   updatePipelineStallCounters(instruction_fetch__stall_time, memory_access__stall_time, execution_unit__stall_time);
-
    // Update McPAT counters
    updateMcPATCounters(instruction);
 }
@@ -254,7 +251,7 @@ void
 OOOCoreModel::InstructionFetchStage::outputSummary(ostream& os)
 {
    // Stall Time
-   os << "    Total Instruction Fetch Stall Time (in nanoseconds): " << _total_stall_time.toNanosec() << endl;
+   os << "      Instruction Fetch: " << _total_stall_time.toNanosec() << endl;
 }
 
 OOOCoreModel::InstructionDecodeStage::InstructionDecodeStage(CoreModel* core_model)
@@ -324,7 +321,7 @@ OOOCoreModel::AllocateStage::sync(const Time& next_stage_timestamp)
 void
 OOOCoreModel::AllocateStage::outputSummary(ostream& os)
 {
-   os << "    Total Allocate Stall Time (in nanoseconds): " << _total_stall_time.toNanosec() << endl;
+   os << "      Allocate Stage: " << _total_stall_time.toNanosec() << endl;
 }
 
 OOOCoreModel::ReorderBuffer::ReorderBuffer(CoreModel* core_model)
@@ -369,7 +366,7 @@ void
 OOOCoreModel::ReorderBuffer::outputSummary(ostream& os)
 {
    // Stall Time
-   os << "    Total Reorder Buffer Stall Time (in nanoseconds): " << _total_stall_time.toNanosec() << endl;
+   os << "      Reorder Buffer: " << _total_stall_time.toNanosec() << endl;
 }
 
 Time
@@ -383,8 +380,8 @@ OOOCoreModel::LoadStoreUnit::LoadStoreUnit(CoreModel* core_model)
 {
    _load_queue = new LoadQueue(core_model);
    _store_queue = new StoreQueue(core_model);
-   _total_load_queue_stall_time = Time(0);
-   _total_store_queue_stall_time = Time(0);
+   _total_load_queue__stall_time = Time(0);
+   _total_store_queue__stall_time = Time(0);
 }
 
 OOOCoreModel::LoadStoreUnit::~LoadStoreUnit()
@@ -397,18 +394,15 @@ void
 OOOCoreModel::LoadStoreUnit::outputSummary(ostream& os)
 {
    // Stall Time
-   os << "    Total Load Queue Stall Time (in nanoseconds): " << _total_load_queue_stall_time.toNanosec() << endl;
-   os << "    Total Store Queue Stall Time (in nanoseconds): " << _total_store_queue_stall_time.toNanosec() << endl;
-   os << "    Access Type Counters: " << endl;
-   _load_queue->outputSummary(os);
-   _store_queue->outputSummary(os);
+   os << "      Load Queue: " << _total_load_queue__stall_time.toNanosec() << endl;
+   os << "      Store Queue: " << _total_store_queue__stall_time.toNanosec() << endl;
 }
 
 Time
 OOOCoreModel::LoadStoreUnit::allocateLoad(const Time& schedule_time)
 {
    Time load_allocate_time = _load_queue->allocate(schedule_time);
-   _total_load_queue_stall_time += (load_allocate_time - schedule_time);
+   _total_load_queue__stall_time += (load_allocate_time - schedule_time);
    return load_allocate_time;
 }
 
@@ -416,7 +410,7 @@ Time
 OOOCoreModel::LoadStoreUnit::allocateStore(const Time& schedule_time)
 {
    Time store_allocate_time = _store_queue->allocate(schedule_time);
-   _total_store_queue_stall_time += (store_allocate_time - schedule_time);
+   _total_store_queue__stall_time += (store_allocate_time - schedule_time);
    return store_allocate_time;
 }
 
@@ -504,8 +498,7 @@ OOOCoreModel::LoadStoreUnit::LoadQueue::LoadQueue(CoreModel* core_model)
    try
    {
       _num_entries = cfg->getInt("core/ooo/num_load_queue_entries");
-      _speculative_cacheable_loads_enabled = cfg->getBool("core/ooo/speculative_cacheable_loads_enabled");
-      _speculative_non_conflicting_loads_enabled = cfg->getBool("core/ooo/speculative_non_conflicting_loads_enabled");
+      _speculative_loads_enabled = cfg->getBool("core/ooo/speculative_loads_enabled");
    }
    catch (...)
    {
@@ -513,7 +506,6 @@ OOOCoreModel::LoadStoreUnit::LoadQueue::LoadQueue(CoreModel* core_model)
    }
    _scoreboard.resize(_num_entries, Time(0));
    _allocate_idx = 0;
-   initializeCounters();
 }
 
 OOOCoreModel::LoadStoreUnit::LoadQueue::~LoadQueue()
@@ -538,14 +530,7 @@ OOOCoreModel::LoadStoreUnit::LoadQueue::issue(const Time& issue_time, bool found
    Time deallocate_time;
    UInt32 last_idx = (_allocate_idx + _num_entries-1) % (_num_entries);
 
-   bool multiple_outstanding_loads =
-      ((!info._page_shared || !info._page_read_write) && _speculative_non_conflicting_loads_enabled) ||
-      (info._cacheable && _speculative_cacheable_loads_enabled);
-
-   // Performance counters
-   updateCounters(info);
-   
-   if (multiple_outstanding_loads)
+   if (_speculative_loads_enabled)
    {
       // With speculative loads, issue_time = allocate_time
       completion_time = actual_issue_time + load_latency;
@@ -553,7 +538,7 @@ OOOCoreModel::LoadStoreUnit::LoadQueue::issue(const Time& issue_time, bool found
       // Assumption: Only one load can be deallocated per cycle
       deallocate_time = getMax<Time>(completion_time, _scoreboard[last_idx] + ONE_CYCLE);
    }
-   else // (!multiple_outstanding_loads)
+   else // (!_speculative_loads_enabled)
    {
       // With non-speculative loads, loads can be issued and completed only in FIFO order
       actual_issue_time = getMax<Time>(actual_issue_time, _scoreboard[last_idx]);
@@ -579,43 +564,6 @@ OOOCoreModel::LoadStoreUnit::LoadQueue::setFenceTime(const Time& fence_time)
    _fence_time = fence_time;
 }
 
-void
-OOOCoreModel::LoadStoreUnit::LoadQueue::outputSummary(ostream& os)
-{
-   os << "      Loads Shared-RW: " << _num_loads__RW_shared_data << endl;
-   os << "      Loads Shared-RO: " << _num_loads__RO_shared_data << endl;
-   os << "      Loads Private-RW: " << _num_loads__RW_private_data << endl;
-   os << "      Loads Private-RO: " << _num_loads__RO_private_data << endl;
-}
-
-void
-OOOCoreModel::LoadStoreUnit::LoadQueue::initializeCounters()
-{
-   _num_loads__RW_shared_data = 0;
-   _num_loads__RO_shared_data = 0;
-   _num_loads__RW_private_data = 0;
-   _num_loads__RO_private_data = 0;
-}
-
-void
-OOOCoreModel::LoadStoreUnit::LoadQueue::updateCounters(const DynamicMemoryInfo& info)
-{
-   if (info._page_shared)
-   {
-      if (info._page_read_write)
-         _num_loads__RW_shared_data ++;
-      else // (!info._page_read_write)
-         _num_loads__RO_shared_data ++;
-   }
-   else // (!info._page_shared)
-   {
-      if (info._page_read_write)
-         _num_loads__RW_private_data ++;
-      else // (!info._page_read_write)
-         _num_loads__RO_private_data ++;
-   }
-}
-
 // Store Queue
 
 OOOCoreModel::LoadStoreUnit::StoreQueue::StoreQueue(CoreModel* core_model)
@@ -628,8 +576,7 @@ OOOCoreModel::LoadStoreUnit::StoreQueue::StoreQueue(CoreModel* core_model)
    try
    {
       _num_entries = cfg->getInt("core/ooo/num_store_queue_entries");
-      _multiple_outstanding_cacheable_RFOs_enabled = cfg->getBool("core/ooo/multiple_outstanding_cacheable_RFOs_enabled");
-      _multiple_outstanding_non_conflicting_RFOs_enabled = cfg->getBool("core/ooo/multiple_outstanding_non_conflicting_RFOs_enabled");
+      _multiple_outstanding_RFOs_enabled = cfg->getBool("core/ooo/multiple_outstanding_RFOs_enabled");
    }
    catch (...)
    {
@@ -639,7 +586,6 @@ OOOCoreModel::LoadStoreUnit::StoreQueue::StoreQueue(CoreModel* core_model)
    _scoreboard.resize(_num_entries, Time(0));
    _addresses.resize(_num_entries, INVALID_ADDRESS);
    _allocate_idx = 0;
-   initializeCounters();
 }
 
 OOOCoreModel::LoadStoreUnit::StoreQueue::~StoreQueue()
@@ -669,14 +615,7 @@ OOOCoreModel::LoadStoreUnit::StoreQueue::issue(const Time& issue_time,
    UInt32 last_idx = (_allocate_idx + _num_entries-1) % (_num_entries);
    const Time& last_store_deallocate_time = _scoreboard[last_idx];
    
-   bool multiple_outstanding_RFOs = 
-      ((!info._page_shared || !info._page_read_write) && _multiple_outstanding_non_conflicting_RFOs_enabled) ||
-      (info._cacheable && _multiple_outstanding_cacheable_RFOs_enabled);
-
-   // Performance counters
-   updateCounters(info);
-   
-   if (multiple_outstanding_RFOs)
+   if (_multiple_outstanding_RFOs_enabled)
    {
       // With multiple outstanding RFOs, issue_time = allocate_time
       Time RFO_completion_time = actual_issue_time + store_latency;
@@ -684,7 +623,7 @@ OOOCoreModel::LoadStoreUnit::StoreQueue::issue(const Time& issue_time,
       // Assumption: Only one store can be deallocated per cycle
       deallocate_time = getMax<Time>(RFO_completion_time, last_store_deallocate_time, last_load_deallocate_time) + ONE_CYCLE;
    }
-   else // (!multiple_outstanding_RFOs)
+   else // (!_multiple_outstanding_RFOs_enabled)
    {
       // With multiple outstanding RFOs disabled, stores can be issued and completed only in FIFO order
       Time actual_issue_time = getMax<Time>(actual_issue_time, last_store_deallocate_time, last_load_deallocate_time);
@@ -723,41 +662,3 @@ OOOCoreModel::LoadStoreUnit::StoreQueue::isAddressAvailable(const Time& schedule
    }
    return NOT_FOUND;
 }
-
-void
-OOOCoreModel::LoadStoreUnit::StoreQueue::outputSummary(ostream& os)
-{
-   os << "      Stores Shared-RW: " << _num_stores__RW_shared_data << endl;
-   os << "      Stores Shared-RO: " << _num_stores__RO_shared_data << endl;
-   os << "      Stores Private-RW: " << _num_stores__RW_private_data << endl;
-   os << "      Stores Private-RO: " << _num_stores__RO_private_data << endl;
-}
-
-void
-OOOCoreModel::LoadStoreUnit::StoreQueue::initializeCounters()
-{
-   _num_stores__RW_shared_data = 0;
-   _num_stores__RO_shared_data = 0;
-   _num_stores__RW_private_data = 0;
-   _num_stores__RO_private_data = 0;
-}
-
-void
-OOOCoreModel::LoadStoreUnit::StoreQueue::updateCounters(const DynamicMemoryInfo& info)
-{
-   if (info._page_shared)
-   {
-      if (info._page_read_write)
-         _num_stores__RW_shared_data ++;
-      else // (!info._page_read_write)
-         _num_stores__RO_shared_data ++;
-   }
-   else // (!info._page_shared)
-   {
-      if (info._page_read_write)
-         _num_stores__RW_private_data ++;
-      else // (!info._page_read_write)
-         _num_stores__RO_private_data ++;
-   }
-}
-

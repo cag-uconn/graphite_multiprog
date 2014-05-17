@@ -8,8 +8,8 @@
 #include "utils.h"
 
 DirectoryCache::DirectoryCache(Tile* tile,
-                               CachingProtocolType caching_protocol_type,
-                               string directory_type_str,
+                               CachingProtocol::Type caching_protocol_type,
+                               string directory_type,
                                string total_entries_str,
                                UInt32 associativity,
                                UInt32 cache_line_size,
@@ -33,10 +33,10 @@ DirectoryCache::DirectoryCache(Tile* tile,
    , _shmem_perf_model(shmem_perf_model)
 {
    LOG_PRINT("Directory Cache ctor enter");
- 
-   // Parse the directory type (full_map, limited_no_broadcast, limited_broadcast, ackwise, limitless) 
-   _directory_type = DirectoryEntry::parseDirectoryType(directory_type_str);
 
+   // Parse the directory type (full_map, limited_no_broadcast, ackwise, limitless) 
+   _directory_type = DirectoryEntry::parseDirectoryType(directory_type);
+   
    // Determine total number of directory entries (either automatically or user specified)
    _total_entries = computeDirectoryTotalEntries();
    _num_sets = _total_entries / _associativity;
@@ -46,13 +46,13 @@ DirectoryCache::DirectoryCache(Tile* tile,
 
    // Size of each directory entry (in bytes)
    UInt32 max_application_sharers = Config::getSingleton()->getApplicationTiles();
-   UInt32 directory_entry_size = ceil(1.0 * DirectoryEntry::getSize(_directory_type, max_hw_sharers, max_application_sharers)  / 8);
+   UInt32 directory_entry_size_in_bits = DirectoryEntry::getSize(_directory_type, max_hw_sharers, max_application_sharers);
+   UInt32 directory_entry_size = ceil(1.0 * directory_entry_size_in_bits  / 8);
    _directory_size = _total_entries * directory_entry_size;
 
    //initialize frequency and voltage
-   int rc = DVFSManager::getInitialFrequencyAndVoltage(DIRECTORY, _frequency, _voltage);
+   __attribute__((unused)) int rc = DVFSManager::getInitialFrequencyAndVoltage(DIRECTORY, _frequency, _voltage);
    LOG_ASSERT_ERROR(rc == 0, "Error setting initial voltage for frequency(%g)", _frequency);
-
 
    // Calculate access time based on size of directory entry and total number of entries (or) user specified
    _directory_access_cycles = computeDirectoryAccessCycles();
@@ -178,7 +178,7 @@ DirectoryCache::replaceDirectoryEntry(IntPtr replaced_address, IntPtr address)
    splitAddress(replaced_address, tag, set_index);
 
    DirectoryEntry* replaced_directory_entry = NULL;
-   DirectoryEntry* new_directory_entry = DirectoryEntry::create(_caching_protocol_type, _directory_type, _max_hw_sharers, _max_num_sharers);
+   DirectoryEntry* new_directory_entry = DirectoryEntry::create(_directory_type, _max_hw_sharers, _max_num_sharers);
    new_directory_entry->setAddress(address);
 
    for (UInt32 i = 0; i < _associativity; i++)
@@ -204,7 +204,7 @@ DirectoryCache::replaceDirectoryEntry(IntPtr replaced_address, IntPtr address)
       // Increment number of evictions
       _total_evictions ++;
       // Increment number of evictions where address is cached (so, leads to a back invalidation)
-      DirectoryState::Type replaced_dstate = replaced_directory_entry->getDirectoryBlockInfo()->getDState();
+      DirectoryState::Type replaced_dstate = replaced_directory_entry->getDState();
       if (replaced_dstate != DirectoryState::UNCACHED)
          _total_back_invalidations ++;
    }
@@ -300,25 +300,7 @@ DirectoryCache::computeDirectoryAccessCycles()
    if (_directory_access_cycles_str == "auto")
    {
       UInt32 directory_size_in_KB = (UInt32) ceil(1.0 * _directory_size / 1024);
-      
-      if (directory_size_in_KB <= 16)
-         return 1;
-      else if (directory_size_in_KB <= 32)
-         return 2;
-      else if (directory_size_in_KB <= 64)
-         return 4;
-      else if (directory_size_in_KB <= 128)
-         return 6;
-      else if (directory_size_in_KB <= 256)
-         return 8;
-      else if (directory_size_in_KB <= 512)
-         return 10;
-      else if (directory_size_in_KB <= 1024)
-         return 13;
-      else if (directory_size_in_KB <= 2048)
-         return 16;
-      else // (directory_size_in_KB > 2048)
-         return 20;
+      return Cache::getAccessCycles(directory_size_in_KB, _associativity);      
    }
    else // (_directory_access_cycles_str != "auto")
    {
@@ -334,6 +316,9 @@ DirectoryCache::computeSetIndex(IntPtr address)
 {
    LOG_PRINT("Computing Set for address(%#lx), _log_cache_line_size(%u), _log_num_sets(%u), _log_num_directory_slices(%u)",
              address, _log_cache_line_size, _log_num_sets, _log_num_directory_slices);
+
+   if (_log_num_sets == 0)
+      return 0;
 
    IntPtr set = 0;
    for (UInt32 i = _log_cache_line_size + _log_num_directory_slices; (i + _log_num_sets) <= (sizeof(IntPtr)*8); i += _log_num_sets)

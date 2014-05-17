@@ -261,7 +261,7 @@ LaxP2PSyncClient::sendRandomSyncMsg(UInt64 curr_time)
 UInt64
 LaxP2PSyncClient::userProcessSyncMsgList()
 {
-   bool ack_present = false;
+   __attribute__((unused)) bool ack_present = false;
    UInt64 max_wait_time = 0;
 
    std::list<SyncMsg>::iterator it;

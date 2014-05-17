@@ -12,7 +12,7 @@
 // Cache class
 // constructors/destructors
 Cache::Cache(string name,
-             CachingProtocolType caching_protocol_type,
+             CachingProtocol::Type caching_protocol_type,
              CacheCategory cache_category,
              SInt32 cache_level,
              WritePolicy write_policy,
@@ -25,8 +25,7 @@ Cache::Cache(string name,
              UInt32 data_access_latency,
              UInt32 tags_access_latency,
              string perf_model_type,
-             bool track_miss_types,
-             ShmemPerfModel* shmem_perf_model)
+             bool track_miss_types)
    : _enabled(false)
    , _name(name)
    , _cache_category(cache_category)
@@ -39,9 +38,24 @@ Cache::Cache(string name,
    , _hash_fn(hash_fn)
    , _track_miss_types(track_miss_types)
    , _mcpat_cache_interface(NULL)
-   , _shmem_perf_model(shmem_perf_model)
 {
+   LOG_ASSERT_ERROR(isPower2(_line_size), "Cache-Line-Size(%u) must be a power of 2", _line_size);
+
+   LOG_ASSERT_ERROR(_cache_size >= (_associativity * _line_size),
+                    "Cache-Size(%u KB) must be  >=  [Associativity(%u) * Cache-Line-Size(%u)]",
+                    cache_size, _associativity, _line_size);
+
+   LOG_ASSERT_ERROR(_cache_size % (_associativity * _line_size) == 0,
+                    "Cache-Size(%u KB) must be a multiple of [Associativity(%u) * Cache-Line-Size(%u)]",
+                    cache_size, _associativity, _line_size);
+
    _num_sets = _cache_size / (_associativity * _line_size);
+   
+   LOG_ASSERT_ERROR(isPower2(_num_sets), 
+                    "Num-Sets(%u) is not a power of 2 ; Cache-Size(%u KB), Associativity(%u) and Cache-Line-Size(%u) "
+                    "must be configured such that Num-Sets(%u) is a power of 2",
+                    _num_sets, cache_size, _associativity, _line_size, _num_sets);
+
    _log_line_size = floorLog2(_line_size);
   
    // Instantiate cache sets 
@@ -84,9 +98,9 @@ Cache::~Cache()
 void
 Cache::accessCacheLine(IntPtr address, AccessType access_type, Byte* buf, UInt32 num_bytes)
 {
-   LOG_PRINT("accessCacheLine: Address(%#lx), AccessType(%s), Num Bytes(%u) start",
-             address, (access_type == 0) ? "LOAD": "STORE", num_bytes);
-   assert((buf == NULL) == (num_bytes == 0));
+   LOG_PRINT("accessCacheLine: Cache(%s), Address(%#lx), Access-Type(%s), Num-Bytes(%u) start",
+             _name.c_str(), address, (access_type == 0) ? "LOAD": "STORE", num_bytes);
+   LOG_ASSERT_ERROR((buf == NULL) == (num_bytes == 0), "buf(%p), num_bytes(%u)", buf, num_bytes);
 
    CacheSet* set = getSet(address);
    IntPtr tag = getTag(address);
@@ -94,7 +108,8 @@ Cache::accessCacheLine(IntPtr address, AccessType access_type, Byte* buf, UInt32
    UInt32 line_index = -1;
   
    __attribute__((unused)) CacheLineInfo* cache_line_info = set->find(tag, &line_index);
-   LOG_ASSERT_ERROR(cache_line_info, "Address(%#lx)", address);
+   LOG_ASSERT_ERROR(cache_line_info, "accessCacheLine: Cache(%s), Address(%#lx), Access-Type(%s), Num-Bytes(%u)",
+                    _name.c_str(), address, (access_type == 0) ? "LOAD" : "STORE", num_bytes);
 
    if (access_type == LOAD)
       set->read_line(line_index, line_offset, buf, num_bytes);
@@ -107,15 +122,15 @@ Cache::accessCacheLine(IntPtr address, AccessType access_type, Byte* buf, UInt32
       OperationType operation_type = (access_type == LOAD) ? DATA_ARRAY_READ : DATA_ARRAY_WRITE;
       _event_counters[operation_type] ++;
    }
-   LOG_PRINT("accessCacheLine: Address(%#lx), AccessType(%s), Num Bytes(%u) end",
-             address, (access_type == 0) ? "LOAD": "STORE", num_bytes);
+   LOG_PRINT("accessCacheLine: Cache(%s), Address(%#lx), Access-Type(%s), Num-Bytes(%u) end",
+             _name.c_str(), address, (access_type == 0) ? "LOAD": "STORE", num_bytes);
 }
 
 void
 Cache::insertCacheLine(IntPtr inserted_address, CacheLineInfo* inserted_cache_line_info, Byte* fill_buf,
                        bool* eviction, IntPtr* evicted_address, CacheLineInfo* evicted_cache_line_info, Byte* writeback_buf)
 {
-   LOG_PRINT("insertCacheLine: Address(%#lx) start", inserted_address);
+   LOG_PRINT("insertCacheLine: Cache(%s), Address(%#lx) start", _name.c_str(), inserted_address);
 
    CacheSet* set = getSet(inserted_address);
 
@@ -180,14 +195,14 @@ Cache::insertCacheLine(IntPtr inserted_address, CacheLineInfo* inserted_cache_li
       _event_counters[DATA_ARRAY_WRITE] ++;
    }
    
-   LOG_PRINT("insertCacheLine: Address(%#lx) end", inserted_address);
+   LOG_PRINT("insertCacheLine: Cache(%s), Address(%#lx) end", _name.c_str(), inserted_address);
 }
 
 // Single line cache access at address
 void
 Cache::getCacheLineInfo(IntPtr address, CacheLineInfo* cache_line_info)
 {
-   LOG_PRINT("getCacheLineInfo: Address(%#lx) start", address);
+   LOG_PRINT("getCacheLineInfo: Cache(%s), Address(%#lx) start", _name.c_str(), address);
 
    CacheLineInfo* line_info = getCacheLineInfo(address);
 
@@ -201,24 +216,26 @@ Cache::getCacheLineInfo(IntPtr address, CacheLineInfo* cache_line_info)
       _event_counters[TAG_ARRAY_READ] ++;
    }
 
-   LOG_PRINT("getCacheLineInfo: Address(%#lx) end", address);
+   LOG_PRINT("getCacheLineInfo: Cache(%s), Address(%#lx) end", _name.c_str(), address);
 }
 
 CacheLineInfo*
 Cache::getCacheLineInfo(IntPtr address)
 {
+   LOG_PRINT("__getCacheLineInfo: Cache(%s), Address(%#lx) start", _name.c_str(), address);
    CacheSet* set = getSet(address);
    IntPtr tag = getTag(address);
 
    CacheLineInfo* line_info = set->find(tag);
 
+   LOG_PRINT("__getCacheLineInfo: Cache(%s), Address(%#lx) end", _name.c_str(), address);
    return line_info;
 }
 
 void
 Cache::setCacheLineInfo(IntPtr address, CacheLineInfo* updated_cache_line_info)
 {
-   LOG_PRINT("setCacheLineInfo: Address(%#lx) start", address);
+   LOG_PRINT("setCacheLineInfo: Cache(%s), Address(%#lx) start", _name.c_str(), address);
    CacheLineInfo* cache_line_info = getCacheLineInfo(address);
    LOG_ASSERT_ERROR(cache_line_info, "Address(%#lx)", address);
 
@@ -237,7 +254,20 @@ Cache::setCacheLineInfo(IntPtr address, CacheLineInfo* updated_cache_line_info)
       // Update tag/data array reads/writes
       _event_counters[TAG_ARRAY_WRITE] ++;
    }
-   LOG_PRINT("setCacheLineInfo: Address(%#lx) end", address);
+   LOG_PRINT("setCacheLineInfo: Cache(%s), Address(%#lx) end", _name.c_str(), address);
+}
+
+CacheLineInfo**
+Cache::getCacheLineInfoArray(IntPtr address) const
+{
+   CacheSet* set = getSet(address);
+   return set->getCacheLineInfoArray();
+}
+
+UInt32
+Cache::getSetNum(IntPtr address) const
+{
+   return _hash_fn->compute(address);
 }
 
 void
@@ -286,34 +316,40 @@ void
 Cache::initializeDVFS()
 {
    // Initialize asynchronous boundaries
-   if (_name == "L1-I"){
+   if (_name == "L1-I")
+   {
       _module = L1_ICACHE;
       _asynchronous_map[CORE] = Time(0);
       _asynchronous_map[L2_CACHE] = Time(0);
-      if (MemoryManager::getCachingProtocolType() == PR_L1_SH_L2_MSI){
+      if (MemoryManager::getCachingProtocolType() == CachingProtocol::PR_L1_SH_L2_MSI)
+      {
          _asynchronous_map[NETWORK_MEMORY] = Time(0);
       }
    }
-   else if (_name == "L1-D"){
+   else if (_name == "L1-D")
+   {
       _module = L1_DCACHE;
       _asynchronous_map[CORE] = Time(0);
       _asynchronous_map[L2_CACHE] = Time(0);
-      if (MemoryManager::getCachingProtocolType() == PR_L1_SH_L2_MSI){
+      if (MemoryManager::getCachingProtocolType() == CachingProtocol::PR_L1_SH_L2_MSI)
+      {
          _asynchronous_map[NETWORK_MEMORY] = Time(0);
       }
    }
-   else if (_name == "L2"){
+   else if (_name == "L2")
+   {
       _module = L2_CACHE;
       _asynchronous_map[L1_ICACHE] = Time(0);
       _asynchronous_map[L1_DCACHE] = Time(0);
       _asynchronous_map[NETWORK_MEMORY] = Time(0);
-      if (MemoryManager::getCachingProtocolType() != PR_L1_SH_L2_MSI){
+      if (MemoryManager::getCachingProtocolType() != CachingProtocol::PR_L1_SH_L2_MSI)
+      {
          _asynchronous_map[DIRECTORY] = Time(0);
       }
    }
 
    // Initialize frequency and voltage
-   int rc = DVFSManager::getInitialFrequencyAndVoltage(_module, _frequency, _voltage);
+   __attribute__((unused)) int rc = DVFSManager::getInitialFrequencyAndVoltage(_module, _frequency, _voltage);
    LOG_ASSERT_ERROR(rc == 0, "Error setting initial voltage for frequency(%g)", _frequency);
 }
 
@@ -465,15 +501,22 @@ Cache::outputSummary(ostream& out, const Time& target_completion_time)
       out << "      Sharing Misses: " << _total_sharing_misses << endl;
    }
 
+   // Tag/Data Array Counters Summary
+   outputTagAndDataArrayCounters(out);
+
+   // Asynchronous communication
+   DVFSManager::printAsynchronousMap(out, _module, _asynchronous_map);
+}
+
+void
+Cache::outputTagAndDataArrayCounters(ostream& out)
+{
    // Cache Access Counters Summary
    out << "    Event Counters:" << endl;
    out << "      Tag Array Reads: " << _event_counters[TAG_ARRAY_READ] << endl;
    out << "      Tag Array Writes: " << _event_counters[TAG_ARRAY_WRITE] << endl;
    out << "      Data Array Reads: " << _event_counters[DATA_ARRAY_READ] << endl;
    out << "      Data Array Writes: " << _event_counters[DATA_ARRAY_WRITE] << endl;
-
-   // Asynchronous communication
-   DVFSManager::printAsynchronousMap(out, _module, _asynchronous_map);
 }
 
 void Cache::computeEnergy(const Time& curr_time)
@@ -558,10 +601,33 @@ Cache::setDVFS(double frequency, voltage_option_t voltage_flag, const Time& curr
 Time
 Cache::getSynchronizationDelay(module_t module)
 {
-   if (!DVFSManager::hasSameDVFSDomain(_module, module) && _enabled){
+   if (!DVFSManager::hasSameDVFSDomain(_module, module) && _enabled)
+   {
       _asynchronous_map[module] += _perf_model->getSynchronizationDelay();
       return _perf_model->getSynchronizationDelay();
-;
    }
    return Time(0);
+}
+
+UInt64
+Cache::getAccessCycles(UInt32 size_in_KB, UInt32 associativity)
+{
+   if (size_in_KB <= 16)
+      return 1;
+   else if (size_in_KB <= 32)
+      return 2;
+   else if (size_in_KB <= 64)
+      return 4;
+   else if (size_in_KB <= 128)
+      return 6;
+   else if (size_in_KB <= 256)
+      return 8;
+   else if (size_in_KB <= 512)
+      return 10;
+   else if (size_in_KB <= 1024)
+      return 13;
+   else if (size_in_KB <= 2048)
+      return 16;
+   else // (size_in_KB > 2048)
+      return 20;
 }

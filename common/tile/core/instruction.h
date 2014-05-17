@@ -122,11 +122,6 @@ public:
    const McPATInstruction* getMcPATInstruction() const
    { return _mcpat_instruction; }
    
-   bool isSimpleMovMemoryLoad() const
-   { return _simple_mov_memory_load; }
-   bool isSimpleMovMemoryStore() const
-   { return _simple_mov_memory_store; }
-
 private:
    InstructionType _type;
    bool _dynamic;
@@ -138,8 +133,6 @@ private:
    MicroOpList _micro_ops;
    const OperandList _operands;
    const McPATInstruction* _mcpat_instruction;
-   bool _simple_mov_memory_load;
-   bool _simple_mov_memory_store;
 };
 
 // conditional branches

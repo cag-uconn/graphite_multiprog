@@ -156,43 +156,53 @@ DVFSManager::doSetDVFS(int module_mask, double frequency, voltage_option_t volta
    int rc = 0, rc_tmp = 0;
 
    // Invalid voltage option
-   if (voltage_flag != HOLD && voltage_flag != AUTO){ 
+   if (voltage_flag != HOLD && voltage_flag != AUTO)
+   {
       rc = -3;
    }
 
    // Invalid frequency
-   else if (frequency <= 0 || frequency > _max_frequency){
+   else if (frequency <= 0 || frequency > _max_frequency)
+   {
       rc = -4;
    }
 
    // Parse mask and set frequency and voltage
-   else{
-      if (module_mask & CORE){
+   else
+   {
+      if (module_mask & CORE)
+      {
          rc_tmp = _tile->getCore()->setDVFS(frequency, voltage_flag, curr_time);
          if (rc_tmp != 0) rc = rc_tmp;
       }
-      if (module_mask & L1_ICACHE){
+      if (module_mask & L1_ICACHE)
+      {
          rc_tmp = _tile->getMemoryManager()->setDVFS(L1_ICACHE, frequency, voltage_flag, curr_time);
          if (rc_tmp != 0) rc = rc_tmp;
       }
-      if (module_mask & L1_DCACHE){
+      if (module_mask & L1_DCACHE)
+      {
          rc_tmp = _tile->getMemoryManager()->setDVFS(L1_DCACHE, frequency, voltage_flag, curr_time);
          if (rc_tmp != 0) rc = rc_tmp;
       }
-      if (module_mask & L2_CACHE){
+      if (module_mask & L2_CACHE)
+      {
          rc_tmp = _tile->getMemoryManager()->setDVFS(L2_CACHE, frequency, voltage_flag, curr_time);
          if (rc_tmp != 0) rc = rc_tmp;
       }
-      if ((MemoryManager::getCachingProtocolType() != PR_L1_SH_L2_MSI) && (module_mask & DIRECTORY)){
+      if ((MemoryManager::getCachingProtocolType() != CachingProtocol::PR_L1_SH_L2_MSI) && (module_mask & DIRECTORY))
+      {
          rc_tmp = _tile->getMemoryManager()->setDVFS(DIRECTORY, frequency, voltage_flag, curr_time);
          if (rc_tmp != 0 && module_mask != TILE) rc = rc_tmp;
       }
-      if (module_mask & NETWORK_USER){
+      if (module_mask & NETWORK_USER)
+      {
          NetworkModel* user_network_model = _tile->getNetwork()->getNetworkModelFromPacketType(USER);
          rc_tmp = user_network_model->setDVFS(frequency, voltage_flag, curr_time);
          if (rc_tmp != 0) rc = rc_tmp;
       }
-      if (module_mask & NETWORK_MEMORY){
+      if (module_mask & NETWORK_MEMORY)
+      {
          NetworkModel* mem_network_model = _tile->getNetwork()->getNetworkModelFromPacketType(SHARED_MEM);
          rc_tmp = mem_network_model->setDVFS(frequency, voltage_flag, curr_time);
          if (rc_tmp != 0) rc = rc_tmp;

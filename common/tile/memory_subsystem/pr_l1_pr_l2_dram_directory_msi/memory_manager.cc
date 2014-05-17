@@ -27,7 +27,7 @@ MemoryManager::MemoryManager(Tile* tile)
    bool L1_icache_track_miss_types = false;
 
    std::string L1_dcache_type;
-   UInt32 L1_dcache_line_size = 0;
+   __attribute__((unused)) UInt32 L1_dcache_line_size = 0;
    UInt32 L1_dcache_size = 0;
    UInt32 L1_dcache_associativity = 0;
    UInt32 L1_dcache_num_banks = 0;
@@ -38,7 +38,7 @@ MemoryManager::MemoryManager(Tile* tile)
    bool L1_dcache_track_miss_types = false;
 
    std::string L2_cache_type;
-   UInt32 L2_cache_line_size = 0;
+   __attribute__((unused)) UInt32 L2_cache_line_size = 0;
    UInt32 L2_cache_size = 0;
    UInt32 L2_cache_associativity = 0;
    UInt32 L2_cache_num_banks = 0;
@@ -122,9 +122,6 @@ MemoryManager::MemoryManager(Tile* tile)
    {
       LOG_PRINT_ERROR("Error reading memory system parameters from the config file");
    }
-
-   LOG_ASSERT_ERROR(directory_type != "limited_broadcast",
-         "limited_broadcast directory scheme CANNOT be used with the pr_l1_pr_l2_dram_directory_msi protocol.");
 
    // Check if all cache line sizes are the same
    LOG_ASSERT_ERROR((L1_icache_line_size == L1_dcache_line_size) && (L1_dcache_line_size == L2_cache_line_size),
@@ -221,73 +218,69 @@ MemoryManager::~MemoryManager()
    }
 }
 
-bool
+void
 MemoryManager::coreInitiateMemoryAccess(MemComponent::Type mem_component,
                                         Core::lock_signal_t lock_signal,
                                         Core::mem_op_t mem_op_type,
                                         IntPtr address, UInt32 offset,
-                                        Byte* data_buf, UInt32 data_length,
-                                        bool modeled)
+                                        Byte* data_buf, UInt32 data_length)
 {
-   return _L1_cache_cntlr->processMemOpFromCore(mem_component, lock_signal, mem_op_type, 
-                                                address, offset, data_buf, data_length,
-                                                modeled);
+   _L1_cache_cntlr->processMemOpFromCore(mem_component, lock_signal, mem_op_type, 
+                                         address, offset, data_buf, data_length);
 }
 
 void
 MemoryManager::handleMsgFromNetwork(NetPacket& packet)
 {
-   core_id_t sender = packet.sender;
    ShmemMsg* shmem_msg = ShmemMsg::getShmemMsg((Byte*) packet.data);
 
    MemComponent::Type receiver_mem_component = shmem_msg->getReceiverMemComponent();
    MemComponent::Type sender_mem_component = shmem_msg->getSenderMemComponent();
 
-   LOG_PRINT("Got Shmem Msg: type(%i), address(%#lx), sender_mem_component(%u), receiver_mem_component(%u), sender(%i,%i), receiver(%i,%i)", 
+   LOG_PRINT("Got Shmem Msg: type(%i), address(%#lx), sender_mem_component(%u), receiver_mem_component(%u), "
+             "sender(%i,%i), receiver(%i,%i)", 
              shmem_msg->getType(), shmem_msg->getAddress(), sender_mem_component, receiver_mem_component,
-             sender.tile_id, sender.core_type, packet.receiver.tile_id, packet.receiver.core_type);    
+             packet.sender.tile_id, packet.sender.core_type, packet.receiver.tile_id, packet.receiver.core_type);    
+
+   tile_id_t sender = packet.sender.tile_id;
 
    switch (receiver_mem_component)
    {
    case MemComponent::L2_CACHE:
       switch(sender_mem_component)
       {
-         case MemComponent::L1_ICACHE:
-         case MemComponent::L1_DCACHE:
-            assert(sender.tile_id == getTile()->getId());
-            _L2_cache_cntlr->handleMsgFromL1Cache(shmem_msg);
-            break;
+      case MemComponent::L1_ICACHE:
+      case MemComponent::L1_DCACHE:
+         assert(sender == getTile()->getId());
+         _L2_cache_cntlr->handleMsgFromL1Cache(shmem_msg);
+         break;
 
-         case MemComponent::DRAM_DIRECTORY:
-            _L2_cache_cntlr->handleMsgFromDramDirectory(sender.tile_id, shmem_msg);
-            break;
+      case MemComponent::DRAM_DIRECTORY:
+         _L2_cache_cntlr->handleMsgFromDramDirectory(sender, shmem_msg);
+         break;
 
-         default:
-            LOG_PRINT_ERROR("Unrecognized sender component(%u)",
-                  sender_mem_component);
-            break;
+      default:
+         LOG_PRINT_ERROR("Unrecognized sender component(%u)", sender_mem_component);
+         break;
       }
       break;
 
    case MemComponent::DRAM_DIRECTORY:
+      LOG_ASSERT_ERROR(_dram_cntlr_present, "Dram Cntlr NOT present");
       switch(sender_mem_component)
       {
-         LOG_ASSERT_ERROR(_dram_cntlr_present, "Dram Cntlr NOT present");
+      case MemComponent::L2_CACHE:
+         _dram_directory_cntlr->handleMsgFromL2Cache(sender, shmem_msg);
+         break;
 
-         case MemComponent::L2_CACHE:
-            _dram_directory_cntlr->handleMsgFromL2Cache(sender.tile_id, shmem_msg);
-            break;
-
-         default:
-            LOG_PRINT_ERROR("Unrecognized sender component(%u)",
-                  sender_mem_component);
-            break;
+      default:
+         LOG_PRINT_ERROR("Unrecognized sender component(%u)", sender_mem_component);
+         break;
       }
       break;
 
    default:
-      LOG_PRINT_ERROR("Unrecognized receiver component(%u)",
-            receiver_mem_component);
+      LOG_PRINT_ERROR("Unrecognized receiver component(%u)",receiver_mem_component);
       break;
    }
 

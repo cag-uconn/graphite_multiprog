@@ -4,13 +4,11 @@
 #include "branch_predictor.h"
 #include "tile.h"
 
-using std::endl;
-
 SimpleCoreModel::SimpleCoreModel(Core *core)
     : CoreModel(core)
 {
    // Power/Area modeling
-   initializeMcPATInterface(1,1);
+   initializeMcPATInterface(1, 1);
 }
 
 SimpleCoreModel::~SimpleCoreModel()
@@ -27,9 +25,6 @@ void SimpleCoreModel::handleInstruction(Instruction *instruction)
    // abort further processing (via AbortInstructionException)
    Time cost = instruction->getCost(this);
 
-   // Update Statistics
-   _instruction_count++;
-
    if (instruction->isDynamic())
    {
       _curr_time += cost;
@@ -42,8 +37,8 @@ void SimpleCoreModel::handleInstruction(Instruction *instruction)
    Time execution_unit_stall_time(0);
 
    // Instruction Memory Modeling
-   Time instruction_memory_access_latency = modelICache(instruction);
-   l1_icache_stall_time += instruction_memory_access_latency;
+   Time instruction_fetch_latency = modelICache(instruction);
+   l1_icache_stall_time += instruction_fetch_latency;
 
    const UInt32& num_read_memory_operands = instruction->getNumReadMemoryOperands();
    const UInt32& num_write_memory_operands = instruction->getNumWriteMemoryOperands();

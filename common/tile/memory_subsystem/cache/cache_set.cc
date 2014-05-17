@@ -3,7 +3,7 @@
 #include "cache.h"
 #include "log.h"
 
-CacheSet::CacheSet(UInt32 set_num, CachingProtocolType caching_protocol_type, SInt32 cache_level,
+CacheSet::CacheSet(UInt32 set_num, CachingProtocol::Type caching_protocol_type, SInt32 cache_level,
                    CacheReplacementPolicy* replacement_policy, UInt32 associativity, UInt32 line_size)
    : _set_num(set_num)
    , _replacement_policy(replacement_policy)
@@ -57,15 +57,19 @@ CacheSet::write_line(UInt32 line_index, UInt32 offset, Byte *in_buf, UInt32 byte
 CacheLineInfo* 
 CacheSet::find(IntPtr tag, UInt32* line_index)
 {
+   LOG_PRINT("find[Tag(%#lx), Assoc(%i)] start", tag, _associativity);
    for (SInt32 index = _associativity-1; index >= 0; index--)
    {
       if (_cache_line_info_array[index]->getTag() == tag)
       {
          if (line_index != NULL)
             *line_index = index;
+         LOG_PRINT("find[Tag(%#lx), Assoc(%i)] end, Return(%p)", tag, _associativity, _cache_line_info_array[index]);
          return (_cache_line_info_array[index]);
       }
    }
+      
+   LOG_PRINT("find[Tag(%#lx), Assoc(%i)] end, Return(NULL)", tag, _associativity);
    return NULL;
 }
 
@@ -91,7 +95,6 @@ CacheSet::insert(CacheLineInfo* inserted_cache_line_info, Byte* fill_buf,
    else
    {
       *eviction = false;
-      // Get the line info for the purpose of getting the utilization and birth time
    }
 
    _cache_line_info_array[index]->assign(inserted_cache_line_info);

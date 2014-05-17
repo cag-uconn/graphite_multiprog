@@ -34,7 +34,7 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
 
    // L2 cache
    _L2_cache = new Cache("L2",
-         PR_L1_SH_L2_MSI,
+         CachingProtocol::PR_L1_SH_L2_MSI,
          Cache::UNIFIED_CACHE,
          L2,
          Cache::WRITE_BACK,
@@ -47,16 +47,15 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
          L2_cache_data_access_cycles,
          L2_cache_tags_access_cycles,
          L2_cache_perf_model_type,
-         L2_cache_track_miss_types,
-         getShmemPerfModel());
+         L2_cache_track_miss_types);
 }
 
 L2CacheCntlr::~L2CacheCntlr()
 {
    // Some eviction requests
    LOG_ASSERT_ERROR(_L2_cache_req_queue.size() == _evicted_cache_line_map.size(),
-                    "Req list size(%u), Evicted cache line map size(%u)", _L2_cache_req_queue.size(), _evicted_cache_line_map.size());
-   // FIXME: Directory Entries are not deleted at the end of simulation
+                    "Req list size(%u), Evicted cache line map size(%u)",
+                    _L2_cache_req_queue.size(), _evicted_cache_line_map.size());
    delete _L2_cache;
    delete _L2_cache_replacement_policy_obj;
    delete _L2_cache_hash_fn_obj;
@@ -131,8 +130,7 @@ void
 L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line_info)
 {
    // Create the new directory entry
-   DirectoryEntry* directory_entry = DirectoryEntry::create(PR_L1_SH_L2_MSI,
-                                                            L2DirectoryCfg::getDirectoryType(),
+   DirectoryEntry* directory_entry = DirectoryEntry::create(L2DirectoryCfg::getDirectoryType(),
                                                             L2DirectoryCfg::getMaxHWSharers(),
                                                             L2DirectoryCfg::getMaxNumSharers());
    // Construct meta-data info about L2 cache line
@@ -164,11 +162,11 @@ L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line
       
       LOG_PRINT("Eviction: Address(%#lx), Cache State(%u), Directory State(%u), Num Sharers(%i)",
                 evicted_address, evicted_cache_line_info.getCState(),
-                evicted_directory_entry->getDirectoryBlockInfo()->getDState(), evicted_directory_entry->getNumSharers());
+                evicted_directory_entry->getDState(), evicted_directory_entry->getNumSharers());
 
       // Create a nullify req and add it onto the queue for processing
       ShmemMsg nullify_msg(ShmemMsg::NULLIFY_REQ, MemComponent::L2_CACHE, MemComponent::L2_CACHE,
-                           getTileId(), false, evicted_address,
+                           getTileId(), evicted_address,
                            msg_modeled); 
       // Create a new ShmemReq for removing the sharers of the evicted cache line
       ShmemReq* nullify_req = new ShmemReq(&nullify_msg, eviction_time);
@@ -308,7 +306,7 @@ L2CacheCntlr::processNextReqFromL1Cache(IntPtr address)
    LOG_PRINT("Start processNextReqFromL1Cache(%#lx)", address);
    
    // Add 1 cycle to denote that we are moving to the next request
-   getShmemPerfModel()->incrCurrTime(Latency(1,_L2_cache->getFrequency()));
+   getShmemPerfModel()->incrCurrTime(Latency(1, _L2_cache->getFrequency()));
 
    assert(_L2_cache_req_queue.count(address) >= 1);
    
@@ -369,7 +367,7 @@ L2CacheCntlr::processNullifyReq(ShmemReq* nullify_req, Byte* data_buf)
    assert(L2_cache_line_info.getCState() != CacheState::INVALID);
 
    DirectoryEntry* directory_entry = L2_cache_line_info.getDirectoryEntry();
-   DirectoryState::Type curr_dstate = directory_entry->getDirectoryBlockInfo()->getDState();
+   DirectoryState::Type curr_dstate = directory_entry->getDState();
 
    // Is the request completely processed or waiting for acknowledgements or data?
    bool completed = false;
@@ -380,7 +378,7 @@ L2CacheCntlr::processNullifyReq(ShmemReq* nullify_req, Byte* data_buf)
       {
          assert(L2_cache_line_info.getCachingComponent() == MemComponent::L1_DCACHE);
          ShmemMsg shmem_msg(ShmemMsg::FLUSH_REQ, MemComponent::L2_CACHE, MemComponent::L1_DCACHE,
-                            requester, false, address,
+                            requester, address,
                             msg_modeled);
          _memory_manager->sendMsg(directory_entry->getOwner(), shmem_msg);
       }
@@ -461,7 +459,7 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
       // Data need not be fetched from DRAM
       // The cache line is present in the L2 cache
       DirectoryEntry* directory_entry = L2_cache_line_info.getDirectoryEntry();
-      DirectoryState::Type curr_dstate = directory_entry->getDirectoryBlockInfo()->getDState();
+      DirectoryState::Type curr_dstate = directory_entry->getDState();
 
       switch (curr_dstate)
       {
@@ -474,7 +472,7 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
                              "Caching component(%u)", L2_cache_line_info.getCachingComponent());
 
             ShmemMsg shmem_msg(ShmemMsg::FLUSH_REQ, MemComponent::L2_CACHE, MemComponent::L1_DCACHE,
-                               requester, false, address,
+                               requester, address,
                                msg_modeled);
             _memory_manager->sendMsg(directory_entry->getOwner(), shmem_msg);
          }
@@ -490,14 +488,14 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
             LOG_ASSERT_ERROR(L2_cache_line_info.getCachingComponent() == MemComponent::L1_DCACHE,
                              "Caching component(%u)", L2_cache_line_info.getCachingComponent());
       
-            if ((directory_entry->hasSharer(requester)) && (directory_entry->getNumSharers() == 1))
+            if ((directory_entry->isTrackedSharer(requester)) && (directory_entry->getNumSharers() == 1))
             {
                // Upgrade miss - shortcut - set state to MODIFIED
                directory_entry->setOwner(requester);
-               directory_entry->getDirectoryBlockInfo()->setDState(DirectoryState::MODIFIED);
+               directory_entry->setDState(DirectoryState::MODIFIED);
 
                ShmemMsg shmem_msg(ShmemMsg::UPGRADE_REP, MemComponent::L2_CACHE, MemComponent::L1_DCACHE,
-                                  requester, false, address,
+                                  requester, address,
                                   msg_modeled);
                _memory_manager->sendMsg(requester, shmem_msg);
                
@@ -529,7 +527,7 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
             __attribute__((unused)) bool add_result = directory_entry->addSharer(requester);
             assert(add_result);
             directory_entry->setOwner(requester);
-            directory_entry->getDirectoryBlockInfo()->setDState(DirectoryState::MODIFIED);
+            directory_entry->setDState(DirectoryState::MODIFIED);
 
             readCacheLineAndSendToL1Cache(ShmemMsg::EX_REP, address, MemComponent::L1_DCACHE, data_buf, requester, msg_modeled);
 
@@ -583,7 +581,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
       // Data need not be fetched from DRAM
       // The cache line is present in the L2 cache
       DirectoryEntry* directory_entry = L2_cache_line_info.getDirectoryEntry();
-      DirectoryState::Type curr_dstate = directory_entry->getDirectoryBlockInfo()->getDState();
+      DirectoryState::Type curr_dstate = directory_entry->getDState();
 
       switch (curr_dstate)
       {
@@ -596,7 +594,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
                              L2_cache_line_info.getCachingComponent(), requester_mem_component);
 
             ShmemMsg shmem_msg(ShmemMsg::WB_REQ, MemComponent::L2_CACHE, MemComponent::L1_DCACHE,
-                               requester, false, address,
+                               requester, address,
                                msg_modeled);
             _memory_manager->sendMsg(directory_entry->getOwner(), shmem_msg);
          }
@@ -609,7 +607,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
             
             if (L2_cache_line_info.getCachingComponent() != requester_mem_component)
             {
-               assert(directory_entry->hasSharer(requester));
+               assert(directory_entry->isSharer(requester));
                
                // LOG_PRINT_WARNING("Address(%#lx) cached first in (%s), then in (%s)",
                //                   address, SPELL_MEMCOMP(L2_cache_line_info.getCachingComponent()),
@@ -637,7 +635,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
 
                // Invalidate the sharer
                ShmemMsg shmem_msg(ShmemMsg::INV_REQ, MemComponent::L2_CACHE, requester_mem_component,
-                                  requester, false, address,
+                                  requester, address,
                                   msg_modeled);
                _memory_manager->sendMsg(sharer_id, shmem_msg);
             }
@@ -663,7 +661,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
             __attribute__((unused)) bool add_result = directory_entry->addSharer(requester);
             LOG_ASSERT_ERROR(add_result, "Address(%#lx), Requester(%i), State(UNCACHED), Num Sharers(%u)",
                              address, requester, directory_entry->getNumSharers());
-            directory_entry->getDirectoryBlockInfo()->setDState(DirectoryState::SHARED);
+            directory_entry->setDState(DirectoryState::SHARED);
 
             // Read the cache-line from the L2 cache and send it to L1
             readCacheLineAndSendToL1Cache(ShmemMsg::SH_REP, address, requester_mem_component, data_buf, requester, msg_modeled);
@@ -702,7 +700,7 @@ L2CacheCntlr::processInvRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem_m
    __attribute__((unused)) IntPtr address = shmem_msg->getAddress();
 
    DirectoryEntry* directory_entry = L2_cache_line_info->getDirectoryEntry();
-   DirectoryState::Type curr_dstate = directory_entry->getDirectoryBlockInfo()->getDState();
+   DirectoryState::Type curr_dstate = directory_entry->getDState();
   
    switch (curr_dstate)
    {
@@ -712,10 +710,10 @@ L2CacheCntlr::processInvRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem_m
                        address, sender, directory_entry->getNumSharers(), directory_entry->getOwner());
 
       // Remove the sharer and set the directory state to UNCACHED if the number of sharers is 0
-      directory_entry->removeSharer(sender, shmem_msg->isReplyExpected());
+      directory_entry->removeSharer(sender);
       if (directory_entry->getNumSharers() == 0)
       {
-         directory_entry->getDirectoryBlockInfo()->setDState(DirectoryState::UNCACHED);
+         directory_entry->setDState(DirectoryState::UNCACHED);
       }
       break;
 
@@ -734,7 +732,7 @@ L2CacheCntlr::processFlushRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem
    IntPtr address = shmem_msg->getAddress();
 
    DirectoryEntry* directory_entry = L2_cache_line_info->getDirectoryEntry();
-   DirectoryState::Type curr_dstate = directory_entry->getDirectoryBlockInfo()->getDState();
+   DirectoryState::Type curr_dstate = directory_entry->getDState();
    
    switch (curr_dstate)
    {
@@ -743,8 +741,6 @@ L2CacheCntlr::processFlushRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem
          LOG_ASSERT_ERROR(sender == directory_entry->getOwner(),
                           "Address(%#lx), State(MODIFIED), sender(%i), owner(%i)",
                           address, sender, directory_entry->getOwner());
-
-         assert(!shmem_msg->isReplyExpected());
 
          // Write the line to the L2 cache if there is no request (or a SH_REQ)
          ShmemReq* shmem_req = _L2_cache_req_queue.front(address);
@@ -756,9 +752,9 @@ L2CacheCntlr::processFlushRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem
          L2_cache_line_info->setCState(CacheState::DIRTY);
 
          // Remove the sharer from the directory entry and set state to UNCACHED
-         directory_entry->removeSharer(sender, false);
+         directory_entry->removeSharer(sender);
          directory_entry->setOwner(INVALID_TILE_ID);
-         directory_entry->getDirectoryBlockInfo()->setDState(DirectoryState::UNCACHED);
+         directory_entry->setDState(DirectoryState::UNCACHED);
       }
       break;
 
@@ -778,9 +774,7 @@ L2CacheCntlr::processWbRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem_ms
    IntPtr address = shmem_msg->getAddress();
 
    DirectoryEntry* directory_entry = L2_cache_line_info->getDirectoryEntry();
-   DirectoryState::Type curr_dstate = directory_entry->getDirectoryBlockInfo()->getDState();
-
-   assert(!shmem_msg->isReplyExpected());
+   DirectoryState::Type curr_dstate = directory_entry->getDState();
 
    switch (curr_dstate)
    {
@@ -797,7 +791,7 @@ L2CacheCntlr::processWbRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem_ms
 
          // Set the directory state to SHARED
          directory_entry->setOwner(INVALID_TILE_ID);
-         directory_entry->getDirectoryBlockInfo()->setDState(DirectoryState::SHARED);
+         directory_entry->setDState(DirectoryState::SHARED);
       }
       break;
 
@@ -821,7 +815,7 @@ L2CacheCntlr::restartShmemReq(ShmemReq* shmem_req, ShL2CacheLineInfo* L2_cache_l
    getShmemPerfModel()->updateCurrTime(shmem_req->getTime());
 
    DirectoryEntry* directory_entry = L2_cache_line_info->getDirectoryEntry();
-   DirectoryState::Type curr_dstate = directory_entry->getDirectoryBlockInfo()->getDState();
+   DirectoryState::Type curr_dstate = directory_entry->getDState();
 
    ShmemMsg::Type msg_type = TYPE(shmem_req);
    switch (msg_type)
@@ -854,11 +848,10 @@ L2CacheCntlr::sendInvalidationMsg(ShmemMsg::Type requester_msg_type,
 {
    if (all_tiles_sharers)
    {
-      bool reply_expected = (L2DirectoryCfg::getDirectoryType() == LIMITED_BROADCAST);
       // Broadcast invalidation request to all tiles 
       // (irrespective of whether they are sharers or not)
       ShmemMsg shmem_msg(ShmemMsg::INV_REQ, MemComponent::L2_CACHE, receiver_mem_component, 
-                         requester, reply_expected, address,
+                         requester, address,
                          msg_modeled);
       _memory_manager->broadcastMsg(shmem_msg);
    }
@@ -868,7 +861,7 @@ L2CacheCntlr::sendInvalidationMsg(ShmemMsg::Type requester_msg_type,
       for (UInt32 i = 0; i < sharers_list.size(); i++)
       {
          ShmemMsg shmem_msg(ShmemMsg::INV_REQ, MemComponent::L2_CACHE, receiver_mem_component,
-                            requester, false, address,
+                            requester, address,
                             msg_modeled);
          _memory_manager->sendMsg(sharers_list[i], shmem_msg);
       }
@@ -885,7 +878,7 @@ L2CacheCntlr::readCacheLineAndSendToL1Cache(ShmemMsg::Type reply_msg_type,
    {
       // I already have the data I need cached (by reply from an owner)
       ShmemMsg shmem_msg(reply_msg_type, MemComponent::L2_CACHE, requester_mem_component,
-                         requester, false, address, 
+                         requester, address, 
                          data_buf, getCacheLineSize(),
                          msg_modeled);
       _memory_manager->sendMsg(requester, shmem_msg);
@@ -897,7 +890,7 @@ L2CacheCntlr::readCacheLineAndSendToL1Cache(ShmemMsg::Type reply_msg_type,
       readCacheLine(address, L2_data_buf);
       
       ShmemMsg shmem_msg(reply_msg_type, MemComponent::L2_CACHE, requester_mem_component,
-                         requester, false, address,
+                         requester, address,
                          L2_data_buf, getCacheLineSize(),
                          msg_modeled);
       _memory_manager->sendMsg(requester, shmem_msg); 
@@ -908,7 +901,7 @@ void
 L2CacheCntlr::fetchDataFromDram(IntPtr address, tile_id_t requester, bool msg_modeled)
 {
    ShmemMsg fetch_msg(ShmemMsg::DRAM_FETCH_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_CNTLR,
-                      requester, false, address,
+                      requester, address,
                       msg_modeled);
    _memory_manager->sendMsg(getDramHome(address), fetch_msg);
 }
@@ -917,7 +910,7 @@ void
 L2CacheCntlr::storeDataInDram(IntPtr address, Byte* data_buf, tile_id_t requester, bool msg_modeled)
 {
    ShmemMsg send_msg(ShmemMsg::DRAM_STORE_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_CNTLR,
-                     requester, false, address,
+                     requester, address,
                      data_buf, getCacheLineSize(),
                      msg_modeled);
    _memory_manager->sendMsg(getDramHome(address), send_msg);

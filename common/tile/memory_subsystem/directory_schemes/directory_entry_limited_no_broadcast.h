@@ -5,10 +5,10 @@
 class DirectoryEntryLimitedNoBroadcast : public DirectoryEntryLimited
 {
 public:
-   DirectoryEntryLimitedNoBroadcast(SInt32 max_hw_sharers);
-   ~DirectoryEntryLimitedNoBroadcast();
-   
-   void removeSharer(tile_id_t sharer_id, bool reply_expected);
-
-   UInt32 getLatency();
+   DirectoryEntryLimitedNoBroadcast(SInt32 max_hw_sharers)
+      : DirectoryEntry(max_hw_sharers)
+      , DirectoryEntryLimited(max_hw_sharers)
+   {}
+   ~DirectoryEntryLimitedNoBroadcast()
+   {}
 };

@@ -29,7 +29,7 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
    _L2_cache_hash_fn_obj = new CacheHashFn(L2_cache_size, L2_cache_associativity, cache_line_size);
    
    _L2_cache = new Cache("L2",
-         PR_L1_PR_L2_DRAM_DIRECTORY_MOSI,
+         CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MOSI,
          Cache::UNIFIED_CACHE,
          L2,
          Cache::WRITE_BACK,
@@ -42,8 +42,7 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
          L2_cache_data_access_cycles,
          L2_cache_tags_access_cycles,
          L2_cache_perf_model_type,
-         L2_cache_track_miss_types,
-         getShmemPerfModel());
+         L2_cache_track_miss_types);
 
    initializeEvictionCounters();
    initializeInvalidationCounters();
@@ -128,7 +127,7 @@ L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, Byte* fil
       {
          // Send back the data also
          ShmemMsg send_shmem_msg(ShmemMsg::FLUSH_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY
-                                , getTileId(), INVALID_TILE_ID, false, evicted_address
+                                , getTileId(), INVALID_TILE_ID, evicted_address
                                 , writeback_buf, getCacheLineSize(), msg_modeled
                                 );
          _memory_manager->sendMsg(home_node_id, send_shmem_msg);
@@ -138,9 +137,9 @@ L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, Byte* fil
          LOG_ASSERT_ERROR(evicted_cache_line_info.getCState() == CacheState::SHARED,
                           "evicted_address(%#lx), evicted_cstate(%u), cached_loc(%u)",
                           evicted_address, evicted_cache_line_info.getCState(), evicted_cache_line_info.getCachedLoc());
-         
+        
          ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY
-                                , getTileId(), INVALID_TILE_ID, false, evicted_address
+                                , getTileId(), INVALID_TILE_ID, evicted_address
                                 ,  msg_modeled
                                 );
          _memory_manager->sendMsg(home_node_id, send_shmem_msg);
@@ -280,7 +279,7 @@ L2CacheCntlr::handleMsgFromL1Cache(ShmemMsg* shmem_msg)
    _outstanding_shmem_msg_time = getShmemPerfModel()->getCurrTime();
 
    ShmemMsg send_shmem_msg(shmem_msg_type, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY,
-                           getTileId(), INVALID_TILE_ID, false, address, shmem_msg->isModeled()); 
+                           getTileId(), INVALID_TILE_ID, address, shmem_msg->isModeled()); 
    _memory_manager->sendMsg(getHome(address), send_shmem_msg);
 }
 
@@ -447,7 +446,7 @@ L2CacheCntlr::processInvReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_m
       invalidateCacheLine(address, L2_cache_line_info);
 
       ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY
-                             , shmem_msg->getRequester(), INVALID_TILE_ID, shmem_msg->isReplyExpected(), address
+                             , shmem_msg->getRequester(), INVALID_TILE_ID, address
                              , shmem_msg->isModeled()
                              );
       _memory_manager->sendMsg(sender, send_shmem_msg);
@@ -456,14 +455,6 @@ L2CacheCntlr::processInvReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_m
    {
       // Update Shared Mem perf counters for access to L2 Cache
       _memory_manager->incrCurrTime(MemComponent::L2_CACHE, CachePerfModel::ACCESS_TAGS);
-
-      if (shmem_msg->isReplyExpected())
-      {
-         ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY,
-                                 shmem_msg->getRequester(), INVALID_TILE_ID, true, address,
-                                 shmem_msg->isModeled());
-         _memory_manager->sendMsg(sender, send_shmem_msg);
-      }
    }
 }
 
@@ -506,7 +497,7 @@ L2CacheCntlr::processFlushReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem
       invalidateCacheLine(address, L2_cache_line_info);
 
       ShmemMsg send_shmem_msg(ShmemMsg::FLUSH_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY
-                             , shmem_msg->getRequester(), INVALID_TILE_ID, shmem_msg->isReplyExpected(), address
+                             , shmem_msg->getRequester(), INVALID_TILE_ID, address
                              , data_buf, getCacheLineSize(), shmem_msg->isModeled()
                              );
       _memory_manager->sendMsg(sender, send_shmem_msg);
@@ -515,22 +506,12 @@ L2CacheCntlr::processFlushReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem
    {
       // Update Shared Mem perf counters for access to L2 Cache
       _memory_manager->incrCurrTime(MemComponent::L2_CACHE, CachePerfModel::ACCESS_TAGS);
-
-      if (shmem_msg->isReplyExpected())
-      {
-         ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY,
-                                 shmem_msg->getRequester(), INVALID_TILE_ID, true, address,
-                                 shmem_msg->isModeled());
-         _memory_manager->sendMsg(sender, send_shmem_msg);
-      }
    }
 }
 
 void
 L2CacheCntlr::processWbReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_msg)
 {
-   assert(!shmem_msg->isReplyExpected());
-
    IntPtr address = shmem_msg->getAddress();
 
    PrL2CacheLineInfo L2_cache_line_info;
@@ -567,7 +548,7 @@ L2CacheCntlr::processWbReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_ms
       _L2_cache->setCacheLineInfo(address, &L2_cache_line_info);
 
       ShmemMsg send_shmem_msg(ShmemMsg::WB_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY
-                             , shmem_msg->getRequester(), INVALID_TILE_ID, false, address
+                             , shmem_msg->getRequester(), INVALID_TILE_ID, address
                              , data_buf, getCacheLineSize(), shmem_msg->isModeled());
       _memory_manager->sendMsg(sender, send_shmem_msg);
    }

@@ -12,7 +12,6 @@ ShmemMsg::ShmemMsg()
    , _sender_mem_component(MemComponent::INVALID)
    , _receiver_mem_component(MemComponent::INVALID)
    , _requester(INVALID_TILE_ID)
-   , _reply_expected(false)
    , _address(INVALID_ADDRESS)
    , _data_buf(NULL)
    , _data_length(0)
@@ -23,7 +22,6 @@ ShmemMsg::ShmemMsg(Type msg_type
                   , MemComponent::Type sender_mem_component
                   , MemComponent::Type receiver_mem_component
                   , tile_id_t requester
-                  , bool reply_expected
                   , IntPtr address
                   , bool modeled
                   )
@@ -31,7 +29,6 @@ ShmemMsg::ShmemMsg(Type msg_type
    , _sender_mem_component(sender_mem_component)
    , _receiver_mem_component(receiver_mem_component)
    , _requester(requester)
-   , _reply_expected(reply_expected)
    , _address(address)
    , _data_buf(NULL)
    , _data_length(0)
@@ -42,7 +39,6 @@ ShmemMsg::ShmemMsg(Type msg_type
                   , MemComponent::Type sender_mem_component
                   , MemComponent::Type receiver_mem_component
                   , tile_id_t requester
-                  , bool reply_expected
                   , IntPtr address
                   , Byte* data_buf
                   , UInt32 data_length
@@ -52,7 +48,6 @@ ShmemMsg::ShmemMsg(Type msg_type
    , _sender_mem_component(sender_mem_component)
    , _receiver_mem_component(receiver_mem_component)
    , _requester(requester)
-   , _reply_expected(reply_expected)
    , _address(address)
    , _data_buf(data_buf)
    , _data_length(data_length)
@@ -74,7 +69,6 @@ ShmemMsg::clone(const ShmemMsg* shmem_msg)
    _sender_mem_component = shmem_msg->getSenderMemComponent();
    _receiver_mem_component = shmem_msg->getReceiverMemComponent();
    _requester = shmem_msg->getRequester();
-   _reply_expected = shmem_msg->isReplyExpected();
    _address = shmem_msg->getAddress();
    _data_buf = shmem_msg->getDataBuf();
    _data_length = shmem_msg->getDataLength();

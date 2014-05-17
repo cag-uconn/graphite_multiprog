@@ -3,19 +3,22 @@
 #include "directory_entry.h"
 #include "random.h"
 
-class DirectoryEntryLimited : public DirectoryEntry
+class DirectoryEntryLimited : virtual public DirectoryEntry
 {
 public:
    DirectoryEntryLimited(SInt32 max_hw_sharers);
    ~DirectoryEntryLimited();
 
-   bool hasSharer(tile_id_t sharer_id);
+   // Sharer list query operations 
+   bool isSharer(tile_id_t sharer_id) const;
+   bool isTrackedSharer(tile_id_t sharer_id) const;
+   bool getSharersList(vector<tile_id_t>& sharers) const;
+   tile_id_t getOneSharer();
+   SInt32 getNumSharers() const;
+   
+   // Sharer list manipulation operations  
    bool addSharer(tile_id_t sharer_id);
    void removeSharer(tile_id_t sharer_id);
-
-   bool getSharersList(vector<tile_id_t>& sharers);
-   tile_id_t getOneSharer();
-   SInt32 getNumSharers();
 
 protected:
    vector<SInt16> _sharers;

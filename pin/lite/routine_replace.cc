@@ -698,7 +698,7 @@ carbon_thread_t emuCarbonSpawnThread(CONTEXT* context,
    LOG_ASSERT_ERROR(ret == 0, "pthread_create() returned(%i)", ret);
 
    _map_lock.acquire();   
-   _carbon_thread_id_to_posix_thread_id_map.insert(make_pair<carbon_thread_t, pthread_t>(carbon_thread_id, posix_thread_id));
+   _carbon_thread_id_to_posix_thread_id_map.insert(make_pair(carbon_thread_id, posix_thread_id));
    _map_lock.release();
 
    return carbon_thread_id;
@@ -724,7 +724,7 @@ int emuPthreadCreate(CONTEXT* context, AFUNPTR pthread_create_func_ptr,
    LOG_ASSERT_ERROR(ret == 0, "pthread_create() returned(%i)", ret);
 
    _map_lock.acquire();
-   _carbon_thread_id_to_posix_thread_id_map.insert(make_pair<carbon_thread_t, pthread_t>(carbon_thread_id, *posix_thread_ptr));
+   _carbon_thread_id_to_posix_thread_id_map.insert(make_pair(carbon_thread_id, *posix_thread_ptr));
    _map_lock.release();
 
    return ret;

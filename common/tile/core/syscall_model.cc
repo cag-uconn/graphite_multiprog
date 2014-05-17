@@ -1169,11 +1169,11 @@ IntPtr SyscallMdl::handleTimeCall(syscall_args_t &args)
 IntPtr SyscallMdl::handleGetTimeofDayCall(syscall_args_t &args)
 {
    struct timeval* tv = (struct timeval*) args.arg0;
-   struct timezone* tz = (struct timezone*) args.arg1;
+   __attribute__((unused)) struct timezone* tz = (struct timezone*) args.arg1;
    LOG_ASSERT_WARNING(tz == NULL, "SYS_gettimeofday - timezone argument ignored");
 
    Core* core = Sim()->getTileManager()->getCurrentCore();
-   double frequency = core->getFrequency();
+   __attribute__((unused)) double frequency = core->getFrequency();
    // compute the elapsed time
    double elapsed_time = ((double) core->getModel()->getCurrTime().toNanosec())/1000000000.0;
    double curr_time = getStartTime() + elapsed_time;
@@ -1207,14 +1207,14 @@ IntPtr SyscallMdl::handleClockGettimeCall(syscall_args_t &args)
       (2) if the core gets reset then 'time' also gets reset
    */
 
-   clockid_t clk_id = (clockid_t) args.arg0;
+   __attribute__((unused)) clockid_t clk_id = (clockid_t) args.arg0;
    struct timespec *ts = (struct timespec *) args.arg1;
 
    LOG_ASSERT_ERROR(clk_id == CLOCK_REALTIME || clk_id == CLOCK_MONOTONIC,
                     "clock_gettime: Supports only REALTIME and MONOTONIC clocks");
 
    Core* core = Sim()->getTileManager()->getCurrentCore();
-   double frequency = core->getFrequency();
+   __attribute__((unused)) double frequency = core->getFrequency();
    // compute the elapsed time
    double elapsed_time = ((double) core->getModel()->getCurrTime().toNanosec())/1000000000.0;
    double curr_time = getStartTime() + elapsed_time;
@@ -1237,7 +1237,7 @@ IntPtr SyscallMdl::handleClockGettimeCall(syscall_args_t &args)
 
 IntPtr SyscallMdl::handleClockGetResCall(syscall_args_t &args)
 {
-   clockid_t clk_id = (clockid_t) args.arg0;
+   __attribute__((unused)) clockid_t clk_id = (clockid_t) args.arg0;
    struct timespec *res = (struct timespec *) args.arg1;
 
    LOG_ASSERT_ERROR(clk_id == CLOCK_REALTIME || clk_id == CLOCK_MONOTONIC,

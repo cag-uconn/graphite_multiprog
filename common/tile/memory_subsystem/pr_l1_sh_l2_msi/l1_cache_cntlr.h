@@ -53,11 +53,10 @@ namespace PrL1ShL2MSI
       Cache* getL1DCache() { return _L1_dcache; }
 
       bool processMemOpFromCore(MemComponent::Type mem_component,
-            Core::lock_signal_t lock_signal,
-            Core::mem_op_t mem_op_type, 
-            IntPtr ca_address, UInt32 offset,
-            Byte* data_buf, UInt32 data_length,
-            bool modeled);
+                                Core::lock_signal_t lock_signal,
+                                Core::mem_op_t mem_op_type, 
+                                IntPtr address, UInt32 offset,
+                                Byte* data_buf, UInt32 data_length);
       void handleMsgFromCore(ShmemMsg* shmem_msg);
       void handleMsgFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg);
 
@@ -84,7 +83,7 @@ namespace PrL1ShL2MSI
 
       void accessCache(MemComponent::Type mem_component,
                        Core::mem_op_t mem_op_type, 
-                       IntPtr ca_address, UInt32 offset,
+                       IntPtr address, UInt32 offset,
                        Byte* data_buf, UInt32 data_length);
       pair<bool, Cache::MissType> operationPermissibleinL1Cache(MemComponent::Type mem_component, 
                                                                 IntPtr address, Core::mem_op_t mem_op_type,

@@ -27,7 +27,7 @@ MemoryManager::MemoryManager(Tile* tile)
    bool L1_icache_track_miss_types = false;
 
    std::string L1_dcache_type;
-   UInt32 L1_dcache_line_size = 0;
+   __attribute__((unused)) UInt32 L1_dcache_line_size = 0;
    UInt32 L1_dcache_size = 0;
    UInt32 L1_dcache_associativity = 0;
    UInt32 L1_dcache_num_banks = 0;
@@ -38,7 +38,7 @@ MemoryManager::MemoryManager(Tile* tile)
    bool L1_dcache_track_miss_types = false;
 
    std::string L2_cache_type;
-   UInt32 L2_cache_line_size = 0;
+   __attribute__((unused)) UInt32 L2_cache_line_size = 0;
    UInt32 L2_cache_size = 0;
    UInt32 L2_cache_associativity = 0;
    UInt32 L2_cache_num_banks = 0;
@@ -121,6 +121,12 @@ MemoryManager::MemoryManager(Tile* tile)
    
    _cache_line_size = L1_icache_line_size;
 
+   // Set L2 directory params
+   L2DirectoryCfg::setDirectoryType(DirectoryEntry::parseDirectoryType(L2_directory_type_str));
+   L2DirectoryCfg::setMaxHWSharers(L2_directory_max_hw_sharers);
+   L2DirectoryCfg::setMaxNumSharers(L2_directory_max_num_sharers);
+
+   // DRAM home lookup 
    UInt32 dram_home_lookup_param = ceilLog2(_cache_line_size);
    std::vector<tile_id_t> tile_list_with_dram_controllers = getTileListWithMemoryControllers();
    _dram_home_lookup = new AddressHomeLookup(dram_home_lookup_param, tile_list_with_dram_controllers, getCacheLineSize());
@@ -144,11 +150,6 @@ MemoryManager::MemoryManager(Tile* tile)
             getCacheLineSize());
    }
    
-   // Set L2 directory params
-   L2DirectoryCfg::setDirectoryType(DirectoryEntry::parseDirectoryType(L2_directory_type_str));
-   L2DirectoryCfg::setMaxHWSharers(L2_directory_max_hw_sharers);
-   L2DirectoryCfg::setMaxNumSharers(L2_directory_max_num_sharers);
-
    // Instantiate L1 cache cntlr
    _L1_cache_cntlr = new L1CacheCntlr(this,
          _L2_cache_home_lookup,
@@ -199,17 +200,15 @@ MemoryManager::~MemoryManager()
    }
 }
 
-bool
+void
 MemoryManager::coreInitiateMemoryAccess(MemComponent::Type mem_component,
                                         Core::lock_signal_t lock_signal,
                                         Core::mem_op_t mem_op_type,
                                         IntPtr address, UInt32 offset,
-                                        Byte* data_buf, UInt32 data_length,
-                                        bool modeled)
+                                        Byte* data_buf, UInt32 data_length)
 {
-   return _L1_cache_cntlr->processMemOpFromCore(mem_component, lock_signal, mem_op_type,
-                                                address, offset, data_buf, data_length,
-                                                modeled);
+   _L1_cache_cntlr->processMemOpFromCore(mem_component, lock_signal, mem_op_type,
+                                         address, offset, data_buf, data_length);
 }
 
 void

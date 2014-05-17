@@ -12,7 +12,7 @@ using std::set;
 #include "shmem_perf_model.h"
 #include "utils.h"
 #include "fixed_types.h"
-#include "caching_protocol_type.h"
+#include "caching_protocol.h"
 #include "constants.h"
 #include "dvfs_manager.h"
 
@@ -67,7 +67,7 @@ public:
 
    // Constructors/destructors
    Cache(string name, 
-         CachingProtocolType caching_protocol_type,
+         CachingProtocol::Type caching_protocol_type,
          CacheCategory cache_category,
          SInt32 cache_level,
          WritePolicy write_policy,
@@ -80,8 +80,7 @@ public:
          UInt32 data_access_latency,
          UInt32 tags_access_latency,
          string perf_model_type,
-         bool track_miss_types = false,
-         ShmemPerfModel* shmem_perf_model = NULL);
+         bool track_miss_types);
    ~Cache();
 
    // Cache operations
@@ -90,6 +89,8 @@ public:
                         bool* eviction, IntPtr* evicted_address, CacheLineInfo* evicted_cache_line_info, Byte* writeback_buf);
    void getCacheLineInfo(IntPtr address, CacheLineInfo* cache_line_info);
    void setCacheLineInfo(IntPtr address, CacheLineInfo* updated_cache_line_info);
+   CacheLineInfo** getCacheLineInfoArray(IntPtr address) const;
+   UInt32 getSetNum(IntPtr address) const;
 
    // Get the tag associated with an address
    IntPtr getTag(IntPtr address) const;
@@ -125,12 +126,15 @@ public:
    // Friend class
    friend class McPATCacheInterface;
 
-   double getFrequency() const {return _frequency;};
+   double getFrequency() const { return _frequency; }
    int getDVFS(double &frequency, double &voltage);
    int setDVFS(double frequency, voltage_option_t voltage_flag, const Time& curr_time);
 
    // Synchronization delay
    Time getSynchronizationDelay(module_t module);
+
+   // Access cycles calculation
+   static UInt64 getAccessCycles(UInt32 size_in_KB, UInt32 associativity);
 
 private:
    // Is enabled?
@@ -223,7 +227,9 @@ private:
    // Update counters that record the state of cache lines
    void updateCacheLineStateCounters(CacheState::Type old_cstate, CacheState::Type new_cstate);
 
+   // Output tag/data array counters
+   void outputTagAndDataArrayCounters(ostream& out);
+   
    // Asynchronous communication
    DVFSManager::AsynchronousMap _asynchronous_map;
-   ShmemPerfModel* _shmem_perf_model;
 };

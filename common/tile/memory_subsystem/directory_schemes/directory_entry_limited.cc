@@ -16,7 +16,13 @@ DirectoryEntryLimited::~DirectoryEntryLimited()
 {}
 
 bool
-DirectoryEntryLimited::hasSharer(tile_id_t sharer_id)
+DirectoryEntryLimited::isSharer(tile_id_t sharer_id) const
+{
+   return isTrackedSharer(sharer_id);
+}
+
+bool
+DirectoryEntryLimited::isTrackedSharer(tile_id_t sharer_id) const
 {
    for (SInt32 i = 0; i < _max_hw_sharers; i++)
    {
@@ -34,7 +40,7 @@ DirectoryEntryLimited::addSharer(tile_id_t sharer_id)
 {
    for (SInt32 i = 0; i < _max_hw_sharers; i++)
    {
-      LOG_ASSERT_ERROR(_sharers[i] != (SInt16) sharer_id, "Sharer(%i) already present", sharer_id);
+      LOG_ASSERT_ERROR(_sharers[i] != (SInt16) sharer_id, "(%i) is already a sharer", sharer_id);
    }
    // Be sure that the sharer is not already added
    for (SInt32 i = 0; i < _max_hw_sharers; i++)
@@ -84,7 +90,7 @@ DirectoryEntryLimited::getOneSharer()
 
 // A list of tracked sharers
 bool
-DirectoryEntryLimited::getSharersList(vector<tile_id_t>& sharers_list)
+DirectoryEntryLimited::getSharersList(vector<tile_id_t>& sharers_list) const
 {
    for (SInt32 i = 0; i < _max_hw_sharers; i++)
    {
@@ -94,12 +100,12 @@ DirectoryEntryLimited::getSharersList(vector<tile_id_t>& sharers_list)
    LOG_ASSERT_ERROR(_num_tracked_sharers == (SInt32) sharers_list.size(),
                     "Num Tracked Sharers(%i), Sharers List Size(%u)",
                     _num_tracked_sharers, sharers_list.size());
-   return true;
+   return false;
 }
 
 // Number of Tracked Sharers
 SInt32
-DirectoryEntryLimited::getNumSharers()
+DirectoryEntryLimited::getNumSharers() const
 {
    return _num_tracked_sharers;
 }

@@ -45,7 +45,7 @@ namespace PrL1PrL2DramDirectoryMSI
       // Handle Request from L1 Cache - This is done for better simulator performance
       pair<bool,Cache::MissType> processShmemRequestFromL1Cache(MemComponent::Type mem_component, Core::mem_op_t mem_op_type, IntPtr address);
       // Write-through Cache. Hence needs to be written by the APP thread
-      void writeCacheLine(IntPtr address, UInt32 offset, Byte* data_buf, UInt32 data_length);
+      void writeCacheLine(IntPtr address, Byte* data_buf, UInt32 offset, UInt32 data_length);
 
       // Handle message from L1 Cache
       void handleMsgFromL1Cache(ShmemMsg* shmem_msg);
