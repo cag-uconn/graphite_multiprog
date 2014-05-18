@@ -24,16 +24,29 @@
 using std::string;
 
 SockTransport::SockTransport()
-   : m_update_thread_state(RUNNING)
+   : m_update_thread_state(EXITED)
 {
-   m_base_port = Sim()->getCfg()->getInt("transport/base_port", DEFAULT_BASE_PORT);
+   try
+   {
+      m_base_port = Sim()->getCfg()->getInt("transport/base_port");
+   }
+   catch (...)
+   {
+      LOG_PRINT_ERROR("Could not read [transport/base_port] from the cfg file");
+   }
 
    getProcInfo();
-   initSockets();
    initBufferLists();
 
-   m_update_thread = Thread::create(updateThreadFunc, this);
-   m_update_thread->run();
+   if (m_num_procs > 1)
+   {
+      // Initialize TCP/IP sockets
+      initSockets();
+      // Update thread for communicating between processes
+      m_update_thread_state = RUNNING;
+      m_update_thread = Thread::create(updateThreadFunc, this);
+      m_update_thread->run();
+   }
 
    m_global_node = new SockNode(GLOBAL_TAG, this);
 }
@@ -56,6 +69,22 @@ void SockTransport::getProcInfo()
 
    Config::getSingleton()->setProcessNum(m_proc_index);
    LOG_PRINT("Process number set to %i", Config::getSingleton()->getCurrentProcessNum());
+}
+
+void SockTransport::initBufferLists()
+{
+   m_num_lists
+      = Config::getSingleton()->getTotalTiles() // for tiles
+      + 1; // for global node
+
+   m_buffer_lists = new buffer_list[m_num_lists];
+
+#ifdef __CHECKSUM_ENABLED__
+   m_header_lists = new std::list<Header*>[m_num_lists];
+#endif // __CHECKSUM_ENABLED__
+
+   m_buffer_list_locks = new Lock[m_num_lists];
+   m_buffer_list_sems = new Semaphore[m_num_lists];
 }
 
 void SockTransport::initSockets()
@@ -83,10 +112,10 @@ void SockTransport::initSockets()
       string server_addr = "";
       try
       {
-          server_addr = Sim()->getCfg()->getString(server_string, "127.0.0.1");
+          server_addr = Sim()->getCfg()->getString(server_string);
       } catch (...)
       {
-          LOG_ASSERT_ERROR(false, "Key: %s not found in config!", server_string.c_str());
+          LOG_PRINT_ERROR("Key: %s not found in config!", server_string.c_str());
       }
 
       m_send_sockets[proc].connect(server_addr.c_str(), m_base_port + proc);
@@ -111,22 +140,6 @@ void SockTransport::initSockets()
 
       m_recv_sockets[proc_index] = sock;
    }
-}
-
-void SockTransport::initBufferLists()
-{
-   m_num_lists
-      = Config::getSingleton()->getTotalTiles() // for tiles
-      + 1; // for global node
-
-   m_buffer_lists = new buffer_list[m_num_lists];
-
-#ifdef __CHECKSUM_ENABLED__
-   m_header_lists = new std::list<Header*>[m_num_lists];
-#endif // __CHECKSUM_ENABLED__
-
-   m_buffer_list_locks = new Lock[m_num_lists];
-   m_buffer_list_sems = new Semaphore[m_num_lists];
 }
 
 void SockTransport::updateThreadFunc(void *vp)
@@ -254,8 +267,25 @@ SockTransport::~SockTransport()
 
    delete m_global_node;
 
-   terminateUpdateThread();
-   delete m_update_thread;
+   if (m_num_procs > 1)
+   {
+      // Terminate update thread
+      terminateUpdateThread();
+      delete m_update_thread;
+
+      // De-initialize sockets & locks
+      for (SInt32 i = 0; i < m_num_procs; i++)
+      {
+         m_recv_sockets[i].close();
+         m_send_sockets[i].close();
+      }
+      m_server_socket.close();
+      
+      delete [] m_recv_locks;
+      delete [] m_recv_sockets;
+      delete [] m_send_locks;
+      delete [] m_send_sockets;
+   }
 
    delete [] m_buffer_list_sems;
    delete [] m_buffer_list_locks;
@@ -266,17 +296,6 @@ SockTransport::~SockTransport()
 
    delete [] m_buffer_lists;
 
-   for (SInt32 i = 0; i < m_num_procs; i++)
-   {
-      m_recv_sockets[i].close();
-      m_send_sockets[i].close();
-   }
-   m_server_socket.close();
-   
-   delete [] m_recv_locks;
-   delete [] m_recv_sockets;
-   delete [] m_send_locks;
-   delete [] m_send_sockets;
 }
 
 Transport::Node* SockTransport::createNode(tile_id_t tile_id)
@@ -298,6 +317,10 @@ void SockTransport::barrier()
    // used in the simulator, it should be OK. (Bear in mind this is
    // the Transport::barrier, NOT the CarbonBarrier implementation.)
 
+   // Only required if the number of processes > 1
+   if (m_num_procs == 1)
+      return;
+   
    LOG_PRINT("Entering transport barrier");
 
    Socket &sock = m_send_sockets[(m_proc_index+1) % m_num_procs];
