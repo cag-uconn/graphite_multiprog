@@ -398,9 +398,9 @@ bool SockTransport::SockNode::query()
    return result;
 }
 
-void SockTransport::SockNode::send(SInt32 dest_proc, 
-                                   UInt32 tag, 
-                                   const void *buffer, 
+void SockTransport::SockNode::send(SInt32 dest_proc,
+                                   UInt32 tag,
+                                   const void *buffer,
                                    UInt32 length)
 {
    // two cases:
@@ -413,7 +413,7 @@ void SockTransport::SockNode::send(SInt32 dest_proc,
 
    if (dest_proc == m_transport->m_proc_index)
    {
-      Byte *buff_cpy = new Byte[length];
+      Byte* buff_cpy = new Byte[length];
       memcpy(buff_cpy, buffer, length);
 
 #ifdef __CHECKSUM_ENABLED__

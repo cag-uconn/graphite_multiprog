@@ -244,12 +244,9 @@ SInt32 Network::forwardPacket(const NetPacket& packet)
       }
       else
       {
-         LOG_PRINT("Send packet : type %i, from (%i,%i), to (%i, %i), next_hop %i, tile_id %i, time %llu",
-                   (SInt32) buf_pkt->type,
-                   buf_pkt->sender.tile_id, buf_pkt->sender.core_type,
-                   buf_pkt->receiver.tile_id, buf_pkt->receiver.core_type,
-                   hop._next_tile_id,
-                   _tile->getId(), hop._time.toNanosec());
+         LOG_PRINT("Send packet : type %i, from %i to %i, next_hop %i, tile_id %i, time %llu",
+                   (SInt32) buf_pkt->type, buf_pkt->sender.tile_id, buf_pkt->receiver.tile_id,
+                   hop._next_tile_id, _tile->getId(), hop._time.toNanosec());
          
          _transport->send(hop._next_tile_id, buffer, packet.bufferSize());
       }
