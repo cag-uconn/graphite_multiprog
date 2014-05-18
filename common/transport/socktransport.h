@@ -25,7 +25,7 @@ public:
       bool query();
 
    private:
-      void send(SInt32 dest_proc, UInt32 tag, const void *buffer, UInt32 length);
+      void send(SInt32 dest_proc, SInt32 tag, const void *buffer, UInt32 length);
 
       SockTransport *m_transport;
    };
@@ -40,22 +40,12 @@ private:
    {
       UInt32 length;
       SInt32 tag;
-      Byte data;
    } __attribute__((packed));
 
-   struct Header
-   {
-      Header(UInt32 length, UInt64 checksum):
-         m_length(length), m_checksum(checksum) {}
-
-      UInt32 m_length;
-      UInt64 m_checksum;
-   };
-   
    void getProcInfo();
    void initSockets();
    void initBufferLists();
-   void insertInBufferList(SInt32 tag, Byte *buffer, Header* header = NULL);
+   void insertInBufferList(SInt32 tag, Byte *buffer);
 
    static void updateThreadFunc(void *vp);
    void updateBufferLists();
@@ -117,7 +107,6 @@ private:
    typedef std::list<Byte*> buffer_list;
    SInt32 m_num_lists;
    buffer_list *m_buffer_lists;
-   std::list<Header*> *m_header_lists;
 
    Lock *m_buffer_list_locks;
    Semaphore *m_buffer_list_sems;
