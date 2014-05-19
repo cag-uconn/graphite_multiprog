@@ -31,7 +31,7 @@ MemoryManager::MemoryManager(Tile* tile)
    bool L1_icache_track_miss_types = false;
 
    std::string L1_dcache_type;
-   UInt32 L1_dcache_line_size = 0;
+   __attribute__((unused)) UInt32 L1_dcache_line_size = 0;
    UInt32 L1_dcache_size = 0;
    UInt32 L1_dcache_associativity = 0;
    UInt32 L1_dcache_num_banks = 0;
@@ -42,7 +42,7 @@ MemoryManager::MemoryManager(Tile* tile)
    bool L1_dcache_track_miss_types = false;
 
    std::string L2_cache_type;
-   UInt32 L2_cache_line_size = 0;
+   __attribute__((unused)) UInt32 L2_cache_line_size = 0;
    UInt32 L2_cache_size = 0;
    UInt32 L2_cache_associativity = 0;
    UInt32 L2_cache_num_banks = 0;
@@ -207,17 +207,15 @@ MemoryManager::~MemoryManager()
    }
 }
 
-bool
+void
 MemoryManager::coreInitiateMemoryAccess(MemComponent::Type mem_component,
                                         Core::lock_signal_t lock_signal,
                                         Core::mem_op_t mem_op_type,
                                         IntPtr address, UInt32 offset,
-                                        Byte* data_buf, UInt32 data_length,
-                                        bool modeled)
+                                        Byte* data_buf, UInt32 data_length)
 {
-   return _L1_cache_cntlr->processMemOpFromCore(mem_component, lock_signal, mem_op_type,
-                                                address, offset, data_buf, data_length,
-                                                modeled);
+   _L1_cache_cntlr->processMemOpFromCore(mem_component, lock_signal, mem_op_type,
+                                         address, offset, data_buf, data_length);
 }
 
 void
@@ -231,10 +229,10 @@ MemoryManager::handleMsgFromNetwork(NetPacket& packet)
    MemComponent::Type sender_mem_component = shmem_msg->getSenderMemComponent();
 
    LOG_PRINT("Time(%llu), Got Shmem Msg: type(%s), address(%#lx), "
-             "sender_mem_component(%s), receiver_mem_component(%s), sender(%i,%i), receiver(%i,%i)", 
+             "sender_mem_component(%s), receiver_mem_component(%s), sender(%i), receiver(%i)", 
              msg_time.toNanosec(), SPELL_SHMSG(shmem_msg->getType()), shmem_msg->getAddress(),
              SPELL_MEMCOMP(sender_mem_component), SPELL_MEMCOMP(receiver_mem_component),
-             sender.tile_id, sender.core_type, packet.receiver.tile_id, packet.receiver.core_type);    
+             sender.tile_id, packet.receiver.tile_id);    
 
    switch (receiver_mem_component)
    {

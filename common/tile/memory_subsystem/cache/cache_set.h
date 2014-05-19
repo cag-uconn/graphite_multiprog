@@ -8,7 +8,7 @@
 class CacheSet
 {
 public:
-   CacheSet(UInt32 set_num, CachingProtocolType caching_protocol_type, SInt32 cache_level,
+   CacheSet(UInt32 set_num, CachingProtocol::Type caching_protocol_type, SInt32 cache_level,
             CacheReplacementPolicy* replacement_policy, UInt32 associativity, UInt32 line_size);
    ~CacheSet();
 
@@ -17,6 +17,7 @@ public:
    CacheLineInfo* find(IntPtr tag, UInt32* line_index = NULL);
    void insert(CacheLineInfo* inserted_cache_line_info, Byte* fill_buf,
                bool* eviction, CacheLineInfo* evicted_cache_line_info, Byte* writeback_buf);
+   CacheLineInfo** getCacheLineInfoArray() const               { return _cache_line_info_array; }
 
 private:
    CacheLineInfo** _cache_line_info_array;

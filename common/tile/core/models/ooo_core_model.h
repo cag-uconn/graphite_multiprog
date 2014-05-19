@@ -1,30 +1,24 @@
 #pragma once
 
+#include <iostream>
+using std::ostream;
+using std::pair;
+
 #include "core_model.h"
 /*
-  In-order core, out-of-order memory model.
-  We use a simple scoreboard to keep track of registers.
-  We also keep a store buffer to enable load bypassing.
+  Out-of-order core model.
  */
-class IOCOOMCoreModel : public CoreModel
+class OOOCoreModel : public CoreModel
 {
-public:
-   enum CoreUnit
-   {
-      INVALID_UNIT = 0,
-      LOAD_UNIT = 1,
-      STORE_UNIT = 2,
-      EXECUTION_UNIT = 3
-   };
-
+private:
    typedef vector<Time> Scoreboard;
-   typedef vector<CoreUnit> DependencyTracker;
 
-   IOCOOMCoreModel(Core* core);
-   ~IOCOOMCoreModel();
+public:
+   OOOCoreModel(Core* core);
+   ~OOOCoreModel();
 
    void outputSummary(ostream &os, const Time& target_completion_time);
-   
+
    class InstructionFetchStage
    {
    public:
@@ -56,52 +50,52 @@ public:
       Time _timestamp;
    };
 
-   class RegisterFetchStage
+   class RegisterRenameStage
    {
    public:
-      RegisterFetchStage(CoreModel* core_model);
+      RegisterRenameStage(CoreModel* core_model);
 
       void handle(const Time& decode_ready);
       Time sync(const Time& next_stage_timestamp);
-      const Time& getTimeStamp() const { return _timestamp; }
+      const Time& getTimeStamp() { return _timestamp; }
 
    private:
       CoreModel* _core_model;
       Time _timestamp;
    };
 
-   class DispatchStage
+   class AllocateStage
    {
    public:
-      DispatchStage(CoreModel* core_model);
+      AllocateStage(CoreModel* core_model);
+
+      void handle(const Time& rename_ready, const Time& allocate_latency);
+      Time sync(const Time& next_stage_timestamp);
+      const Time& getTimeStamp() { return _timestamp; }
       void outputSummary(ostream& os);
-
-      Time getMemoryAccessStallTime() const;
-      Time getExecutionUnitStallTime() const;
-
-      void handle(const Instruction* instruction, const Time& register_fetch_ready);
-      Time sync(const Time& next_stage_timestamp, const CoreUnit& unit);
-      Time update(const Time& prev_micro_op_completion_time, const CoreUnit& wait_unit);
-      void updateScoreboard(Instruction* instruction, const Time& completion_time, const CoreUnit& wait_unit);
-      
-      const Time& getTimeStamp() const { return _timestamp; }
 
    private:
       CoreModel* _core_model;
       Time _timestamp;
+      Time _total_stall_time;
+   };
 
-      Scoreboard _register_scoreboard;
-      DependencyTracker _register_dependency_list;
+   class ReorderBuffer
+   {
+   public:
+      ReorderBuffer(CoreModel* core_model);
+      ~ReorderBuffer();
 
-      // Detailed Pipeline Stall Counters
-      Time _total_load_queue__stall_time;
-      Time _total_store_queue__stall_time;
-      Time _total_intra_ins__memory_access__stall_time;
-      Time _total_inter_ins__memory_access__stall_time;
-      Time _total_intra_ins__execution_unit__stall_time;
-      Time _total_inter_ins__execution_unit__stall_time;
+      Time allocate(const MicroOp& micro_op, const Time& schedule_time);
+      void complete(const MicroOp& micro_op, const Time& completion_time);
+      void outputSummary(ostream& os);
 
-      void initializePipelineStallCounters();
+   private:
+      CoreModel* _core_model;
+      Scoreboard _scoreboard;
+      UInt32 _num_entries;
+      UInt32 _allocate_idx;
+      Time _total_stall_time;
    };
 
    class ExecutionUnit
@@ -118,19 +112,12 @@ public:
 
       Time allocateLoad(const Time& schedule_time);
       Time allocateStore(const Time& schedule_time);
-      Time issueLoad(const Time& issue_time);
-      void issueStore(const Time& issue_time);
-      
+      pair<Time,Time> issueLoad(const Time& issue_time);
+      Time issueStore(const Time& issue_time);
       void handleFence(MicroOp::Type micro_op_type);
-
-      const Time& getLastLoadAllocateTime() const
-      { return _load_queue->getLastAllocateTime(); }
-      const Time& getLastStoreAllocateTime() const
-      { return _store_queue->getLastAllocateTime(); }
-      
       void outputSummary(ostream& os);
-
-   private:      
+      
+   private:
       class LoadQueue
       {
       public:
@@ -139,7 +126,6 @@ public:
 
          Time allocate(const Time& schedule_time);
          pair<Time,Time> issue(const Time& issue_time, bool found_in_store_queue, const DynamicMemoryInfo& info);
-         const Time& getLastAllocateTime();
          const Time& getLastDeallocateTime();
          void setFenceTime(const Time& fence_time);
 
@@ -167,7 +153,6 @@ public:
 
          Time allocate(const Time& schedule_time);
          Time issue(const Time& issue_time, const Time& last_load_deallocate_time, const DynamicMemoryInfo& info);
-         const Time& getLastAllocateTime();
          const Time& getLastDeallocateTime();
          void setFenceTime(const Time& fence_time);
          Status isAddressAvailable(const Time& schedule_time, IntPtr address);
@@ -181,29 +166,28 @@ public:
          UInt32 _allocate_idx;
          Time _fence_time;
       };
-      
+
       CoreModel* _core_model;
       LoadQueue* _load_queue;
       StoreQueue* _store_queue;
+      Time _total_load_queue__stall_time;
+      Time _total_store_queue__stall_time;
    };
 
-private:
 
+private:
    static const UInt32 _NUM_REGISTERS = 512;
    
    InstructionFetchStage* _instruction_fetch_stage;
    InstructionDecodeStage* _instruction_decode_stage;
-   RegisterFetchStage* _register_fetch_stage;
-   DispatchStage* _dispatch_stage;
+   RegisterRenameStage* _register_rename_stage;
+   AllocateStage* _allocate_stage;
+   ReorderBuffer* _reorder_buffer;
    ExecutionUnit* _execution_unit;
    LoadStoreUnit* _load_store_unit;
-
-   Time _ONE_CYCLE;
+   Scoreboard _register_scoreboard;
 
    McPATCoreInterface* _mcpat_core_interface;
    
    void handleInstruction(Instruction *instruction);
-
-   pair<Time,Time> executeLoad(const Time& schedule_time, const DynamicMemoryInfo& info);
-   Time executeStore(const Time& schedule_time, const DynamicMemoryInfo& info);
 };

@@ -17,9 +17,9 @@ class PinMemoryManager;
 #include "fixed_types.h"
 #include "capi.h"
 #include "packet_type.h"
-#include "lock.h"
 #include "time_types.h"
 #include "dvfs_manager.h"
+#include "dynamic_memory_info.h"
 
 class Core
 {
@@ -55,15 +55,15 @@ public:
    int coreSendW(int sender, int receiver, char *buffer, int size, carbon_network_t net_type);
    int coreRecvW(int sender, int receiver, char *buffer, int size, carbon_network_t net_type);
    
-   virtual Time readInstructionMemory(IntPtr address, UInt32 instruction_size);
+   Time readInstructionMemory(IntPtr address, UInt32 instruction_size);
 
-   virtual pair<UInt32, Time> initiateMemoryAccess(MemComponent::Type mem_component,
-                                                   lock_signal_t lock_signal, mem_op_t mem_op_type, IntPtr address,
-                                                   Byte* data_buf, UInt32 data_size, bool push_info = false,
-                                                   Time time = Time(0));
+   DynamicMemoryInfo initiateMemoryAccess(MemComponent::Type mem_component,
+                                          lock_signal_t lock_signal, mem_op_t mem_op_type, IntPtr address,
+                                          Byte* data_buf, UInt32 data_size,
+                                          bool push_info = false, Time time = Time(0));
    
-   virtual pair<UInt32, Time> accessMemory(lock_signal_t lock_signal, mem_op_t mem_op_type, IntPtr address,
-                                           char* data_buffer, UInt32 data_size, bool push_info = false);
+   void accessMemory(lock_signal_t lock_signal, mem_op_t mem_op_type, IntPtr address,
+                     char* data_buffer, UInt32 data_size, bool push_info = false);
 
    core_id_t getId()                         { return _id; }
    Tile *getTile()                           { return _tile; }
@@ -81,6 +81,9 @@ public:
    void enableModels();
    void disableModels();
 
+   static string spellMemOp(mem_op_t mem_op_type);
+   static string spellLockSignal(lock_signal_t lock_signal);
+   
    double getFrequency() const               { return _frequency; }
    double getVoltage() const                 { return _voltage; }
 
@@ -108,18 +111,23 @@ private:
    UInt64 _num_data_memory_accesses;
    Time _total_data_memory_access_latency;
 
-   void initializeInstructionBuffer();
-   void initializeMemoryAccessLatencyCounters();
-   void incrTotalMemoryAccessLatency(MemComponent::Type mem_component, Time memory_access_latency);
-   PacketType getPacketTypeFromUserNetType(carbon_network_t net_type);
-
+   // Voltage / Frequency / DVFS Parameters
    double _frequency;
    double _voltage;
    module_t _module;
    Time _synchronization_delay;
    DVFSManager::AsynchronousMap _asynchronous_map;
 
+   Time _lock_acquire_time;
+
+   void initializeInstructionBuffer();
+   void initializeMemoryAccessLatencyCounters();
+   void incrTotalMemoryAccessLatency(MemComponent::Type mem_component, Time memory_access_latency);
+   PacketType getPacketTypeFromUserNetType(carbon_network_t net_type);
+
    Time getSynchronizationDelay(module_t module);
 };
 
+#define SPELL_MEMOP(x)        Core::spellMemOp(x).c_str()
+#define SPELL_LOCK_SIGNAL(x)  Core::spellLockSignal(x).c_str()
 #endif

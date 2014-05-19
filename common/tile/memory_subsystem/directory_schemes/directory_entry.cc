@@ -1,7 +1,6 @@
 #include "directory_type.h"
 #include "directory_entry.h"
 #include "directory_entry_full_map.h"
-#include "directory_entry_limited_broadcast.h"
 #include "directory_entry_limited_no_broadcast.h"
 #include "directory_entry_ackwise.h"
 #include "directory_entry_limitless.h"
@@ -10,43 +9,32 @@
 
 DirectoryEntry::DirectoryEntry(SInt32 max_hw_sharers)
    : _address(INVALID_ADDRESS)
+   , _dstate(DirectoryState::UNCACHED)
    , _owner_id(INVALID_TILE_ID)
    , _max_hw_sharers(max_hw_sharers)
-{
-   _directory_block_info = new DirectoryBlockInfo();
-}
+{}
 
 DirectoryEntry::~DirectoryEntry()
-{
-   delete _directory_block_info;
-}
+{}
 
-DirectoryType
+UInt32
 DirectoryEntry::parseDirectoryType(string directory_type)
 {
    if (directory_type == "full_map")
       return FULL_MAP;
    else if (directory_type == "limited_no_broadcast")
       return LIMITED_NO_BROADCAST;
-   else if (directory_type == "limited_broadcast")
-      return LIMITED_BROADCAST;
    else if (directory_type == "ackwise")
       return ACKWISE;
    else if (directory_type == "limitless")
       return LIMITLESS;
    else
       LOG_PRINT_ERROR("Unsupported Directory Type: %s", directory_type.c_str());
-   return (DirectoryType) -1;
+   return UINT32_MAX_;
 }
 
 DirectoryEntry*
-DirectoryEntry::create(CachingProtocolType caching_protocol_type, DirectoryType directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers)
-{
-   return create(directory_type, max_hw_sharers, max_num_sharers);
-}
-
-DirectoryEntry*
-DirectoryEntry::create(DirectoryType directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers)
+DirectoryEntry::create(UInt32 directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers)
 {
    switch (directory_type)
    {
@@ -55,9 +43,6 @@ DirectoryEntry::create(DirectoryType directory_type, SInt32 max_hw_sharers, SInt
 
    case LIMITED_NO_BROADCAST:
       return new DirectoryEntryLimitedNoBroadcast(max_hw_sharers);
-
-   case LIMITED_BROADCAST:
-      return new DirectoryEntryLimitedBroadcast(max_hw_sharers);
 
    case ACKWISE:
       return new DirectoryEntryAckwise(max_hw_sharers);
@@ -72,15 +57,15 @@ DirectoryEntry::create(DirectoryType directory_type, SInt32 max_hw_sharers, SInt
 }
 
 UInt32
-DirectoryEntry::getSize(DirectoryType directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers)
+DirectoryEntry::getSize(UInt32 directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers)
 {
-   LOG_PRINT("DirectoryEntry::getSize(), Directory Type(%u), Max Num Sharers(%i), Max HW Sharers(%i)", directory_type, max_num_sharers, max_hw_sharers);
+   LOG_PRINT("DirectoryEntry::getSize(), Directory Type(%u), Max Num Sharers(%i), Max HW Sharers(%i)",
+             directory_type, max_num_sharers, max_hw_sharers);
    switch(directory_type)
    {
    case FULL_MAP:
       return max_num_sharers;
    case LIMITED_NO_BROADCAST:
-   case LIMITED_BROADCAST:
    case ACKWISE:
    case LIMITLESS:
       return max_hw_sharers * ceilLog2(max_num_sharers);
@@ -90,22 +75,10 @@ DirectoryEntry::getSize(DirectoryType directory_type, SInt32 max_hw_sharers, SIn
    }
 }
 
-DirectoryBlockInfo*
-DirectoryEntry::getDirectoryBlockInfo()
-{
-   return _directory_block_info;
-}
-   
-tile_id_t
-DirectoryEntry::getOwner()
-{
-   return _owner_id;
-}
-
 void
 DirectoryEntry::setOwner(tile_id_t owner_id)
 {
    if (owner_id != INVALID_TILE_ID)
-      LOG_ASSERT_ERROR(hasSharer(owner_id), "Owner Id(%i) not a sharer", owner_id);
+      LOG_ASSERT_ERROR(isTrackedSharer(owner_id), "Owner Id(%i) not a sharer, State(%s)", owner_id, SPELL_DSTATE(_dstate));
    _owner_id = owner_id;
 }

@@ -3,7 +3,7 @@
 #include "directory_entry.h"
 #include "log.h"
 
-Directory::Directory(CachingProtocolType caching_protocol_type, DirectoryType directory_type,
+Directory::Directory(CachingProtocol::Type caching_protocol_type, UInt32 directory_type,
                      SInt32 total_entries, SInt32 max_hw_sharers, SInt32 max_num_sharers)
    : _total_entries(total_entries)
    , _directory_type(directory_type)
@@ -13,8 +13,7 @@ Directory::Directory(CachingProtocolType caching_protocol_type, DirectoryType di
   
    for (SInt32 i = 0; i < _total_entries; i++)
    {
-      _directory_entry_list[i] = DirectoryEntry::create(caching_protocol_type, _directory_type,
-                                                        max_hw_sharers, max_num_sharers);
+      _directory_entry_list[i] = DirectoryEntry::create(_directory_type, max_hw_sharers, max_num_sharers);
    }
 
    if (_directory_type == FULL_MAP)

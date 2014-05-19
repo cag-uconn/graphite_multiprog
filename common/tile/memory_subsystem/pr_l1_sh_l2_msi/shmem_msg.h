@@ -40,7 +40,6 @@ public:
             , MemComponent::Type sender_mem_component
             , MemComponent::Type receiver_mem_component
             , tile_id_t requester
-            , bool reply_expected
             , IntPtr address
             , bool modeled
             );
@@ -48,7 +47,6 @@ public:
             , MemComponent::Type sender_mem_component
             , MemComponent::Type receiver_mem_component
             , tile_id_t requester
-            , bool reply_expected
             , IntPtr address
             , Byte* data_buf
             , UInt32 data_length
@@ -69,7 +67,6 @@ public:
    MemComponent::Type getSenderMemComponent() const   { return _sender_mem_component; }
    MemComponent::Type getReceiverMemComponent() const { return _receiver_mem_component; }
    tile_id_t getRequester() const                     { return _requester; }
-   bool isReplyExpected() const                       { return _reply_expected; }
    IntPtr getAddress() const                          { return _address; }
    Byte* getDataBuf() const                           { return _data_buf; }
    UInt32 getDataLength() const                       { return _data_length; }
@@ -83,7 +80,6 @@ private:
    MemComponent::Type _sender_mem_component;
    MemComponent::Type _receiver_mem_component;
    tile_id_t _requester;
-   bool _reply_expected;
    IntPtr _address;
    Byte* _data_buf;
    UInt32 _data_length;

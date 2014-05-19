@@ -2,8 +2,7 @@
 
 #include "fixed_types.h"
 #include "cache.h"
-#include "cache_utils.h"
-#include "caching_protocol_type.h"
+#include "caching_protocol.h"
 
 class CacheLineInfo
 {
@@ -13,7 +12,7 @@ public:
    CacheLineInfo(IntPtr tag = ~0, CacheState::Type cstate = CacheState::INVALID);
    virtual ~CacheLineInfo();
 
-   static CacheLineInfo* create(CachingProtocolType caching_protocol_type, SInt32 cache_level);
+   static CacheLineInfo* create(CachingProtocol::Type caching_protocol_type, SInt32 cache_level);
 
    virtual void invalidate();
    virtual void assign(CacheLineInfo* cache_line_info);

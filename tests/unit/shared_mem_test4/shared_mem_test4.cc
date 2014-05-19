@@ -12,7 +12,8 @@ using namespace std;
 void* thread_func(void*);
 
 int num_threads = 64;
-int num_iterations = 100;
+int num_iterations = 50;
+int num_addresses = 20;
 
 carbon_barrier_t barrier;
 
@@ -54,25 +55,29 @@ void* thread_func(void*)
 
    for (int i = 0; i < num_iterations; i++)
    {
-      if (core->getTile()->getId() == 0)
+      for (int j = 0; j < num_addresses; j++)
       {
-         pair<UInt32,Time> ret = core->initiateMemoryAccess(MemComponent::L1_DCACHE, Core::NONE, Core::WRITE, address, (Byte*) &i, sizeof(i));
-         LOG_PRINT("Tile(%i): Access Time(%llu ns)", core->getTile()->getId(), ret.second.toNanosec());
-      }
-      
-      CarbonBarrierWait(&barrier);
+         IntPtr address = IntPtr(j) << 6;
+         if (core->getTile()->getId() == 0)
+         {
+            core->initiateMemoryAccess(MemComponent::L1_DCACHE, Core::NONE, Core::WRITE, address, (Byte*) &i, sizeof(i));
+            LOG_PRINT("Core(%i)", core->getTile()->getId());
+         }
+         
+         CarbonBarrierWait(&barrier);
 
-      int val;
-      pair<UInt32,Time> ret = core->initiateMemoryAccess(MemComponent::L1_DCACHE, Core::NONE, Core::READ, address, (Byte*) &val, sizeof(val));
-      LOG_PRINT("Core(%i): Access Time(%llu ns)", core->getTile()->getId(), ret.second.toNanosec());
-      if (val != i)
-      {
-         fprintf(stderr, "shared_mem_test4 (FAILURE): Core(%i), Expected(%i), Got(%i)\n",
-                 core->getTile()->getId(), i, val);
-         exit(-1);
-      }
+         int val;
+         core->initiateMemoryAccess(MemComponent::L1_DCACHE, Core::NONE, Core::READ, address, (Byte*) &val, sizeof(val));
+         LOG_PRINT("Core(%i)", core->getTile()->getId());
+         if (val != i)
+         {
+            fprintf(stderr, "shared_mem_test4 (FAILURE): Core(%i), Expected(%i), Got(%i)\n",
+                    core->getTile()->getId(), i, val);
+            exit(-1);
+         }
 
-      CarbonBarrierWait(&barrier);      
+         CarbonBarrierWait(&barrier);
+      } 
    }
    return NULL;
 }

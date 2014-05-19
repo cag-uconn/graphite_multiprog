@@ -14,6 +14,6 @@ public:
    UInt32 getReplacementWay(CacheLineInfo** cache_line_info_array, UInt32 set_num);
    void update(CacheLineInfo** cache_line_info_array, UInt32 set_num, UInt32 accessed_way);
   
-private: 
+protected: 
    vector<vector<UInt8> > _lru_bits_vec;
 };

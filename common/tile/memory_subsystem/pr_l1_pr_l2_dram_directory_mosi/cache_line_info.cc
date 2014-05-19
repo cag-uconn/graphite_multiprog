@@ -1,5 +1,4 @@
 #include "cache_line_info.h"
-#include "cache_utils.h"
 #include "log.h"
 
 namespace PrL1PrL2DramDirectoryMOSI

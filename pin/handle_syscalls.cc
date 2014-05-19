@@ -202,7 +202,7 @@ void syscallEnterRunModel(THREADID threadIndex, CONTEXT *ctx, SYSCALL_STANDARD s
    
    default:
       {
-         SyscallMdl::syscall_args_t args = syscallArgs (ctx, syscall_standard);
+         __attribute__((unused)) SyscallMdl::syscall_args_t args = syscallArgs (ctx, syscall_standard);
          LOG_PRINT_ERROR ("Unhandled syscall[enter] %d at RIP(%p)\n, "
                           "arg0(%p), arg1(%p), arg2(%p), arg3(%p), arg4(%p), arg5(%p)",
                           syscall_number, PIN_GetContextReg(ctx, REG_INST_PTR),

@@ -7,14 +7,22 @@ bool DirectoryEntryLimitless::_software_trap_penalty_initialized = false;
 UInt32 DirectoryEntryLimitless::_software_trap_penalty;
 
 DirectoryEntryLimitless::DirectoryEntryLimitless(SInt32 max_hw_sharers, SInt32 max_num_sharers)
-   : DirectoryEntryLimited(max_hw_sharers)
+   : DirectoryEntry(max_hw_sharers)
+   , DirectoryEntryLimited(max_hw_sharers)
    , _software_sharers(NULL)
    , _max_num_sharers(max_num_sharers)
    , _software_trap_enabled(false)
 {
    if (!_software_trap_penalty_initialized)
    {
-      _software_trap_penalty = Sim()->getCfg()->getInt("dram_directory/limitless/software_trap_penalty",0);
+      try
+      {
+         _software_trap_penalty = Sim()->getCfg()->getInt("limitless/software_trap_penalty");
+      }
+      catch (...)
+      {
+         LOG_PRINT_ERROR("Could not read [limitless/software_trap_penalty] from the cfg file");
+      }
       _software_trap_penalty_initialized = true;
    }
 }
@@ -26,7 +34,13 @@ DirectoryEntryLimitless::~DirectoryEntryLimitless()
 }
 
 bool
-DirectoryEntryLimitless::hasSharer(tile_id_t sharer_id)
+DirectoryEntryLimitless::isSharer(tile_id_t sharer_id) const
+{
+   return isTrackedSharer(sharer_id);
+}
+
+bool
+DirectoryEntryLimitless::isTrackedSharer(tile_id_t sharer_id) const
 {
    if (_software_trap_enabled) // Explicit software tracking of sharers
    {
@@ -34,7 +48,7 @@ DirectoryEntryLimitless::hasSharer(tile_id_t sharer_id)
    }
    else // (!_software_trap_enabled) - Explicit hardware tracking of sharers
    {
-      return DirectoryEntryLimited::hasSharer(sharer_id);
+      return DirectoryEntryLimited::isTrackedSharer(sharer_id);
    }
 }
 
@@ -79,10 +93,8 @@ DirectoryEntryLimitless::addSharer(tile_id_t sharer_id)
 }
 
 void
-DirectoryEntryLimitless::removeSharer(tile_id_t sharer_id, bool reply_expected)
+DirectoryEntryLimitless::removeSharer(tile_id_t sharer_id)
 {
-   assert(!reply_expected);
-
    if (_software_trap_enabled) // Explicit software tracking of sharers
    {
       assert(_software_sharers->at(sharer_id));
@@ -99,7 +111,7 @@ DirectoryEntryLimitless::removeSharer(tile_id_t sharer_id, bool reply_expected)
 //              'False' if NOT all tiles are sharers
 // val.second :- A list of tracked sharers
 bool
-DirectoryEntryLimitless::getSharersList(vector<tile_id_t>& sharers_list)
+DirectoryEntryLimitless::getSharersList(vector<tile_id_t>& sharers_list) const
 {
    if (_software_trap_enabled) // Explicit software tracking of sharers
    {
@@ -125,13 +137,13 @@ DirectoryEntryLimitless::getSharersList(vector<tile_id_t>& sharers_list)
 }
 
 SInt32
-DirectoryEntryLimitless::getNumSharers()
+DirectoryEntryLimitless::getNumSharers() const
 {
    return (_software_trap_enabled) ? _software_sharers->size() : _num_tracked_sharers;
 }
 
 UInt32
-DirectoryEntryLimitless::getLatency()
+DirectoryEntryLimitless::getLatency() const
 {
    return (_software_trap_enabled) ? _software_trap_penalty : 0;
 }

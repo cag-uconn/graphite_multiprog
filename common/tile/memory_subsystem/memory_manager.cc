@@ -8,7 +8,7 @@
 #include "log.h"
 
 // Static Members
-CachingProtocolType MemoryManager::_caching_protocol_type;
+CachingProtocol::Type MemoryManager::_caching_protocol_type;
 
 MemoryManager::MemoryManager(Tile* tile)
    : _tile(tile)
@@ -26,20 +26,25 @@ MemoryManager::~MemoryManager()
    _network->unregisterCallback(SHARED_MEM);
 }
 
+void
+MemoryManager::outputSummary(ostream& out, const Time& target_completion_time)
+{
+}
+
 MemoryManager* 
 MemoryManager::createMMU(std::string protocol_type, Tile* tile)
 {
-   _caching_protocol_type = parseProtocolType(protocol_type);
+   _caching_protocol_type = CachingProtocol::parse(protocol_type);
 
    switch (_caching_protocol_type)
    {
-   case PR_L1_PR_L2_DRAM_DIRECTORY_MSI:
+   case CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MSI:
       return new PrL1PrL2DramDirectoryMSI::MemoryManager(tile);
 
-   case PR_L1_PR_L2_DRAM_DIRECTORY_MOSI:
+   case CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MOSI:
       return new PrL1PrL2DramDirectoryMOSI::MemoryManager(tile);
 
-   case PR_L1_SH_L2_MSI:
+   case CachingProtocol::PR_L1_SH_L2_MSI:
       return new PrL1ShL2MSI::MemoryManager(tile);
 
    default:
@@ -48,48 +53,41 @@ MemoryManager::createMMU(std::string protocol_type, Tile* tile)
    }
 }
 
-CachingProtocolType
-MemoryManager::parseProtocolType(std::string& protocol_type)
-{
-   if (protocol_type == "pr_l1_pr_l2_dram_directory_msi")
-      return PR_L1_PR_L2_DRAM_DIRECTORY_MSI;
-   else if (protocol_type == "pr_l1_pr_l2_dram_directory_mosi")
-      return PR_L1_PR_L2_DRAM_DIRECTORY_MOSI;
-   else if (protocol_type == "pr_l1_sh_l2_msi")
-      return PR_L1_SH_L2_MSI;
-   else
-      return NUM_CACHING_PROTOCOL_TYPES;
-}
-
-void MemoryManagerNetworkCallback(void* obj, NetPacket packet)
+void
+MemoryManagerNetworkCallback(void* obj, NetPacket packet)
 {
    MemoryManager *mm = (MemoryManager*) obj;
    assert(mm != NULL);
    mm->__handleMsgFromNetwork(packet);
 }
 
-bool
+void
 MemoryManager::__coreInitiateMemoryAccess(MemComponent::Type mem_component,
                                           Core::lock_signal_t lock_signal,
                                           Core::mem_op_t mem_op_type,
                                           IntPtr address, UInt32 offset,
                                           Byte* data_buf, UInt32 data_length,
-                                          Time& curr_time, bool modeled)
+                                          Time& curr_time,
+                                          DynamicMemoryInfo& dynamic_memory_info)
 {
    if (lock_signal != Core::UNLOCK)
       _lock.acquire();
    
-   _shmem_perf_model->setCurrTime(curr_time);
+   Time initial_time = curr_time;
+   _shmem_perf_model->setCurrTime(initial_time);
 
-   bool ret = coreInitiateMemoryAccess(mem_component, lock_signal, mem_op_type,
-                                       address, offset, data_buf, data_length, modeled);
+   coreInitiateMemoryAccess(mem_component, lock_signal, mem_op_type,
+                            address, offset, data_buf, data_length);
 
-   curr_time = _shmem_perf_model->getCurrTime();
+   Time final_time = _shmem_perf_model->getCurrTime();
 
    if (lock_signal != Core::LOCK)
       _lock.release();
 
-   return ret;
+   assert(final_time >= initial_time);
+   dynamic_memory_info._latency += (final_time - initial_time);
+   // Update curr_time
+   curr_time = final_time;
 }
 
 void
@@ -128,11 +126,6 @@ MemoryManager::disableModels()
 }
 
 void
-MemoryManager::outputSummary(ostream& out, const Time& target_completion_time)
-{
-}
-
-void
 MemoryManager::waitForAppThread()
 {
    _sim_thread_sem.wait();
@@ -165,7 +158,7 @@ MemoryManager::openCacheLineReplicationTraceFiles()
 {
    switch (_caching_protocol_type)
    {
-   case PR_L1_PR_L2_DRAM_DIRECTORY_MOSI:
+   case CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MOSI:
       PrL1PrL2DramDirectoryMOSI::MemoryManager::openCacheLineReplicationTraceFiles();
       break;
 
@@ -180,7 +173,7 @@ MemoryManager::closeCacheLineReplicationTraceFiles()
 {
    switch (_caching_protocol_type)
    {
-   case PR_L1_PR_L2_DRAM_DIRECTORY_MOSI:
+   case CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MOSI:
       PrL1PrL2DramDirectoryMOSI::MemoryManager::closeCacheLineReplicationTraceFiles();
       break;
 
@@ -195,7 +188,7 @@ MemoryManager::outputCacheLineReplicationSummary()
 {
    switch (_caching_protocol_type)
    {
-   case PR_L1_PR_L2_DRAM_DIRECTORY_MOSI:
+   case CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MOSI:
       PrL1PrL2DramDirectoryMOSI::MemoryManager::outputCacheLineReplicationSummary();
       break;
 

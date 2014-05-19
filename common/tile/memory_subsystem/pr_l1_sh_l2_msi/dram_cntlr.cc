@@ -33,7 +33,7 @@ DramCntlr::handleMsgFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
          getDataFromDram(address, data_buf, msg_modeled);
          LOG_PRINT("Finished fetching data from DRAM_CNTLR, sending reply");
          ShmemMsg dram_reply(ShmemMsg::DRAM_FETCH_REP, MemComponent::DRAM_CNTLR, MemComponent::L2_CACHE,
-                             requester, false, address,
+                             requester, address,
                              data_buf, _cache_line_size,
                              msg_modeled);
          _memory_manager->sendMsg(sender, dram_reply);

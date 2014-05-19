@@ -15,7 +15,13 @@ DirectoryEntryFullMap::~DirectoryEntryFullMap()
 }
 
 bool
-DirectoryEntryFullMap::hasSharer(tile_id_t sharer_id)
+DirectoryEntryFullMap::isSharer(tile_id_t sharer_id) const
+{
+   return isTrackedSharer(sharer_id);
+}
+
+bool
+DirectoryEntryFullMap::isTrackedSharer(tile_id_t sharer_id) const
 {
    return _sharers->at(sharer_id);
 }
@@ -26,17 +32,15 @@ DirectoryEntryFullMap::hasSharer(tile_id_t sharer_id)
 bool
 DirectoryEntryFullMap::addSharer(tile_id_t sharer_id)
 {
-   LOG_ASSERT_ERROR(!_sharers->at(sharer_id), "Could not add sharer(%i)", sharer_id);
+   LOG_ASSERT_ERROR(!_sharers->at(sharer_id), "Sharer(%i) already present", sharer_id);
    _sharers->set(sharer_id);
-   return true;;
+   return true;
 }
 
 void
-DirectoryEntryFullMap::removeSharer(tile_id_t sharer_id, bool reply_expected)
+DirectoryEntryFullMap::removeSharer(tile_id_t sharer_id)
 {
-   assert(!reply_expected);
-
-   assert(_sharers->at(sharer_id));
+   LOG_ASSERT_ERROR(_sharers->at(sharer_id), "Sharer(%i) absent", sharer_id);
    _sharers->clear(sharer_id);
 }
 
@@ -45,7 +49,7 @@ DirectoryEntryFullMap::removeSharer(tile_id_t sharer_id, bool reply_expected)
 //              'False' if NOT all tiles are sharers
 // val.second :- A list of tracked sharers
 bool
-DirectoryEntryFullMap::getSharersList(vector<tile_id_t>& sharers_list)
+DirectoryEntryFullMap::getSharersList(vector<tile_id_t>& sharers_list) const
 {
    sharers_list.resize(_sharers->size());
 
@@ -74,13 +78,7 @@ DirectoryEntryFullMap::getOneSharer()
 }
 
 SInt32
-DirectoryEntryFullMap::getNumSharers()
+DirectoryEntryFullMap::getNumSharers() const
 {
    return _sharers->size();
-}
-
-UInt32
-DirectoryEntryFullMap::getLatency()
-{
-   return 0;
 }

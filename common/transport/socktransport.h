@@ -82,7 +82,6 @@ private:
       EXITED
    };
 
-   static const SInt32 DEFAULT_BASE_PORT = 2000;
    static const SInt32 GLOBAL_TAG = -1;
    static const SInt32 BARRIER_TAG = -2;
    static const SInt32 TERMINATE_TAG = -3;

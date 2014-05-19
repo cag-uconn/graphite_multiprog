@@ -13,8 +13,6 @@ using std::ofstream;
 #include "address_home_lookup.h"
 #include "shmem_msg.h"
 #include "mem_component.h"
-#include "lock.h"
-#include "semaphore.h"
 #include "fixed_types.h"
 #include "shmem_perf_model.h"
 #include "network.h"
@@ -85,10 +83,9 @@ namespace PrL1PrL2DramDirectoryMOSI
       // Cache Line Replication
       static ofstream _cache_line_replication_file;
 
-      bool coreInitiateMemoryAccess(MemComponent::Type mem_component,
+      void coreInitiateMemoryAccess(MemComponent::Type mem_component,
                                     Core::lock_signal_t lock_signal, Core::mem_op_t mem_op_type,
-                                    IntPtr address, UInt32 offset, Byte* data_buf, UInt32 data_length,
-                                    bool modeled);
+                                    IntPtr address, UInt32 offset, Byte* data_buf, UInt32 data_length);
 
       void handleMsgFromNetwork(NetPacket& packet);
 

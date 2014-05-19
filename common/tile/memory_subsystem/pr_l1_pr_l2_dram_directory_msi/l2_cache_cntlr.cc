@@ -28,7 +28,7 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
    _l2_cache_hash_fn_obj = new CacheHashFn(l2_cache_size, l2_cache_associativity, cache_line_size);
    
    _l2_cache = new Cache("L2",
-         PR_L1_PR_L2_DRAM_DIRECTORY_MSI,
+         CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MSI,
          Cache::UNIFIED_CACHE,
          L2,
          Cache::WRITE_BACK,
@@ -41,8 +41,7 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
          l2_cache_data_access_cycles,
          l2_cache_tags_access_cycles,
          l2_cache_perf_model_type,
-         l2_cache_track_miss_types,
-         getShmemPerfModel());
+         l2_cache_track_miss_types);
 }
 
 L2CacheCntlr::~L2CacheCntlr()
@@ -66,7 +65,7 @@ L2CacheCntlr::readCacheLine(IntPtr address, Byte* data_buf)
 }
 
 void
-L2CacheCntlr::writeCacheLine(IntPtr address, UInt32 offset, Byte* data_buf, UInt32 data_length)
+L2CacheCntlr::writeCacheLine(IntPtr address, Byte* data_buf, UInt32 offset, UInt32 data_length)
 {
    _l2_cache->accessCacheLine(address + offset, Cache::STORE, data_buf, data_length);
 }

@@ -8,7 +8,7 @@ using namespace std;
 #include "directory_cache.h"
 #include "network.h"
 #include "mem_component.h"
-#include "caching_protocol_type.h"
+#include "caching_protocol.h"
 #include "shmem_perf_model.h"
 #include "dvfs.h"
 
@@ -20,10 +20,10 @@ public:
    MemoryManager(Tile* tile);
    virtual ~MemoryManager();
 
-   bool __coreInitiateMemoryAccess(MemComponent::Type mem_component,
+   void __coreInitiateMemoryAccess(MemComponent::Type mem_component,
                                    Core::lock_signal_t lock_signal, Core::mem_op_t mem_op_type,
                                    IntPtr address, UInt32 offset, Byte* data_buf, UInt32 data_length,
-                                   Time& curr_time, bool modeled);
+                                   Time& curr_time, DynamicMemoryInfo& dynamic_memory_info);
 
    void __handleMsgFromNetwork(NetPacket& packet);
 
@@ -48,7 +48,6 @@ public:
    virtual UInt32 getModeledLength(const void* pkt_data) = 0;
    virtual bool isModeled(const void* pkt_data) = 0;
 
-   static CachingProtocolType parseProtocolType(std::string& protocol_type);
    static MemoryManager* createMMU(std::string protocol_type, Tile* tile);
    
    virtual void computeEnergy(const Time& curr_time) = 0;
@@ -61,10 +60,11 @@ public:
    static void closeCacheLineReplicationTraceFiles();
    static void outputCacheLineReplicationSummary();
 
+   // Caching protocol type
+   static CachingProtocol::Type getCachingProtocolType() { return _caching_protocol_type; }
+   
    virtual int getDVFS(module_t module, double &frequency, double &voltage) = 0;
    virtual int setDVFS(module_t module, double frequency, voltage_option_t voltage_flag, const Time& curr_time) = 0;
-
-   static CachingProtocolType getCachingProtocolType(){return _caching_protocol_type;}
 
 protected:
    Network* getNetwork() { return _network; }
@@ -73,7 +73,7 @@ protected:
    void printTileListWithMemoryControllers(vector<tile_id_t>& tile_list_with_memory_controllers);
 
 private:
-   static CachingProtocolType _caching_protocol_type;
+   static CachingProtocol::Type _caching_protocol_type;
    Tile* _tile;
    Network* _network;
    ShmemPerfModel* _shmem_perf_model;
@@ -86,10 +86,9 @@ private:
    // Enabled
    bool _enabled;
 
-   virtual bool coreInitiateMemoryAccess(MemComponent::Type mem_component,
+   virtual void coreInitiateMemoryAccess(MemComponent::Type mem_component,
                                          Core::lock_signal_t lock_signal, Core::mem_op_t mem_op_type,
-                                         IntPtr address, UInt32 offset, Byte* data_buf, UInt32 data_length,
-                                         bool modeled) = 0;
+                                         IntPtr address, UInt32 offset, Byte* data_buf, UInt32 data_length) = 0;
    virtual void handleMsgFromNetwork(NetPacket& packet) = 0;
    
    void parseMemoryControllerList(string& memory_controller_positions,

@@ -205,7 +205,6 @@ SInt32 Network::netSend(NetPacket& packet)
 
 SInt32 Network::netSend(module_t module, NetPacket& packet)
 {
-
    NetworkModel* model = getNetworkModelFromPacketType(packet.type);
    packet.time += model->getSynchronizationDelay(module);
    return netSend(packet);
@@ -245,12 +244,9 @@ SInt32 Network::forwardPacket(const NetPacket& packet)
       }
       else
       {
-         LOG_PRINT("Send packet : type %i, from (%i,%i), to (%i, %i), next_hop %i, tile_id %i, time %llu",
-                   (SInt32) buf_pkt->type,
-                   buf_pkt->sender.tile_id, buf_pkt->sender.core_type,
-                   buf_pkt->receiver.tile_id, buf_pkt->receiver.core_type,
-                   hop._next_tile_id,
-                   _tile->getId(), hop._time.toNanosec());
+         LOG_PRINT("Send packet : type %i, from %i to %i, next_hop %i, tile_id %i, time %llu",
+                   (SInt32) buf_pkt->type, buf_pkt->sender.tile_id, buf_pkt->receiver.tile_id,
+                   hop._next_tile_id, _tile->getId(), hop._time.toNanosec());
          
          _transport->send(hop._next_tile_id, buffer, packet.bufferSize());
       }
@@ -669,7 +665,6 @@ NetPacket::NetPacket(Time t, PacketType ty, SInt32 s,
    receiver = Tile::getMainCoreId(r);
 }
 
-
 NetPacket::NetPacket(Time t, PacketType ty, core_id_t s,
                      core_id_t r, UInt32 l, const void *d)
    : time(t)
@@ -688,7 +683,6 @@ NetPacket::NetPacket(Byte *buffer)
 {
    memcpy(this, buffer, sizeof(*this));
 
-   // LOG_ASSERT_ERROR(length > 0, "type(%u), sender(%i), receiver(%i), length(%u)", type, sender, receiver, length);
    if (length > 0)
    {
       Byte* data_buffer = new Byte[length];

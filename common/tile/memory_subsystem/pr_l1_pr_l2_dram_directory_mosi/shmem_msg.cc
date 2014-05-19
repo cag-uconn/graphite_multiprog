@@ -12,7 +12,6 @@ namespace PrL1PrL2DramDirectoryMOSI
       , _receiver_mem_component(MemComponent::INVALID)
       , _requester(INVALID_TILE_ID)
       , _single_receiver(INVALID_TILE_ID)
-      , _reply_expected(false)
       , _address(INVALID_ADDRESS)
       , _data_buf(NULL)
       , _data_length(0)
@@ -24,7 +23,6 @@ namespace PrL1PrL2DramDirectoryMOSI
                      , MemComponent::Type receiver_mem_component
                      , tile_id_t requester
                      , tile_id_t single_receiver
-                     , bool reply_expected
                      , IntPtr address
                      , bool modeled
                      )
@@ -33,7 +31,6 @@ namespace PrL1PrL2DramDirectoryMOSI
       , _receiver_mem_component(receiver_mem_component)
       , _requester(requester)
       , _single_receiver(single_receiver)
-      , _reply_expected(reply_expected)
       , _address(address)
       , _data_buf(NULL)
       , _data_length(0)
@@ -45,7 +42,6 @@ namespace PrL1PrL2DramDirectoryMOSI
                      , MemComponent::Type receiver_mem_component
                      , tile_id_t requester
                      , tile_id_t single_receiver
-                     , bool reply_expected
                      , IntPtr address
                      , Byte* data_buf
                      , UInt32 data_length
@@ -56,7 +52,6 @@ namespace PrL1PrL2DramDirectoryMOSI
       , _receiver_mem_component(receiver_mem_component)
       , _requester(requester)
       , _single_receiver(single_receiver)
-      , _reply_expected(reply_expected)
       , _address(address)
       , _data_buf(data_buf)
       , _data_length(data_length)
@@ -79,7 +74,6 @@ namespace PrL1PrL2DramDirectoryMOSI
       _receiver_mem_component = shmem_msg->getReceiverMemComponent();
       _requester = shmem_msg->getRequester();
       _single_receiver = shmem_msg->getSingleReceiver();
-      _reply_expected = shmem_msg->isReplyExpected();
       _address = shmem_msg->getAddress();
       _data_buf = shmem_msg->getDataBuf();
       _data_length = shmem_msg->getDataLength();

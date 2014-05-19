@@ -1180,9 +1180,9 @@ SimFutex::~SimFutex()
       LOG_PRINT_WARNING("Waiting futexes still present at end of simulation");
       while (!m_waiting.empty())
       {
-         core_id_t core_id = m_waiting.front();
+         __attribute__((unused)) core_id_t core_id = m_waiting.front();
          m_waiting.pop();
-         LOG_PRINT_WARNING("Core (%i,%i) waiting", core_id.tile_id, core_id.core_type);
+         LOG_PRINT_WARNING("Tile %i waiting", core_id.tile_id);
       }
    }
 }

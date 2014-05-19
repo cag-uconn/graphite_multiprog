@@ -297,7 +297,7 @@ void ThreadScheduler::masterMigrateThread(thread_id_t src_thread_idx, core_id_t 
       else 
       {
          // Find the thread on the source core's waiter queue.
-         bool found = false;
+         __attribute__((unused)) bool found = false;
          unsigned int waiter_queue_size = 0;
          ThreadSpawnRequest * migrating_thread_req = NULL;
          waiter_queue_size = m_waiter_queue[src_core_id.tile_id].size();

@@ -10,12 +10,12 @@ class DirectoryEntry;
 
 #include "fixed_types.h"
 #include "directory_type.h"
-#include "caching_protocol_type.h"
+#include "caching_protocol.h"
 
 class Directory
 {
 public:
-   Directory(CachingProtocolType caching_protocol_type, DirectoryType directory_type,
+   Directory(CachingProtocol::Type caching_protocol_type, UInt32 directory_type,
              SInt32 total_entries, SInt32 max_hw_sharers, SInt32 max_num_sharers);
    ~Directory();
 
@@ -28,7 +28,7 @@ public:
 
 private:
    SInt32 _total_entries;
-   DirectoryType _directory_type;
+   UInt32 _directory_type;
 
    vector<DirectoryEntry*> _directory_entry_list;
    vector<UInt64> _sharer_count_vec;

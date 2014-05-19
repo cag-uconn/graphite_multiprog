@@ -54,7 +54,7 @@ LD_LIBS += -lboost_filesystem-$(BOOST_SUFFIX) -lboost_system-$(BOOST_SUFFIX)
 LD_LIBS += -lrt
 
 # Include paths
-CXXFLAGS += $(foreach dir,$(INCLUDE_DIRECTORIES),-I$(dir)) \
+CXXFLAGS += -std=c++0x $(foreach dir,$(INCLUDE_DIRECTORIES),-I$(dir)) \
             -Wall -Werror -Wno-deprecated-declarations -Wno-unknown-pragmas \
 			   $(DBG_FLAGS) $(OPT_FLAGS) -fPIC -DKERNEL_$(KERNEL)
 

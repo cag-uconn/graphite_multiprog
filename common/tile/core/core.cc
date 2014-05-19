@@ -24,7 +24,7 @@ Core::Core(Tile *tile, core_type_t core_type)
 {
 
    //initialize frequency and voltage
-   int rc = DVFSManager::getInitialFrequencyAndVoltage(CORE, _frequency, _voltage);
+   __attribute__((unused)) int rc = DVFSManager::getInitialFrequencyAndVoltage(CORE, _frequency, _voltage);
    LOG_ASSERT_ERROR(rc == 0, "Error setting initial voltage for frequency(%g)", _frequency);
 
    _id = (core_id_t) {_tile->getId(), core_type};
@@ -121,47 +121,45 @@ Core::coreRecvW(int sender, int receiver, char* buffer, int size, carbon_network
 //   (number of misses, memory access latency) :: the number of cache misses and memory access latency
 
 
-pair<UInt32, Time>
+void
 Core::accessMemory(lock_signal_t lock_signal, mem_op_t mem_op_type, IntPtr address, char* data_buffer, UInt32 data_size, bool push_info)
 {
-   return initiateMemoryAccess(MemComponent::L1_DCACHE, lock_signal, mem_op_type, address, (Byte*) data_buffer, data_size, push_info);
+   initiateMemoryAccess(MemComponent::L1_DCACHE, lock_signal, mem_op_type, address, (Byte*) data_buffer, data_size, push_info);
 }
 
 Time
 Core::readInstructionMemory(IntPtr address, UInt32 instruction_size)
 {
-   LOG_PRINT("Instruction: Address(%#lx), Size(%u), Start READ", address, instruction_size);
-
    Byte buf[instruction_size];
-   return initiateMemoryAccess(MemComponent::L1_ICACHE, Core::NONE, Core::READ, address, buf, instruction_size).second;
+   return initiateMemoryAccess(MemComponent::L1_ICACHE, Core::NONE, Core::READ, address, buf, instruction_size)._latency;
 }
 
-pair<UInt32, Time>
+DynamicMemoryInfo
 Core::initiateMemoryAccess(MemComponent::Type mem_component, lock_signal_t lock_signal, mem_op_t mem_op_type,
                            IntPtr address, Byte* data_buf, UInt32 data_size,
-                           bool push_info, Time time)
+                           bool push_info, Time time_arg)
 {
    LOG_ASSERT_ERROR(Config::getSingleton()->isSimulatingSharedMemory(), "Shared Memory Disabled");
+   DynamicMemoryInfo dynamic_memory_info(address, mem_op_type != WRITE);
 
    if (data_size == 0)
    {
-      if (push_info)
-      {
-         DynamicMemoryInfo info(address, mem_op_type != WRITE, Time(0), 0);
-         if (_core_model)
-            _core_model->pushDynamicMemoryInfo(info);
-      }
-      return make_pair(0, Time(0));
+      LOG_PRINT("Mem-Component(%s), Lock-Signal(%s), Mem-Op-Type(%s), Address(%#lx), Data-Size(%u)",
+                SPELL_MEMCOMP(mem_component), SPELL_LOCK_SIGNAL(lock_signal), SPELL_MEMOP(mem_op_type), address, data_size);
+      
+      if (_core_model && push_info)
+         _core_model->pushDynamicMemoryInfo(dynamic_memory_info);
+      return dynamic_memory_info;
    }
 
    // Setting the initial time
-   Time initial_time = (time.getTime() == 0) ? _core_model->getCurrTime() : Time(time);
-   Time curr_time = initial_time;
+   Time curr_time = time_arg;
+   if (curr_time == 0)
+      curr_time = (lock_signal == Core::UNLOCK) ? _lock_acquire_time : _core_model->getCurrTime();
 
    LOG_PRINT("Time(%llu), %s - ADDR(%#lx), data_size(%u), START",
-             initial_time.toNanosec(), ((mem_op_type == READ) ? "READ" : "WRITE"), address, data_size);
+             curr_time.toNanosec(), ((mem_op_type == READ) ? "READ" : "WRITE"), address, data_size);
 
-   UInt32 num_misses = 0;
    UInt32 cache_line_size = _tile->getMemoryManager()->getCacheLineSize();
 
    IntPtr begin_addr = address;
@@ -177,27 +175,18 @@ Core::initiateMemoryAccess(MemComponent::Type mem_component, lock_signal_t lock_
       UInt32 curr_size;
 
       // Determine the offset
-      if (curr_addr_aligned == begin_addr_aligned)
-      {
-         curr_offset = begin_addr % cache_line_size;
-      }
-      else
-      {
-         curr_offset = 0;
-      }
+      curr_offset = (curr_addr_aligned == begin_addr_aligned) ? (begin_addr % cache_line_size) : 0;
 
       // Determine the size
       if (curr_addr_aligned == end_addr_aligned)
       {
          curr_size = (end_addr % cache_line_size) - (curr_offset);
          if (curr_size == 0)
-         {
             continue;
-         }
       }
       else
       {
-         curr_size = cache_line_size - (curr_offset);
+         curr_size = cache_line_size - curr_offset;
       }
 
       // Check Instruction Buffer
@@ -222,18 +211,14 @@ Core::initiateMemoryAccess(MemComponent::Type mem_component, lock_signal_t lock_
       LOG_PRINT("Start coreInitiateMemoryAccess: ADDR(%#lx), offset(%u), curr_size(%u), core_id(%i, %i)",
                 curr_addr_aligned, curr_offset, curr_size, getId().tile_id, getId().core_type);
 
-      if (!_tile->getMemoryManager()->__coreInitiateMemoryAccess(mem_component, lock_signal, mem_op_type, 
-                                                                 curr_addr_aligned, curr_offset, 
-                                                                 curr_data_buffer_head, curr_size,
-                                                                 curr_time, push_info))
-      {
-         // If it is a READ or READ_EX operation, 
-         //    'coreInitiateMemoryAccess' causes curr_data_buffer_head to be automatically filled in
-         // If it is a WRITE operation, 
-         //    'coreInitiateMemoryAccess' reads the data from curr_data_buffer_head
-         num_misses ++;
-      }
-
+      // If it is a READ or READ_EX operation, 
+      //    'coreInitiateMemoryAccess' causes curr_data_buffer_head to be automatically filled in
+      // If it is a WRITE operation, 
+      //    'coreInitiateMemoryAccess' reads the data from curr_data_buffer_head
+      _tile->getMemoryManager()->__coreInitiateMemoryAccess(mem_component, lock_signal, mem_op_type, 
+                                                            curr_addr_aligned, curr_offset, 
+                                                            curr_data_buffer_head, curr_size,
+                                                            curr_time, dynamic_memory_info);
       LOG_PRINT("End InitiateSharedMemReq: ADDR(%#lx), offset(%u), curr_size(%u), core_id(%i,%i)",
                 curr_addr_aligned, curr_offset, curr_size, getId().tile_id, getId().core_type);
 
@@ -246,23 +231,21 @@ Core::initiateMemoryAccess(MemComponent::Type mem_component, lock_signal_t lock_
 
    // Get the final cycle time
    Time final_time = curr_time;
-   LOG_ASSERT_ERROR(final_time >= initial_time, "final_time(%llu) < initial_time(%llu)", final_time.getTime(), initial_time.getTime());
-   
+ 
+   // Set time of lock acquire 
+   if (lock_signal == Core::LOCK)
+      _lock_acquire_time = final_time;
+
    LOG_PRINT("Time(%llu), %s - ADDR(%#lx), data_size(%u), END", 
              final_time.toNanosec(), ((mem_op_type == READ) ? "READ" : "WRITE"), address, data_size);
 
    // Calculate the round-trip time
-   Time memory_access_time = final_time - initial_time;
-   incrTotalMemoryAccessLatency(mem_component, memory_access_time);
+   incrTotalMemoryAccessLatency(mem_component, dynamic_memory_info._latency);
+   
+   if (_core_model && push_info)
+      _core_model->pushDynamicMemoryInfo(dynamic_memory_info);
 
-   if (push_info)
-   {
-      DynamicMemoryInfo info(address, mem_op_type != WRITE, memory_access_time, num_misses);
-      if (_core_model)
-         _core_model->pushDynamicMemoryInfo(info);
-   }
-
-   return make_pair(num_misses, memory_access_time);
+   return dynamic_memory_info;
 }
 
 PacketType
@@ -364,6 +347,40 @@ Core::incrTotalMemoryAccessLatency(MemComponent::Type mem_component, Time memory
    else
    {
       LOG_PRINT_ERROR("Unrecognized mem component(%s)", SPELL_MEMCOMP(mem_component));
+   }
+}
+
+string
+Core::spellMemOp(mem_op_t mem_op_type)
+{
+   switch (mem_op_type)
+   {
+   case READ:
+      return "READ";
+   case READ_EX:
+      return "READ_EX";
+   case WRITE:
+      return "WRITE";
+   default:
+      LOG_PRINT_ERROR("Unrecognized mem op type: %u", mem_op_type);
+      return "";
+   }
+}
+
+string
+Core::spellLockSignal(lock_signal_t lock_signal)
+{
+   switch (lock_signal)
+   {
+   case NONE:
+      return "NONE";
+   case LOCK:
+      return "LOCK";
+   case UNLOCK:
+      return "UNLOCK";
+   default:
+      LOG_PRINT_ERROR("Unrecognized lock signal: %u", lock_signal);
+      return "";
    }
 }
 

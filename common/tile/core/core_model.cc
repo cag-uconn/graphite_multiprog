@@ -3,6 +3,7 @@
 #include "core_model.h"
 #include "simple_core_model.h"
 #include "iocoom_core_model.h"
+#include "ooo_core_model.h"
 #include "branch_predictor.h"
 #include "simulator.h"
 #include "tile_manager.h"
@@ -16,10 +17,12 @@ CoreModel* CoreModel::create(Core* core)
 {
    string core_model = Config::getSingleton()->getCoreType(core->getTile()->getId());
 
-   if (core_model == "iocoom")
-      return new IOCOOMCoreModel(core);
-   else if (core_model == "simple")
+   if (core_model == "simple")
       return new SimpleCoreModel(core);
+   else if (core_model == "iocoom")
+      return new IOCOOMCoreModel(core);
+   else if (core_model == "ooo")
+      return new OOOCoreModel(core);
    else
    {
       LOG_PRINT_ERROR("Invalid core model type: %s", core_model.c_str());
@@ -52,7 +55,9 @@ CoreModel::CoreModel(Core *core)
 
    // Initialize instruction costs
    initializeInstructionCosts(_core->getFrequency());
-   
+
+   // One cycle
+   _ONE_CYCLE = Latency(1, _core->getFrequency());   
    LOG_PRINT("Initialized CoreModel.");
 }
 
@@ -93,18 +98,13 @@ void CoreModel::outputSummary(ostream& os, const Time& target_completion_time)
    os << "    Total Instructions: " << _instruction_count << endl;
    os << "    Completion Time (in nanoseconds): " << _curr_time.toNanosec() << endl;
    os << "    Average Frequency (in GHz): " << _average_frequency << endl;
-   // Pipeline stall / dynamic instruction counters
-   os << "    Stalls Breakdown: " << endl;
-   os << "      Front-End Pipeline: " << _total_frontend_stalls << endl;
-   os << "      Back-End Pipeline: " << _total_backend_stalls << endl;
-   os << "      Synchronization: " << _total_sync_instructions << endl;
-   os << "      Network Recv: " << _total_recv_instructions << endl;
+   // Pipeline stall counters
    os << "    Stall Time Breakdown (in nanoseconds): " << endl;
-   os << "      L1-I Cache: " << _total_l1_icache_stall_time.toNanosec() << endl;
-   os << "      L1-D Cache: " << _total_l1_dcache_stall_time.toNanosec() << endl;
-   os << "      Execution Unit: " << _total_execution_unit_stall_time.toNanosec() << endl;
-   os << "      Synchronization: " << _total_sync_instruction_stall_time.toNanosec() << endl;
-   os << "      Network Recv: " << _total_recv_instruction_stall_time.toNanosec() << endl;
+   os << "      Instruction Fetch: " << _total_instruction_fetch__stall_time.toNanosec() << endl;
+   os << "      Memory Access: " << _total_memory_access__stall_time.toNanosec() << endl;
+   os << "      Execution Unit: " << _total_execution_unit__stall_time.toNanosec() << endl;
+   os << "      Synchronization: " << _total_sync_instruction__stall_time.toNanosec() << endl;
+   os << "      Network Recv: " << _total_recv_instruction__stall_time.toNanosec() << endl;
 
    // Branch Predictor Summary
    if (_bp)
@@ -114,7 +114,8 @@ void CoreModel::outputSummary(ostream& os, const Time& target_completion_time)
    
    // Memory fence counters
    os << "    Fence Instructions: " << endl;
-   os << "      Explicit LFENCE, SFENCE, MFENCE: " << _total_lfence_instructions + _total_sfence_instructions + _total_explicit_mfence_instructions << endl;
+   os << "      Explicit LFENCE, SFENCE, MFENCE: "
+      << _total_lfence_instructions + _total_sfence_instructions + _total_explicit_mfence_instructions << endl;
    os << "      Implicit MFENCE: " << _total_implicit_mfence_instructions << endl; 
 }
 
@@ -205,17 +206,15 @@ void CoreModel::initializeDynamicInstructionCounters()
 {
    _total_recv_instructions = 0;
    _total_sync_instructions = 0;
-   _total_recv_instruction_stall_time = Time(0);
-   _total_sync_instruction_stall_time = Time(0);
+   _total_recv_instruction__stall_time = Time(0);
+   _total_sync_instruction__stall_time = Time(0);
 }
 
 void CoreModel::initializePipelineStallCounters()
 {
-   _total_frontend_stalls = 0;
-   _total_backend_stalls = 0;
-   _total_l1_icache_stall_time = Time(0);
-   _total_l1_dcache_stall_time = Time(0);
-   _total_execution_unit_stall_time = Time(0);
+   _total_instruction_fetch__stall_time = Time(0);
+   _total_memory_access__stall_time = Time(0);
+   _total_execution_unit__stall_time = Time(0);
 }
 
 Time CoreModel::modelICache(const Instruction* instruction)
@@ -253,27 +252,24 @@ void CoreModel::updateDynamicInstructionCounters(const Instruction* instruction,
    {
    case INST_RECV:
       _total_recv_instructions ++;
-      _total_recv_instruction_stall_time += cost;
+      _total_recv_instruction__stall_time += cost;
       break;
    case INST_SYNC:
       _total_sync_instructions ++;
-      _total_sync_instruction_stall_time += cost;
+      _total_sync_instruction__stall_time += cost;
       break;
    default:
       break;
    }
 }
 
-void CoreModel::updatePipelineStallCounters(const Time& l1_icache_stall_time, const Time& l1_dcache_stall_time,
-                                            const Time& execution_unit_stall_time)
+void CoreModel::updatePipelineStallCounters(const Time& instruction_fetch__stall_time,
+                                            const Time& memory_access__stall_time,
+                                            const Time& execution_unit__stall_time)
 {
-   if (l1_icache_stall_time > 0)
-      _total_frontend_stalls ++;
-   if (l1_dcache_stall_time > 0 || execution_unit_stall_time > 0)
-      _total_backend_stalls ++;
-   _total_l1_icache_stall_time += l1_icache_stall_time;
-   _total_l1_dcache_stall_time += l1_dcache_stall_time;
-   _total_execution_unit_stall_time += execution_unit_stall_time;
+   _total_instruction_fetch__stall_time += instruction_fetch__stall_time;
+   _total_memory_access__stall_time += memory_access__stall_time;
+   _total_execution_unit__stall_time += execution_unit__stall_time;
 }
 
 void CoreModel::processDynamicInstruction(DynamicInstruction* i)
@@ -282,7 +278,7 @@ void CoreModel::processDynamicInstruction(DynamicInstruction* i)
    {
       try
       {
-         handleInstruction(i);
+         __handleInstruction(i);
       }
       catch (AbortInstructionException)
       {
@@ -305,14 +301,21 @@ void CoreModel::iterate()
    while (_instruction_queue.size() > 1)
    {
       Instruction* instruction = _instruction_queue.front();
-      handleInstruction(instruction);
+      __handleInstruction(instruction);
       _instruction_queue.pop_front();
    }
 }
 
+void CoreModel::__handleInstruction(Instruction* instruction)
+{
+   // Update number of instructions processed
+   _instruction_count ++;
+   handleInstruction(instruction);
+}
+
 void CoreModel::pushDynamicMemoryInfo(const DynamicMemoryInfo& info)
 {
-   if (!_enabled)
+   if (_instruction_queue.empty() || !_enabled)
       return;
    assert(!_dynamic_memory_info_queue.full());
    _dynamic_memory_info_queue.push_back(info);
@@ -332,7 +335,7 @@ const DynamicMemoryInfo& CoreModel::getDynamicMemoryInfo()
 
 void CoreModel::pushDynamicBranchInfo(const DynamicBranchInfo& info)
 {
-   if (!_enabled)
+   if (_instruction_queue.empty() || !_enabled)
       return;
    assert(!_dynamic_branch_info_queue.full());
    _dynamic_branch_info_queue.push_back(info);

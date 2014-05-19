@@ -36,7 +36,7 @@ L1CacheCntlr::L1CacheCntlr(MemoryManager* memory_manager,
    _l1_dcache_hash_fn_obj = new CacheHashFn(l1_dcache_size, l1_dcache_associativity, cache_line_size);
 
    _l1_icache = new Cache("L1-I",
-         PR_L1_PR_L2_DRAM_DIRECTORY_MSI,
+         CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MSI,
          Cache::INSTRUCTION_CACHE,
          L1,
          Cache::UNDEFINED_WRITE_POLICY,
@@ -49,11 +49,10 @@ L1CacheCntlr::L1CacheCntlr(MemoryManager* memory_manager,
          l1_icache_data_access_cycles,
          l1_icache_tags_access_cycles,
          l1_icache_perf_model_type,
-         l1_icache_track_miss_types,
-         getShmemPerfModel());
+         l1_icache_track_miss_types);
 
    _l1_dcache = new Cache("L1-D",
-         PR_L1_PR_L2_DRAM_DIRECTORY_MSI,
+         CachingProtocol::PR_L1_PR_L2_DRAM_DIRECTORY_MSI,
          Cache::DATA_CACHE,
          L1,
          Cache::WRITE_THROUGH,
@@ -66,8 +65,7 @@ L1CacheCntlr::L1CacheCntlr(MemoryManager* memory_manager,
          l1_dcache_data_access_cycles,
          l1_dcache_tags_access_cycles,
          l1_dcache_perf_model_type,
-         l1_icache_track_miss_types,
-         getShmemPerfModel());
+         l1_icache_track_miss_types);
 }
 
 L1CacheCntlr::~L1CacheCntlr()
@@ -90,12 +88,11 @@ bool
 L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
                                    Core::lock_signal_t lock_signal,
                                    Core::mem_op_t mem_op_type, 
-                                   IntPtr ca_address, UInt32 offset,
-                                   Byte* data_buf, UInt32 data_length,
-                                   bool modeled)
+                                   IntPtr address, UInt32 offset,
+                                   Byte* data_buf, UInt32 data_length)
 {
-   LOG_PRINT("processMemOpFromCore(), lock_signal(%u), mem_op_type(%u), ca_address(0x%x)",
-         lock_signal, mem_op_type, ca_address);
+   LOG_PRINT("processMemOpFromCore(), lock_signal(%u), mem_op_type(%u), address(0x%x)",
+         lock_signal, mem_op_type, address);
 
    bool l1_cache_hit = true;
    UInt32 access_num = 0;
@@ -111,17 +108,15 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
 
       // Wake up the network thread after acquiring the lock
       if (access_num == 2)
-      {
          _memory_manager->wakeUpSimThread();
-      }
 
-      if (operationPermissibleinL1Cache(mem_component, ca_address, mem_op_type, access_num))
+      if (operationPermissibleinL1Cache(mem_component, address, mem_op_type, access_num))
       {
          // Increment Shared Mem Perf model curr time
          // L1 Cache
          _memory_manager->incrCurrTime(mem_component, CachePerfModel::ACCESS_DATA_AND_TAGS);
 
-         accessCache(mem_component, mem_op_type, ca_address, offset, data_buf, data_length);
+         accessCache(mem_component, mem_op_type, address, offset, data_buf, data_length);
                  
          return l1_cache_hit;
       }
@@ -131,13 +126,13 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
       // Miss in the L1 cache 
       l1_cache_hit = false;
       
-      LOG_ASSERT_ERROR(lock_signal != Core::UNLOCK, "Expected to find address(%#lx) in L1 Cache", ca_address);
+      LOG_ASSERT_ERROR(lock_signal != Core::UNLOCK, "Expected to find address(%#lx) in L1 Cache", address);
 
       // Invalidate the cache line before passing the request to L2 Cache
-      invalidateCacheLine(mem_component, ca_address);
+      invalidateCacheLine(mem_component, address);
 
       // (1) Is cache miss? (2) Cache miss type (COLD, CAPACITY, UPGRADE, SHARING)
-      pair<bool,Cache::MissType> l2_cache_miss_info = _l2_cache_cntlr->processShmemRequestFromL1Cache(mem_component, mem_op_type, ca_address);
+      pair<bool,Cache::MissType> l2_cache_miss_info = _l2_cache_cntlr->processShmemRequestFromL1Cache(mem_component, mem_op_type, address);
       bool l2_cache_miss = l2_cache_miss_info.first;
 
 
@@ -152,8 +147,7 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
          // L1 Cache
          _memory_manager->incrCurrTime(mem_component, CachePerfModel::ACCESS_DATA_AND_TAGS);
 
-
-         accessCache(mem_component, mem_op_type, ca_address, offset, data_buf, data_length);
+         accessCache(mem_component, mem_op_type, address, offset, data_buf, data_length);
 
          return false;
       }
@@ -166,7 +160,7 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
       ShmemMsg::Type shmem_msg_type = getShmemMsgType(mem_op_type);
 
       // Construct the message and send out a request to the SIM thread for the cache data
-      ShmemMsg shmem_msg(shmem_msg_type, mem_component, MemComponent::L2_CACHE, getTileId(), ca_address, msg_modeled);
+      ShmemMsg shmem_msg(shmem_msg_type, mem_component, MemComponent::L2_CACHE, getTileId(), address, msg_modeled);
       _memory_manager->sendMsg(getTileId(), shmem_msg);
 
       _memory_manager->waitForSimThread();
@@ -181,7 +175,7 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
 
 void
 L1CacheCntlr::accessCache(MemComponent::Type mem_component,
-      Core::mem_op_t mem_op_type, IntPtr ca_address, UInt32 offset,
+      Core::mem_op_t mem_op_type, IntPtr address, UInt32 offset,
       Byte* data_buf, UInt32 data_length)
 {
    Cache* l1_cache = getL1Cache(mem_component);
@@ -189,13 +183,13 @@ L1CacheCntlr::accessCache(MemComponent::Type mem_component,
    {
    case Core::READ:
    case Core::READ_EX:
-      l1_cache->accessCacheLine(ca_address + offset, Cache::LOAD, data_buf, data_length);
+      l1_cache->accessCacheLine(address + offset, Cache::LOAD, data_buf, data_length);
       break;
 
    case Core::WRITE:
-      l1_cache->accessCacheLine(ca_address + offset, Cache::STORE, data_buf, data_length);
+      l1_cache->accessCacheLine(address + offset, Cache::STORE, data_buf, data_length);
       // Write-through cache - Write the L2 Cache also
-      _l2_cache_cntlr->writeCacheLine(ca_address, offset, data_buf, data_length);
+      _l2_cache_cntlr->writeCacheLine(address, data_buf, offset, data_length);
       break;
 
    default:

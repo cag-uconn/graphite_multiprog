@@ -36,7 +36,7 @@ L1CacheCntlr::L1CacheCntlr(MemoryManager* memory_manager,
    _L1_dcache_hash_fn_obj = new CacheHashFn(L1_dcache_size, L1_dcache_associativity, cache_line_size);
 
    _L1_icache = new Cache("L1-I",
-         PR_L1_SH_L2_MSI,
+         CachingProtocol::PR_L1_SH_L2_MSI,
          Cache::INSTRUCTION_CACHE,
          L1,
          Cache::UNDEFINED_WRITE_POLICY,
@@ -51,7 +51,7 @@ L1CacheCntlr::L1CacheCntlr(MemoryManager* memory_manager,
          L1_icache_perf_model_type,
          L1_icache_track_miss_types);
    _L1_dcache = new Cache("L1-D",
-         PR_L1_SH_L2_MSI,
+         CachingProtocol::PR_L1_SH_L2_MSI,
          Cache::DATA_CACHE,
          L1,
          Cache::WRITE_BACK,
@@ -81,12 +81,11 @@ bool
 L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
                                    Core::lock_signal_t lock_signal,
                                    Core::mem_op_t mem_op_type, 
-                                   IntPtr ca_address, UInt32 offset,
-                                   Byte* data_buf, UInt32 data_length,
-                                   bool modeled)
+                                   IntPtr address, UInt32 offset,
+                                   Byte* data_buf, UInt32 data_length)
 {
-   LOG_PRINT("processMemOpFromCore(), lock_signal(%u), mem_op_type(%u), ca_address(%#llx)",
-             lock_signal, mem_op_type, ca_address);
+   LOG_PRINT("processMemOpFromCore(), lock_signal(%u), mem_op_type(%u), address(%#lx)",
+             lock_signal, mem_op_type, address);
 
    bool L1_cache_hit = true;
    UInt32 access_num = 0;
@@ -105,7 +104,7 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
          _memory_manager->wakeUpSimThread();
       }
 
-      pair<bool, Cache::MissType> cache_miss_info = operationPermissibleinL1Cache(mem_component, ca_address, mem_op_type, access_num);
+      pair<bool, Cache::MissType> cache_miss_info = operationPermissibleinL1Cache(mem_component, address, mem_op_type, access_num);
       bool cache_hit = !cache_miss_info.first;
       if (cache_hit)
       {
@@ -113,14 +112,14 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
          // L1 Cache
          _memory_manager->incrCurrTime(mem_component, CachePerfModel::ACCESS_DATA_AND_TAGS);
 
-         accessCache(mem_component, mem_op_type, ca_address, offset, data_buf, data_length);
+         accessCache(mem_component, mem_op_type, address, offset, data_buf, data_length);
                  
          return L1_cache_hit;
       }
 
       LOG_ASSERT_ERROR(access_num == 1, "Should find line in cache on second access");
       // Expect to find address in the L1-I/L1-D cache if there is an UNLOCK signal
-      LOG_ASSERT_ERROR(lock_signal != Core::UNLOCK, "Expected to find address(%#lx) in L1 Cache", ca_address);
+      LOG_ASSERT_ERROR(lock_signal != Core::UNLOCK, "Expected to find address(%#lx) in L1 Cache", address);
 
       _memory_manager->incrCurrTime(mem_component, CachePerfModel::ACCESS_TAGS);
 
@@ -131,7 +130,7 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
       bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileId());
       ShmemMsg::Type shmem_msg_type = getShmemMsgType(mem_op_type);
       ShmemMsg shmem_msg(shmem_msg_type, MemComponent::CORE, mem_component,
-                         getTileId(), false, ca_address,
+                         getTileId(), address,
                          msg_modeled);
       _memory_manager->sendMsg(getTileId(), shmem_msg);
 
@@ -145,7 +144,7 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
 
 void
 L1CacheCntlr::accessCache(MemComponent::Type mem_component,
-      Core::mem_op_t mem_op_type, IntPtr ca_address, UInt32 offset,
+      Core::mem_op_t mem_op_type, IntPtr address, UInt32 offset,
       Byte* data_buf, UInt32 data_length)
 {
    Cache* L1_cache = getL1Cache(mem_component);
@@ -153,11 +152,11 @@ L1CacheCntlr::accessCache(MemComponent::Type mem_component,
    {
    case Core::READ:
    case Core::READ_EX:
-      L1_cache->accessCacheLine(ca_address + offset, Cache::LOAD, data_buf, data_length);
+      L1_cache->accessCacheLine(address + offset, Cache::LOAD, data_buf, data_length);
       break;
 
    case Core::WRITE:
-      L1_cache->accessCacheLine(ca_address + offset, Cache::STORE, data_buf, data_length);
+      L1_cache->accessCacheLine(address + offset, Cache::STORE, data_buf, data_length);
       break;
 
    default:
@@ -256,7 +255,7 @@ L1CacheCntlr::insertCacheLine(MemComponent::Type mem_component, IntPtr address, 
       {
          // Send back the data also
          ShmemMsg send_shmem_msg(ShmemMsg::FLUSH_REP, mem_component, MemComponent::L2_CACHE,
-                                 getTileId(), false, evicted_address,
+                                 getTileId(), evicted_address,
                                  writeback_buf, getCacheLineSize(),
                                  msg_modeled);
          _memory_manager->sendMsg(L2_cache_home, send_shmem_msg);
@@ -266,7 +265,7 @@ L1CacheCntlr::insertCacheLine(MemComponent::Type mem_component, IntPtr address, 
          LOG_ASSERT_ERROR(evicted_cstate == CacheState::SHARED, "evicted_address(%#lx), evicted_cstate(%u)",
                           evicted_address, evicted_cstate);
          ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, mem_component, MemComponent::L2_CACHE,
-                                 getTileId(), false, evicted_address,
+                                 getTileId(), evicted_address,
                                  msg_modeled);
          _memory_manager->sendMsg(L2_cache_home, send_shmem_msg);
       }
@@ -295,7 +294,7 @@ L1CacheCntlr::handleMsgFromCore(ShmemMsg* shmem_msg)
    IntPtr address = shmem_msg->getAddress();
    // Send msg out to L2 cache
    ShmemMsg send_shmem_msg(shmem_msg->getType(), shmem_msg->getReceiverMemComponent(), MemComponent::L2_CACHE,
-                           shmem_msg->getRequester(), false, address,
+                           shmem_msg->getRequester(), address,
                            shmem_msg->isModeled());
    tile_id_t receiver = _L2_cache_home_lookup->getHome(address);
    _memory_manager->sendMsg(receiver, send_shmem_msg);
@@ -431,26 +430,15 @@ L1CacheCntlr::processInvReqFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
       invalidateCacheLine(mem_component, address);
       
       ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, mem_component, MemComponent::L2_CACHE,
-                              shmem_msg->getRequester(), shmem_msg->isReplyExpected(), address,
+                              shmem_msg->getRequester(), address,
                               shmem_msg->isModeled());
       _memory_manager->sendMsg(sender, send_shmem_msg);
-   }
-   else
-   {
-      if (shmem_msg->isReplyExpected())
-      {
-         ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, mem_component, MemComponent::L2_CACHE,
-                                 shmem_msg->getRequester(), true, address,
-                                 shmem_msg->isModeled());
-         _memory_manager->sendMsg(sender, send_shmem_msg);
-      }
    }
 }
 
 void
 L1CacheCntlr::processFlushReqFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 {
-   assert(!shmem_msg->isReplyExpected());
    IntPtr address = shmem_msg->getAddress();
    LOG_ASSERT_ERROR(shmem_msg->getReceiverMemComponent() == MemComponent::L1_DCACHE,
                     "Unexpected mem component(%u)", shmem_msg->getReceiverMemComponent());
@@ -476,7 +464,7 @@ L1CacheCntlr::processFlushReqFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
       invalidateCacheLine(MemComponent::L1_DCACHE, address);
 
       ShmemMsg send_shmem_msg(ShmemMsg::FLUSH_REP, MemComponent::L1_DCACHE, MemComponent::L2_CACHE,
-                              shmem_msg->getRequester(), false, address,
+                              shmem_msg->getRequester(), address,
                               data_buf, getCacheLineSize(),
                               shmem_msg->isModeled());
       _memory_manager->sendMsg(sender, send_shmem_msg);
@@ -491,8 +479,6 @@ L1CacheCntlr::processFlushReqFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 void
 L1CacheCntlr::processWbReqFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 {
-   assert(!shmem_msg->isReplyExpected());
-
    IntPtr address = shmem_msg->getAddress();
    LOG_ASSERT_ERROR(shmem_msg->getReceiverMemComponent() == MemComponent::L1_DCACHE,
                     "Unexpected mem component(%u)", shmem_msg->getReceiverMemComponent());
@@ -523,7 +509,7 @@ L1CacheCntlr::processWbReqFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
       setCacheLineInfo(MemComponent::L1_DCACHE, address, &L1_cache_line_info);
 
       ShmemMsg send_shmem_msg(ShmemMsg::WB_REP, MemComponent::L1_DCACHE, MemComponent::L2_CACHE,
-                              shmem_msg->getRequester(), false, address,
+                              shmem_msg->getRequester(), address,
                               data_buf, getCacheLineSize(),
                               shmem_msg->isModeled());
       _memory_manager->sendMsg(sender, send_shmem_msg);

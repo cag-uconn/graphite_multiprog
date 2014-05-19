@@ -18,16 +18,29 @@
 using std::string;
 
 SockTransport::SockTransport()
-   : m_update_thread_state(RUNNING)
+   : m_update_thread_state(EXITED)
 {
-   m_base_port = Sim()->getCfg()->getInt("transport/base_port", DEFAULT_BASE_PORT);
+   try
+   {
+      m_base_port = Sim()->getCfg()->getInt("transport/base_port");
+   }
+   catch (...)
+   {
+      LOG_PRINT_ERROR("Could not read [transport/base_port] from the cfg file");
+   }
 
    getProcInfo();
-   initSockets();
    initBufferLists();
 
-   m_update_thread = Thread::create(updateThreadFunc, this);
-   m_update_thread->run();
+   if (m_num_procs > 1)
+   {
+      // Initialize TCP/IP sockets
+      initSockets();
+      // Update thread for communicating between processes
+      m_update_thread_state = RUNNING;
+      m_update_thread = Thread::create(updateThreadFunc, this);
+      m_update_thread->run();
+   }
 
    m_global_node = new SockNode(GLOBAL_TAG, this);
 }
@@ -50,6 +63,18 @@ void SockTransport::getProcInfo()
 
    Config::getSingleton()->setProcessNum(m_proc_index);
    LOG_PRINT("Process number set to %i", Config::getSingleton()->getCurrentProcessNum());
+}
+
+void SockTransport::initBufferLists()
+{
+   m_num_lists
+      = Config::getSingleton()->getTotalTiles() // for tiles
+      + 1; // for global node
+
+   m_buffer_lists = new buffer_list[m_num_lists];
+
+   m_buffer_list_locks = new Lock[m_num_lists];
+   m_buffer_list_sems = new Semaphore[m_num_lists];
 }
 
 void SockTransport::initSockets()
@@ -77,10 +102,10 @@ void SockTransport::initSockets()
       string server_addr = "";
       try
       {
-          server_addr = Sim()->getCfg()->getString(server_string, "127.0.0.1");
+          server_addr = Sim()->getCfg()->getString(server_string);
       } catch (...)
       {
-          LOG_ASSERT_ERROR(false, "Key: %s not found in config!", server_string.c_str());
+          LOG_PRINT_ERROR("Key: %s not found in config!", server_string.c_str());
       }
 
       m_send_sockets[proc].connect(server_addr.c_str(), m_base_port + proc);
@@ -105,18 +130,6 @@ void SockTransport::initSockets()
 
       m_recv_sockets[proc_index] = sock;
    }
-}
-
-void SockTransport::initBufferLists()
-{
-   m_num_lists
-      = Config::getSingleton()->getTotalTiles() // for tiles
-      + 1; // for global node
-
-   m_buffer_lists = new buffer_list[m_num_lists];
-
-   m_buffer_list_locks = new Lock[m_num_lists];
-   m_buffer_list_sems = new Semaphore[m_num_lists];
 }
 
 void SockTransport::updateThreadFunc(void *vp)
@@ -226,25 +239,31 @@ SockTransport::~SockTransport()
 
    delete m_global_node;
 
-   terminateUpdateThread();
-   delete m_update_thread;
+   if (m_num_procs > 1)
+   {
+      // Terminate update thread
+      terminateUpdateThread();
+      delete m_update_thread;
+
+      // De-initialize sockets & locks
+      for (SInt32 i = 0; i < m_num_procs; i++)
+      {
+         m_recv_sockets[i].close();
+         m_send_sockets[i].close();
+      }
+      m_server_socket.close();
+      
+      delete [] m_recv_locks;
+      delete [] m_recv_sockets;
+      delete [] m_send_locks;
+      delete [] m_send_sockets;
+   }
 
    delete [] m_buffer_list_sems;
    delete [] m_buffer_list_locks;
 
    delete [] m_buffer_lists;
 
-   for (SInt32 i = 0; i < m_num_procs; i++)
-   {
-      m_recv_sockets[i].close();
-      m_send_sockets[i].close();
-   }
-   m_server_socket.close();
-   
-   delete [] m_recv_locks;
-   delete [] m_recv_sockets;
-   delete [] m_send_locks;
-   delete [] m_send_sockets;
 }
 
 Transport::Node* SockTransport::createNode(tile_id_t tile_id)
@@ -266,6 +285,10 @@ void SockTransport::barrier()
    // used in the simulator, it should be OK. (Bear in mind this is
    // the Transport::barrier, NOT the CarbonBarrier implementation.)
 
+   // Only required if the number of processes > 1
+   if (m_num_procs == 1)
+      return;
+   
    LOG_PRINT("Entering transport barrier");
 
    Socket &sock = m_send_sockets[(m_proc_index+1) % m_num_procs];
@@ -365,7 +388,7 @@ void SockTransport::SockNode::send(SInt32 dest_proc,
 
    if (dest_proc == m_transport->m_proc_index)
    {
-      Byte *buff_cpy = new Byte[length];
+      Byte* buff_cpy = new Byte[length];
       memcpy(buff_cpy, buffer, length);
 
       m_transport->insertInBufferList(tag, buff_cpy);
@@ -411,7 +434,7 @@ SockTransport::Socket::~Socket()
 
 void SockTransport::Socket::listen(SInt32 port, SInt32 max_pending)
 {
-   SInt32 err;
+   __attribute__((unused)) SInt32 err;
 
    LOG_ASSERT_ERROR(m_socket == -1, "Listening on already-open socket: %d", m_socket);
 
@@ -421,10 +444,6 @@ void SockTransport::Socket::listen(SInt32 port, SInt32 max_pending)
    SInt32 on = 1;
    err = ::setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
    LOG_ASSERT_ERROR(err >= 0, "Failed to set socket options.");
-
-// Not needed
-//    err = fcntl(m_server_socket, F_SETFL, O_NONBLOCK);
-//    LOG_ASSERT_ERROR(err >= 0, "Failed to set non-blocking.");
 
    struct sockaddr_in addr;
    memset(&addr, 0, sizeof(addr));
@@ -505,7 +524,7 @@ void SockTransport::Socket::connect(const char* addr, SInt32 port)
 
 void SockTransport::Socket::send(const void* buffer, UInt32 length)
 {
-   SInt32 sent;
+   __attribute__((unused)) SInt32 sent;
    sent = ::send(m_socket, buffer, length, 0);
    LOG_ASSERT_ERROR(sent == SInt32(length), "Failure sending packet on socket %d -- %d != %d", m_socket, sent, length);
 }
@@ -557,7 +576,7 @@ void SockTransport::Socket::close()
 {
    LOG_PRINT("Closing socket: %d", m_socket);
 
-   SInt32 err;
+   __attribute__((unused)) SInt32 err;
    err = ::close(m_socket);
    LOG_ASSERT_WARNING(err >= 0, "Failed to close socket: %d", err);
 
