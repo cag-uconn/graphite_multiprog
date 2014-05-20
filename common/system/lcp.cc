@@ -12,29 +12,29 @@
 // -- general LCP functionality
 
 LCP::LCP()
-   : m_proc_num(Config::getSingleton()->getCurrentProcessNum())
-   , m_transport(Transport::getSingleton()->getGlobalNode())
-   , m_finished(false)
+   : _finished(false)
+   , _proc_num(Config::getSingleton()->getCurrentProcessNum())
+   , _transport(Transport::getSingleton()->getGlobalNode())
 {
+   _thread = Thread::create(this);
 }
 
 LCP::~LCP()
 {
+   delete _thread;
 }
 
 void LCP::run()
 {
    LOG_PRINT("LCP started.");
 
-   while (!m_finished)
-   {
+   while (!_finished)
       processPacket();
-   }
 }
 
 void LCP::processPacket()
 {
-   Byte *pkt = m_transport->recv();
+   Byte *pkt = _transport->recv();
 
    SInt32 *msg_type = (SInt32*)pkt;
 
@@ -46,7 +46,7 @@ void LCP::processPacket()
    {
    case LCP_MESSAGE_QUIT:
       LOG_PRINT("Received quit message.");
-      m_finished = true;
+      _finished = true;
       break;
 
    case LCP_MESSAGE_COMMID_UPDATE:
@@ -90,20 +90,21 @@ void LCP::processPacket()
    delete [] pkt;
 }
 
-void LCP::finish()
+void LCP::spawnThread()
+{
+   _thread->spawn();
+}
+
+void LCP::quitThread()
 {
    LOG_PRINT("Send LCP quit message");
 
    SInt32 msg_type = LCP_MESSAGE_QUIT;
-
-   m_transport->globalSend(m_proc_num,
+   _transport->globalSend(_proc_num,
                            &msg_type,
                            sizeof(msg_type));
-
-   while (!m_finished)
-      sched_yield();
-
-   LOG_PRINT("LCP finished.");
+   // Join thread
+   _thread->join();
 }
 
 // -- functions for specific tasks
@@ -128,6 +129,6 @@ void LCP::updateCommId(void *vp)
                  /*length*/ 0,
                  /*data*/ NULL);
    Byte *buffer = ack.makeBuffer();
-   m_transport->send(update->tile_id, buffer, ack.bufferSize());
+   _transport->send(update->tile_id, buffer, ack.bufferSize());
    delete [] buffer;
 }

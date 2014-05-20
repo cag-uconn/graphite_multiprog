@@ -21,8 +21,8 @@
 #include "contrib/dsent/dsent_contrib.h"
 #include "contrib/mcpat/cacti/io.h"
 
-Simulator *Simulator::m_singleton;
-config::Config *Simulator::m_config_file;
+Simulator *Simulator::_singleton;
+config::Config *Simulator::_config_file;
 
 static UInt64 getTime()
 {
@@ -34,182 +34,151 @@ static UInt64 getTime()
 
 void Simulator::allocate()
 {
-   assert(m_singleton == NULL);
-   m_singleton = new Simulator();
-   assert(m_singleton);
+   assert(_singleton == NULL);
+   _singleton = new Simulator();
+   assert(_singleton);
 }
 
 void Simulator::setConfig(config::Config *cfg)
 {
-   m_config_file = cfg;
+   _config_file = cfg;
 }
 
 void Simulator::release()
 {
-   delete m_singleton;
-   m_singleton = NULL;
+   delete _singleton;
+   _singleton = NULL;
 }
 
 Simulator* Simulator::getSingleton()
 {
-   return m_singleton;
+   return _singleton;
 }
 
 Simulator::Simulator()
-   : m_mcp(NULL)
-   , m_mcp_thread(NULL)
-   , m_lcp(NULL)
-   , m_lcp_thread(NULL)
-   , m_config()
-   , m_log(m_config)
-   , m_transport(NULL)
-   , m_tile_manager(NULL)
-   , m_thread_manager(NULL)
-   , m_thread_scheduler(NULL)
-   , m_performance_counter_manager(NULL)
-   , m_sim_thread_manager(NULL)
-   , m_clock_skew_management_manager(NULL)
-   , m_statistics_manager(NULL)
-   , m_statistics_thread(NULL)
-   , m_finished(false)
-   , m_boot_time(getTime())
-   , m_start_time(0)
-   , m_stop_time(0)
-   , m_shutdown_time(0)
-   , m_enabled(false)
+   : _config()
+   , _log(_config)
+   , _transport(NULL)
+   , _tile_manager(NULL)
+   , _thread_manager(NULL)
+   , _thread_scheduler(NULL)
+   , _performance_counter_manager(NULL)
+   , _sim_thread_manager(NULL)
+   , _clock_skew_management_manager(NULL)
+   , _statistics_manager(NULL)
+   , _mcp(NULL)
+   , _lcp(NULL)
+   , _finished(false)
+   , _boot_time(getTime())
+   , _start_time(0)
+   , _stop_time(0)
+   , _shutdown_time(0)
+   , _enabled(false)
 {
 }
 
 void Simulator::start()
 {
    LOG_PRINT("In Simulator ctor.");
+   _config.logTileMap();
 
-   m_config.logTileMap();
+   initializeGraphiteHome();
+   initializePowerModelingTools();
+   DVFSManager::initialize();
 
-   // Get Graphite Home
-   char* graphite_home_str = getenv("GRAPHITE_HOME");
-   m_graphite_home = (graphite_home_str) ? ((string)graphite_home_str) : ".";
-  
-   if (Config::getSingleton()->getEnablePowerModeling())
-   {
-      // Initialize DSENT for network power modeling - create config object
-      string dsent_path = m_graphite_home + "/contrib/dsent";
-      dsent_contrib::DSENTInterface::allocate(dsent_path, getCfg()->getInt("general/technology_node"));
-      dsent_contrib::DSENTInterface::getSingleton()->add_global_tech_overwrite("Temperature",
-         getCfg()->getFloat("general/temperature"));
-
-      // Initialize McPAT for core + cache power modeling
-      string mcpat_path = m_graphite_home + "/contrib/mcpat";
-      McPAT::initializeDatabase(mcpat_path);
-   }
-  
-   m_transport = Transport::create();
-
-   // Initialize the DVFS
-   DVFSManager::initializeDVFS();
-
-   m_tile_manager = new TileManager();
-   m_thread_manager = new ThreadManager(m_tile_manager);
-   m_thread_scheduler = ThreadScheduler::create(m_thread_manager, m_tile_manager);
-   m_performance_counter_manager = new PerformanceCounterManager();
-   m_sim_thread_manager = new SimThreadManager();
-   m_clock_skew_management_manager = ClockSkewManagementManager::create(getCfg()->getString("clock_skew_management/scheme"));
+   _transport = Transport::create();
    
-   // For periodically measuring statistics
-   if (m_config_file->getBool("statistics_trace/enabled"))
-   {
-      m_statistics_manager = new StatisticsManager();
-      m_statistics_thread = new StatisticsThread(m_statistics_manager);
-      m_statistics_thread->start();
-   }
+   _tile_manager = new TileManager();
+   _thread_manager = new ThreadManager(_tile_manager);
+   _thread_scheduler = ThreadScheduler::create(_thread_manager, _tile_manager);
+   _performance_counter_manager = new PerformanceCounterManager();
+   _sim_thread_manager = new SimThreadManager();
+   _clock_skew_management_manager = ClockSkewManagementManager::create(getCfg()->getString("clock_skew_management/scheme"));
+   if (_config_file->getBool("statistics_trace/enabled"))
+      _statistics_manager = new StatisticsManager();
 
-   startMCP();
+   if (_config.getCurrentProcessNum() == 0)
+      _mcp = new MCP(getMCPNetwork());
+   _lcp = new LCP();
 
-   m_sim_thread_manager->spawnSimThreads();
-
-   m_lcp = new LCP();
-   m_lcp_thread = Thread::create(m_lcp);
-   m_lcp_thread->run();
+   // Start threads needed for simulation
+   _sim_thread_manager->spawnThreads();
+   _lcp->spawnThread();
+   if (_mcp)
+      _mcp->spawnThread();
+   if (_statistics_manager)
+      _statistics_manager->spawnThread();   
 }
 
 Simulator::~Simulator()
 {
-   m_shutdown_time = getTime();
-
    LOG_PRINT("Simulator dtor starting...");
+   _shutdown_time = getTime();
 
    broadcastFinish();
 
-   endMCP();
+   // Quit threads needed for simulation
+   if (_statistics_manager)
+      _statistics_manager->quitThread();
+   if (_mcp)
+      _mcp->quitThread();
+   _lcp->quitThread();
 
-   if (m_statistics_thread)
-      m_statistics_thread->finish();
+   _transport->barrier();
+   printSimulationSummary();
+   _sim_thread_manager->quitThreads();
+   _transport->barrier();
 
-   m_lcp->finish();
+   if (_statistics_manager)
+      delete _statistics_manager;
+   delete _lcp;
+   if (_mcp)
+      delete _mcp;
+  
+   if (_clock_skew_management_manager)
+      delete _clock_skew_management_manager;
+   delete _sim_thread_manager;
+   delete _performance_counter_manager;
+   delete _thread_manager;
+   delete _thread_scheduler;
+   delete _tile_manager;
+   _tile_manager = NULL;
+   delete _transport;
 
-   m_transport->barrier();
+   deInitializePowerModelingTools();
+}
 
+void Simulator::printSimulationSummary()
+{
    if (Config::getSingleton()->getCurrentProcessNum() == 0)
    {
       ofstream os(Config::getSingleton()->getOutputFileName().c_str());
 
       os << "Graphite " << version  << endl << endl;
       os << "Simulation (Host) Timers: " << endl << left
-         << setw(35) << "Start Time (in microseconds)" << (m_start_time - m_boot_time) << endl
-         << setw(35) << "Stop Time (in microseconds)" << (m_stop_time - m_boot_time) << endl
-         << setw(35) << "Shutdown Time (in microseconds)" << (m_shutdown_time - m_boot_time) << endl;
+         << setw(35) << "Start Time (in microseconds)" << (_start_time - _boot_time) << endl
+         << setw(35) << "Stop Time (in microseconds)" << (_stop_time - _boot_time) << endl
+         << setw(35) << "Shutdown Time (in microseconds)" << (_shutdown_time - _boot_time) << endl;
 
-      m_tile_manager->outputSummary(os);
+      _tile_manager->outputSummary(os);
       os.close();
    }
    else
    {
       stringstream temp;
-      m_tile_manager->outputSummary(temp);
+      _tile_manager->outputSummary(temp);
       assert(temp.str().length() == 0);
    }
-
-   m_sim_thread_manager->quitSimThreads();
-
-   m_transport->barrier();
-
-   delete m_lcp_thread;
-   delete m_mcp_thread;
-   delete m_lcp;
-   delete m_mcp;
-   
-   // For periodically measuring statistics
-   if (m_statistics_thread)
-   {
-      delete m_statistics_thread;
-      delete m_statistics_manager;
-   }
-  
-   // Clock Skew Manager 
-   if (m_clock_skew_management_manager)
-      delete m_clock_skew_management_manager;
-
-   delete m_sim_thread_manager;
-   delete m_performance_counter_manager;
-   delete m_thread_manager;
-   delete m_thread_scheduler;
-   delete m_tile_manager;
-   m_tile_manager = NULL;
-   delete m_transport;
-
-   // Release DSENT interface object
-   if (Config::getSingleton()->getEnablePowerModeling())
-      dsent_contrib::DSENTInterface::release();
 }
 
 void Simulator::startTimer()
 {
-   m_start_time = getTime();
+   _start_time = getTime();
 }
 
 void Simulator::stopTimer()
 {
-   m_stop_time = getTime();
+   _stop_time = getTime();
 }
 
 void Simulator::broadcastFinish()
@@ -217,7 +186,7 @@ void Simulator::broadcastFinish()
    if (Config::getSingleton()->getCurrentProcessNum() != 0)
       return;
 
-   m_num_procs_finished = 1;
+   _num_procs_finished = 1;
 
    // let the rest of the simulator know its time to exit
    Transport::Node *globalNode = Transport::getSingleton()->getGlobalNode();
@@ -228,7 +197,7 @@ void Simulator::broadcastFinish()
       globalNode->globalSend(i, &msg, sizeof(msg));
    }
 
-   while (m_num_procs_finished < Config::getSingleton()->getProcessCount())
+   while (_num_procs_finished < Config::getSingleton()->getProcessCount())
    {
       sched_yield();
    }
@@ -243,7 +212,7 @@ void Simulator::handleFinish()
    SInt32 msg = LCP_MESSAGE_SIMULATOR_FINISHED_ACK;
    globalNode->globalSend(0, &msg, sizeof(msg));
 
-   m_finished = true;
+   _finished = true;
 }
 
 void Simulator::deallocateProcess()
@@ -251,53 +220,65 @@ void Simulator::deallocateProcess()
    LOG_ASSERT_ERROR(Config::getSingleton()->getCurrentProcessNum() == 0,
                     "LCP_MESSAGE_SIMULATOR_FINISHED_ACK received on slave process.");
 
-   ++m_num_procs_finished;
-}
-
-void Simulator::startMCP()
-{
-   if (m_config.getCurrentProcessNum() != m_config.getProcessNumForTile(Config::getSingleton()->getMCPTileNum()))
-      return;
-
-   LOG_PRINT("Creating new MCP object in process %i", m_config.getCurrentProcessNum());
-
-   // FIXME: Can't the MCP look up its network itself in the
-   // constructor?
-   Tile* mcp_core = m_tile_manager->getTileFromID(m_config.getMCPTileNum());
-   LOG_ASSERT_ERROR(mcp_core, "Could not find the MCP's core!");
-
-   Network & mcp_network = *(mcp_core->getNetwork());
-   m_mcp = new MCP(mcp_network);
-
-   m_mcp_thread = Thread::create(m_mcp);
-   m_mcp_thread->run();
-}
-
-void Simulator::endMCP()
-{
-   if (m_config.getCurrentProcessNum() == m_config.getProcessNumForTile(m_config.getMCPTileNum()))
-      m_mcp->finish();
+   ++_num_procs_finished;
 }
 
 bool Simulator::finished()
 {
-   return m_finished;
+   return _finished;
+}
+
+void Simulator::initializeGraphiteHome()
+{
+   char* graphite_home_str = getenv("GRAPHITE_HOME");
+   LOG_ASSERT_ERROR(graphite_home_str, "GRAPHITE_HOME environment variable NOT set");
+   _graphite_home = (string) graphite_home_str; 
+}
+
+void Simulator::initializePowerModelingTools()
+{
+   if (!Config::getSingleton()->getEnablePowerModeling())
+      return;
+  
+   // Initialize DSENT for network power modeling - create config object
+   string dsent_path = _graphite_home + "/contrib/dsent";
+   dsent_contrib::DSENTInterface::allocate(dsent_path, getCfg()->getInt("general/technology_node"));
+   dsent_contrib::DSENTInterface::getSingleton()->add_global_tech_overwrite("Temperature",
+      getCfg()->getFloat("general/temperature"));
+      
+   // Initialize McPAT for core + cache power modeling
+   string mcpat_path = _graphite_home + "/contrib/mcpat";
+   McPAT::initializeDatabase(mcpat_path);
+}
+
+void Simulator::deInitializePowerModelingTools()
+{
+   // Release DSENT interface object
+   if (Config::getSingleton()->getEnablePowerModeling())
+      dsent_contrib::DSENTInterface::release();
+}
+
+Network& Simulator::getMCPNetwork()
+{
+   Tile* mcp_core = _tile_manager->getTileFromID(_config.getMCPTileNum());
+   LOG_ASSERT_ERROR(mcp_core, "Could not find the MCP's core");
+   return *(mcp_core->getNetwork());
 }
 
 void Simulator::enableModels()
 {
    startTimer();
-   m_enabled = true;
-   for (UInt32 i = 0; i < m_config.getNumLocalTiles(); i++)
-      m_tile_manager->getTileFromIndex(i)->enableModels();
+   _enabled = true;
+   for (UInt32 i = 0; i < _config.getNumLocalTiles(); i++)
+      _tile_manager->getTileFromIndex(i)->enableModels();
 }
 
 void Simulator::disableModels()
 {
    stopTimer();
-   m_enabled = false;
-   for (UInt32 i = 0; i < m_config.getNumLocalTiles(); i++)
-      m_tile_manager->getTileFromIndex(i)->disableModels();
+   _enabled = false;
+   for (UInt32 i = 0; i < _config.getNumLocalTiles(); i++)
+      _tile_manager->getTileFromIndex(i)->disableModels();
 }
 
 void Simulator::enablePerformanceModelsInCurrentProcess()

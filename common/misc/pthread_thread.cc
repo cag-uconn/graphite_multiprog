@@ -2,33 +2,36 @@
 #include "carbon_user.h"
 #include "thread_support_private.h"
 #include "log.h"
+#include <cassert>
 
-PthreadThread::PthreadThread(ThreadFunc func, void *arg)
-   : m_data(func, arg)
+PthreadThread::PthreadThread(ThreadFunc func, void *param)
+   : _func(func)
+   , _param(param)
 {
 }
 
 PthreadThread::~PthreadThread()
 {
-   // LOG_PRINT("Joining on thread: %d", m_thread);
-   // pthread_join(m_thread, NULL);
-   // LOG_PRINT("Joined.");
 }
 
-void *PthreadThread::spawnedThreadFunc(void *vp)
+void PthreadThread::spawn()
 {
-   FuncData *fd = (FuncData*) vp;
-   fd->func(fd->arg);
-   return NULL;
-}
-
-void PthreadThread::run()
-{
-   LOG_PRINT("Creating thread at func: %p, arg: %p", m_data.func, m_data.arg);
+   LOG_PRINT("Creating thread at func: %p, arg: %p", _func, _param);
    pthread_attr_t attr;
    pthread_attr_init(&attr);
    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-   pthread_create(&m_thread, &attr, spawnedThreadFunc, &m_data);
+   
+   typedef void* (*PthreadFunc)(void*);
+   PthreadFunc func = reinterpret_cast<PthreadFunc>(_func);
+   __attribute__((unused)) int ret = pthread_create(&_thread, &attr, func, _param);
+   assert(ret == 0);
+}
+
+void PthreadThread::join()
+{
+   LOG_PRINT("Joining on thread: %d", _thread);
+   __attribute__((unused)) int ret = pthread_join(_thread, NULL);
+   assert(ret == 0);
 }
 
 // Check if pin_thread.cc is included in the build and has

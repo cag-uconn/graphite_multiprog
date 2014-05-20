@@ -18,7 +18,6 @@
 using std::string;
 
 SockTransport::SockTransport()
-   : m_update_thread_state(EXITED)
 {
    try
    {
@@ -39,7 +38,7 @@ SockTransport::SockTransport()
       // Update thread for communicating between processes
       m_update_thread_state = RUNNING;
       m_update_thread = Thread::create(updateThreadFunc, this);
-      m_update_thread->run();
+      m_update_thread->spawn();
    }
 
    m_global_node = new SockNode(GLOBAL_TAG, this);
@@ -144,8 +143,6 @@ void SockTransport::updateThreadFunc(void *vp)
       sched_yield();
    }
 
-   st->m_update_thread_state = EXITED;
-
    LOG_PRINT("Leaving updateThreadFunc");
 }
 
@@ -227,8 +224,7 @@ void SockTransport::terminateUpdateThread()
    SInt32 quit_message[] = { sizeof(m_proc_index), TERMINATE_TAG, m_proc_index };
    m_send_sockets[m_proc_index].send(quit_message, sizeof(quit_message));
 
-   while (m_update_thread_state != EXITED)
-      sched_yield();
+   m_update_thread->join();
 
    LOG_PRINT("Quit.");
 }

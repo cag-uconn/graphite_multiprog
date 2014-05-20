@@ -78,8 +78,7 @@ private:
    enum UpdateThreadState
    {
       RUNNING,
-      EXITING,
-      EXITED
+      EXITING
    };
 
    static const SInt32 GLOBAL_TAG = -1;

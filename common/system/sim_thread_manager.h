@@ -9,17 +9,11 @@ public:
    SimThreadManager();
    ~SimThreadManager();
 
-   void spawnSimThreads();
-   void quitSimThreads();
+   void spawnThreads();
+   void quitThreads();
 
-   void simThreadStartCallback();
-   void simThreadExitCallback();
-   
 private:
-   SimThread *m_sim_threads;
-
-   Lock m_active_threads_lock;
-   UInt32 m_active_threads;
+   SimThread *_sim_threads;
 };
 
 #endif // SIM_THREAD_MANAGER

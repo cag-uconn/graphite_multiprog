@@ -29,11 +29,15 @@ StatisticsManager::StatisticsManager()
    }
   
    // Open trace files
-   openTraceFiles(); 
+   openTraceFiles();
+
+   // Create thread
+   _thread = new StatisticsThread(this);
 }
 
 StatisticsManager::~StatisticsManager()
 {
+   delete _thread;
    // Close trace files
    closeTraceFiles();
 }

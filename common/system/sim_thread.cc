@@ -6,25 +6,22 @@
 #include "sim_thread_manager.h"
 
 SimThread::SimThread()
-   : m_thread(NULL)
 {
+   _thread = Thread::create(this);
 }
 
 SimThread::~SimThread()
 {
-   delete m_thread;
+   delete _thread;
 }
 
 void SimThread::run()
 {
-   tile_id_t tile_id = Sim()->getTileManager()->registerSimThread();
-
    LOG_PRINT("Sim thread starting...");
+   _tile_id = Sim()->getTileManager()->registerSimThread();
 
-   Network *net = Sim()->getTileManager()->getTileFromID(tile_id)->getNetwork();
+   Network *net = Sim()->getTileManager()->getTileFromID(_tile_id)->getNetwork();
    bool cont = true;
-
-   Sim()->getSimThreadManager()->simThreadStartCallback();
 
    // Turn off cont when we receive a quit message
    net->registerCallback(SIM_THREAD_TERMINATE_THREADS,
@@ -35,19 +32,25 @@ void SimThread::run()
    while (cont)
       net->netPullFromTransport();
 
-   Sim()->getSimThreadManager()->simThreadExitCallback();
-
    LOG_PRINT("Sim thread exiting");
-}
-
-void SimThread::spawn()
-{
-   m_thread = Thread::create(this);
-   m_thread->run();
 }
 
 void SimThread::terminateFunc(void *vp, NetPacket pkt)
 {
    bool *pcont = (bool*) vp;
    *pcont = false;
+}
+
+void SimThread::start()
+{
+   _thread->spawn();
+}
+
+void SimThread::quit()
+{
+   NetPacket pkt(Time(0), SIM_THREAD_TERMINATE_THREADS, 0, 0, 0, NULL);
+   pkt.receiver = Tile::getMainCoreId(_tile_id);
+   
+   Transport::Node *global_node = Transport::getSingleton()->getGlobalNode();
+   global_node->send(_tile_id, &pkt, pkt.bufferSize());
 }

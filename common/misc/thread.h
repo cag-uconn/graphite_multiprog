@@ -5,12 +5,14 @@ class Runnable
 {
 public:
    virtual ~Runnable() { }
-   virtual void run() = 0;
    static void threadFunc(void *vpRunnable)
    {
       Runnable *runnable = (Runnable*)vpRunnable;
       runnable->run();
    }
+
+private:
+   virtual void run() = 0;
 };
 
 class Thread
@@ -26,7 +28,8 @@ public:
 
    virtual ~Thread() { };
 
-   virtual void run() = 0;
+   virtual void spawn() = 0;
+   virtual void join() = 0;
 };
 
 #endif // THREAD_H

@@ -252,7 +252,7 @@ setDVFSCallback(void* obj, NetPacket packet)
 
 // Called to initialize DVFS
 void
-DVFSManager::initializeDVFS()
+DVFSManager::initialize()
 {
    DVFSManager::initializeDVFSLevels();
    DVFSManager::initializeDVFSDomainMap();

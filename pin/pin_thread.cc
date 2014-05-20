@@ -1,10 +1,9 @@
 #include "pin_thread.h"
-#include <assert.h>
+#include <cassert>
 
 PinThread::PinThread(ThreadFunc func, void *param)
-   : m_thread_p((THREADID) NULL)
-   , m_func(func)
-   , m_param(param)
+   : _func(func)
+   , _param(param)
  {
  }
 
@@ -12,10 +11,16 @@ PinThread::~PinThread()
 {
 }
 
-void PinThread::run()
+void PinThread::spawn()
 {
-   m_thread_p = PIN_SpawnInternalThread(m_func, m_param, STACK_SIZE, NULL);
-   assert(m_thread_p != INVALID_THREADID);
+   _thread_id = PIN_SpawnInternalThread(_func, _param, STACK_SIZE, &_thread_uid);
+   assert(_thread_id != INVALID_THREADID);
+}
+
+void PinThread::join()
+{
+   __attribute__((unused)) bool ret = PIN_WaitForThreadTermination(_thread_uid, PIN_INFINITE_TIMEOUT, NULL);
+   assert(ret);
 }
 
 Thread* Thread::create(ThreadFunc func, void *param)

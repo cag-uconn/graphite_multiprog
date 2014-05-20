@@ -14,84 +14,87 @@
 
 using namespace std;
 
-MCP::MCP(Network & network)
-   : m_finished(false)
-   , m_network(network)
-   , m_MCP_SERVER_MAX_BUFF(256*1024)
-   , m_scratch(new char[m_MCP_SERVER_MAX_BUFF])
-   , m_vm_manager()
-   , m_syscall_server(m_network, m_send_buff, m_recv_buff, m_MCP_SERVER_MAX_BUFF, m_scratch)
-   , m_sync_server(m_network, m_recv_buff)
-   , m_clock_skew_management_server(NULL)
+MCP::MCP(Network& network)
+   : _finished(false)
+   , _network(network)
+   , _MCP_SERVER_MAX_BUFF(256*1024)
+   , _scratch(new char[_MCP_SERVER_MAX_BUFF])
+   , _vm_manager()
+   , _syscall_server(_network, _send_buff, _recv_buff, _MCP_SERVER_MAX_BUFF, _scratch)
+   , _sync_server(_network, _recv_buff)
 {
-   m_clock_skew_management_server = ClockSkewManagementServer::create(Sim()->getCfg()->getString("clock_skew_management/scheme"), m_network, m_recv_buff);
+   _clock_skew_management_server = ClockSkewManagementServer::create(
+                                       Sim()->getCfg()->getString("clock_skew_management/scheme"),
+                                       _network, _recv_buff);
+   _thread = Thread::create(this);
 }
 
 MCP::~MCP()
 {
-   if (m_clock_skew_management_server)
-      delete m_clock_skew_management_server;
-   delete [] m_scratch;
+   delete _thread;
+   if (_clock_skew_management_server)
+      delete _clock_skew_management_server;
+   delete [] _scratch;
 }
 
 void MCP::processPacket()
 {
-   m_send_buff.clear();
-   m_recv_buff.clear();
+   _send_buff.clear();
+   _recv_buff.clear();
 
    NetPacket recv_pkt;
 
    NetMatch match;
    match.types.push_back(MCP_REQUEST_TYPE);
    match.types.push_back(MCP_SYSTEM_TYPE);
-   recv_pkt = m_network.netRecv(match);
+   recv_pkt = _network.netRecv(match);
 
-   m_recv_buff << make_pair(recv_pkt.data, recv_pkt.length);
+   _recv_buff << make_pair(recv_pkt.data, recv_pkt.length);
 
    int msg_type;
 
-   m_recv_buff >> msg_type;
+   _recv_buff >> msg_type;
 
-   LOG_PRINT("MCP message type(%i), sender(%i,%i)", (SInt32) msg_type, recv_pkt.sender.tile_id, recv_pkt.sender.core_type);
+   LOG_PRINT("MCP message type(%i), sender(%i)", (SInt32) msg_type, recv_pkt.sender.tile_id);
 
    switch (msg_type)
    {
    case MCP_MESSAGE_SYS_CALL:
-      m_syscall_server.handleSyscall(recv_pkt.sender);
+      _syscall_server.handleSyscall(recv_pkt.sender);
       break;
    case MCP_MESSAGE_QUIT:
       LOG_PRINT("Quit message received.");
-      m_finished = true;
+      _finished = true;
       break;
 
    case MCP_MESSAGE_MUTEX_INIT:
-      m_sync_server.mutexInit(recv_pkt.sender);
+      _sync_server.mutexInit(recv_pkt.sender);
       break;
    case MCP_MESSAGE_MUTEX_LOCK:
-      m_sync_server.mutexLock(recv_pkt.sender);
+      _sync_server.mutexLock(recv_pkt.sender);
       break;
    case MCP_MESSAGE_MUTEX_UNLOCK:
-      m_sync_server.mutexUnlock(recv_pkt.sender);
+      _sync_server.mutexUnlock(recv_pkt.sender);
       break;
 
    case MCP_MESSAGE_COND_INIT:
-      m_sync_server.condInit(recv_pkt.sender);
+      _sync_server.condInit(recv_pkt.sender);
       break;
    case MCP_MESSAGE_COND_WAIT:
-      m_sync_server.condWait(recv_pkt.sender);
+      _sync_server.condWait(recv_pkt.sender);
       break;
    case MCP_MESSAGE_COND_SIGNAL:
-      m_sync_server.condSignal(recv_pkt.sender);
+      _sync_server.condSignal(recv_pkt.sender);
       break;
    case MCP_MESSAGE_COND_BROADCAST:
-      m_sync_server.condBroadcast(recv_pkt.sender);
+      _sync_server.condBroadcast(recv_pkt.sender);
       break;
 
    case MCP_MESSAGE_BARRIER_INIT:
-      m_sync_server.barrierInit(recv_pkt.sender);
+      _sync_server.barrierInit(recv_pkt.sender);
       break;
    case MCP_MESSAGE_BARRIER_WAIT:
-      m_sync_server.barrierWait(recv_pkt.sender);
+      _sync_server.barrierWait(recv_pkt.sender);
       break;
 
    case MCP_MESSAGE_THREAD_SPAWN_REQUEST_FROM_REQUESTER:
@@ -144,8 +147,8 @@ void MCP::processPacket()
       break;
 
    case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT:
-      assert(m_clock_skew_management_server);
-      m_clock_skew_management_server->processSyncMsg(recv_pkt.sender);
+      assert(_clock_skew_management_server);
+      _clock_skew_management_server->processSyncMsg(recv_pkt.sender);
       break;
 
    default:
@@ -157,33 +160,28 @@ void MCP::processPacket()
    LOG_PRINT("Finished processing message -- type : %d", (int)msg_type);
 }
 
-void MCP::finish()
+void MCP::spawnThread()
 {
-   LOG_PRINT("Send MCP quit message");
+   LOG_PRINT("Spawning MCP thread");
+   _thread->spawn();
+}
 
+void MCP::quitThread()
+{
+   LOG_PRINT("Send MCP thread quit message");
    SInt32 msg_type = MCP_MESSAGE_QUIT;
-   m_network.netSend(Config::getSingleton()->getMCPCoreId(), MCP_SYSTEM_TYPE, &msg_type, sizeof(msg_type));
-
-   while (!finished())
-   {
-      sched_yield();
-   }
-
-   LOG_PRINT("MCP Finished.");
+   _network.netSend(Config::getSingleton()->getMCPCoreId(), MCP_SYSTEM_TYPE, &msg_type, sizeof(msg_type));
+   // Join thread
+   _thread->join();
 }
 
 void MCP::run()
 {
-   __attribute__((unused)) int tid =  syscall(__NR_gettid);
-   LOG_PRINT("In MCP thread ... initializing thread (%i) with id: %i", (int)tid, Config::getSingleton()->getMCPTileNum());
-
    core_id_t mcp_core_id = Config::getSingleton()->getMCPCoreId();
    Sim()->getTileManager()->initializeThread(mcp_core_id);
    Sim()->getTileManager()->initializeCommId(mcp_core_id.tile_id);
 
-   while (!finished())
-   {
+   while (!_finished)
       processPacket();
-   }
 }
 

@@ -1,14 +1,15 @@
 #include <cassert>
 #include "statistics_thread.h"
+#include "statistics_manager.h"
 #include "log.h"
 
 StatisticsThread::StatisticsThread(StatisticsManager* manager)
-   : _thread(NULL)
-   , _statistics_manager(manager)
+   : _manager(manager)
    , _finished(false)
-   , _time(0)
    , _flag(false)
-{}
+{
+   _thread = Thread::create(this);
+}
 
 StatisticsThread::~StatisticsThread()
 {
@@ -26,16 +27,12 @@ StatisticsThread::run()
       _cond_var.wait(_lock);
       _lock.release();
       
-      if (_time == UINT64_MAX_)
+      if (!_finished)
       {
-         // Simulation over
-         _finished = true;
-      }
-      else // Simulation still running
-      {
+         // Simulation still running
          assert(_flag);
          // Call statistics manager
-         _statistics_manager->outputPeriodicSummary();
+         _manager->outputPeriodicSummary();
          _flag = false;
       }
    }
@@ -44,32 +41,27 @@ StatisticsThread::run()
 }
 
 void
-StatisticsThread::start()
+StatisticsThread::spawn()
 {
-   _thread = Thread::create(this);
-   _thread->run();
+   _thread->spawn();
 }
 
 void
-StatisticsThread::finish()
+StatisticsThread::quit()
 {
-   _time = UINT64_MAX_;
+   _finished = true;
    _cond_var.signal();
-
    // Wait till the thread exits
-   while (!_finished)
-      sched_yield();
+   _thread->join();
 }
 
 void
 StatisticsThread::notify(UInt64 time)
 {
-   if ((time % _statistics_manager->getSamplingInterval()) == 0)
+   if ((time % _manager->getSamplingInterval()) == 0)
    {
       LOG_ASSERT_WARNING(!_flag, "Sampling interval too small");
       _flag = true;
-
-      _time = time;
       _cond_var.signal();
    }
 }

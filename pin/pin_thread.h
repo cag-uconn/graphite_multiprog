@@ -9,14 +9,16 @@ class PinThread : public Thread
 public:
    PinThread(ThreadFunc func, void *param);
    ~PinThread();
-   void run();
+   void spawn();
+   void join();
 
 private:
    static const int STACK_SIZE=1048576;
 
-   THREADID m_thread_p;
-   Thread::ThreadFunc m_func;
-   void *m_param;
+   THREADID _thread_id;
+   PIN_THREAD_UID _thread_uid;
+   ThreadFunc _func;
+   void *_param;
 };
 
 #endif // PIN_THREAD_H

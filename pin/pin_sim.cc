@@ -445,7 +445,7 @@ int main(int argc, char *argv[])
    initProgressTrace();
 
    // Add Application Fini function
-   PIN_AddFiniFunction(ApplicationExit, 0);
+   PIN_AddFiniUnlockedFunction(ApplicationExit, 0);
 
    // Never returns
    LOG_PRINT("Running program...");

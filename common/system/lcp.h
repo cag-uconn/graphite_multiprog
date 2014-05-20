@@ -10,17 +10,20 @@ public:
    LCP();
    ~LCP();
 
-   void run();
-   void finish();
+   void spawnThread();
+   void quitThread();
 
 private:
+   void run();
    void processPacket();
 
    void updateCommId(void *vp);
 
-   SInt32 m_proc_num;
-   Transport::Node *m_transport;
-   bool m_finished; // FIXME: this should really be part of the thread class somehow
+   bool _finished;
+   SInt32 _proc_num;
+   Transport::Node* _transport;
+
+   Thread* _thread;
 };
 
 #endif // LCP_H

@@ -45,7 +45,7 @@ public:
    void doGetTileEnergy(core_id_t requester);
 
    // Called to initialize DVFS
-   static void initializeDVFS();
+   static void initialize();
 
    // Called to initialize DVFS voltage-frequency levels
    static void initializeDVFSLevels();

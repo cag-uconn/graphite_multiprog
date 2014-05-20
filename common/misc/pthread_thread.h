@@ -9,24 +9,13 @@ class PthreadThread : public Thread
 public:
    PthreadThread(ThreadFunc func, void *param);
    ~PthreadThread();
-   void run();
+   void spawn();
+   void join();
 
 private:
-   static void *spawnedThreadFunc(void *);
-
-   struct FuncData
-   {
-      ThreadFunc func;
-      void *arg;
-
-      FuncData(ThreadFunc f, void *a)
-         : func(f)
-         , arg(a)
-      { }
-   };
-
-   FuncData m_data;
-   pthread_t m_thread;
+   pthread_t _thread;
+   ThreadFunc _func;
+   void *_param;
 };
 
 #endif // PTHREAD_THREAD_H

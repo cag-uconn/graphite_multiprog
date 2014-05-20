@@ -6,6 +6,7 @@
 #include "network.h"
 #include "tile.h"
 #include "config.h"
+#include "statistics_manager.h"
 #include "statistics_thread.h"
 #include "log.h"
 
@@ -155,6 +156,6 @@ LaxBarrierSyncServer::barrierRelease()
    }
 
    // Notify Statistics thread about the global time
-   if (Sim()->getStatisticsThread())
-      Sim()->getStatisticsThread()->notify(m_next_barrier_time);
+   if (Sim()->getStatisticsManager())
+      Sim()->getStatisticsManager()->getThread()->notify(m_next_barrier_time);
 }

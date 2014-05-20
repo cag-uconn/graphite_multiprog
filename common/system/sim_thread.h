@@ -11,14 +11,16 @@ public:
    SimThread();
    ~SimThread();
 
-   void spawn();
+   void start();
+   void quit();
 
 private:
    void run();
 
    static void terminateFunc(void *vp, NetPacket pkt);
 
-   Thread *m_thread;
+   Thread* _thread;
+   tile_id_t _tile_id;
 };
 
 #endif // SIM_THREAD_H
