@@ -18,8 +18,8 @@ FSBAllocator::allocate()
    if (_free_list.empty())
    {
       // Increase memory to be allocated (additive or multiplicative)
-      // uint32_t added_blocks = (_num_blocks > 0) ? _num_blocks : 1;
-      uint32_t added_blocks = 1;
+      uint32_t added_blocks = (_num_blocks > 0) ? _num_blocks : 1;
+      // uint32_t added_blocks = 1;
       
       // allocate new memory
       char* new_mem = (char*) ::operator new(added_blocks * _sz);
