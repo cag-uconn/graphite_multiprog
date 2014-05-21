@@ -235,7 +235,7 @@ MemoryManager::handleMsgFromNetwork(NetPacket& packet)
    ShmemMsg shmem_msg((const Byte*) packet.data);
 
    tile_id_t sender = packet.sender.tile_id;
-   tile_id_t receiver = packet.receiver.tile_id;
+   __attribute__((unused)) tile_id_t receiver = packet.receiver.tile_id;
 
    MemComponent::Type receiver_mem_component = shmem_msg.getReceiverMemComponent();
    MemComponent::Type sender_mem_component = shmem_msg.getSenderMemComponent();
