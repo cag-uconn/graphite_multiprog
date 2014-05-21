@@ -61,17 +61,17 @@ L2CacheCntlr::invalidateCacheLine(IntPtr address, PrL2CacheLineInfo& l2_cache_li
 void
 L2CacheCntlr::readCacheLine(IntPtr address, Byte* data_buf)
 {
-   _l2_cache->accessCacheLine(address, Cache::LOAD, data_buf, getCacheLineSize());
+   _l2_cache->readCacheLine(address, data_buf, getCacheLineSize());
 }
 
 void
-L2CacheCntlr::writeCacheLine(IntPtr address, Byte* data_buf, UInt32 offset, UInt32 data_length)
+L2CacheCntlr::writeCacheLine(IntPtr address, const Byte* data_buf, UInt32 offset, UInt32 data_length)
 {
-   _l2_cache->accessCacheLine(address + offset, Cache::STORE, data_buf, data_length);
+   _l2_cache->writeCacheLine(address + offset, data_buf, data_length);
 }
 
 void
-L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, Byte* fill_buf, MemComponent::Type mem_component)
+L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, const Byte* fill_buf, MemComponent::Type mem_component)
 {
    // Construct meta-data info about l2 cache line
    PrL2CacheLineInfo l2_cache_line_info;
@@ -131,7 +131,7 @@ L2CacheCntlr::invalidateCacheLineInL1(MemComponent::Type mem_component, IntPtr a
 
 void
 L2CacheCntlr::insertCacheLineInL1(MemComponent::Type mem_component, IntPtr address,
-                                  CacheState::Type cstate, Byte* fill_buf)
+                                  CacheState::Type cstate, const Byte* fill_buf)
 {
    assert(mem_component != MemComponent::INVALID);
 
@@ -164,7 +164,7 @@ L2CacheCntlr::insertCacheLineInL1(MemComponent::Type mem_component, IntPtr addre
 }
 
 void
-L2CacheCntlr::insertCacheLineInHierarchy(IntPtr address, CacheState::Type cstate, Byte* fill_buf)
+L2CacheCntlr::insertCacheLineInHierarchy(IntPtr address, CacheState::Type cstate, const Byte* fill_buf)
 {
    assert(address == _outstanding_shmem_msg.getAddress());
    MemComponent::Type mem_component = _outstanding_shmem_msg.getSenderMemComponent();
@@ -349,7 +349,7 @@ void
 L2CacheCntlr::processExRepFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    IntPtr address = shmem_msg->getAddress();
-   Byte* data_buf = shmem_msg->getDataBuf();
+   const Byte* data_buf = shmem_msg->getDataBuf();
    
    // Insert Cache Line in L1 and L2 Caches
    insertCacheLineInHierarchy(address, CacheState::MODIFIED, data_buf);
@@ -359,7 +359,7 @@ void
 L2CacheCntlr::processShRepFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    IntPtr address = shmem_msg->getAddress();
-   Byte* data_buf = shmem_msg->getDataBuf();
+   const Byte* data_buf = shmem_msg->getDataBuf();
 
    // Insert Cache Line in L1 and L2 Caches
    insertCacheLineInHierarchy(address, CacheState::SHARED, data_buf);

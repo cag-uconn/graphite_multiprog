@@ -63,7 +63,7 @@ DramDirectoryCntlr::handleMsgFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
             IntPtr address = shmem_msg->getAddress();
             
             // Add request onto a queue
-            ShmemReq* shmem_req = new ShmemReq(shmem_msg, msg_time);
+            ShmemReq* shmem_req = new ShmemReq(*shmem_msg, msg_time);
             _dram_directory_req_queue.enqueue(address, shmem_req);
             if (_dram_directory_req_queue.count(address) == 1)
             {
@@ -113,12 +113,12 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
       shmem_req->updateTime(getShmemPerfModel()->getCurrTime());
       getShmemPerfModel()->updateCurrTime(shmem_req->getTime());
 
-      if (shmem_req->getShmemMsg()->getType() == ShmemMsg::EX_REQ)
+      if (shmem_req->getShmemMsg().getType() == ShmemMsg::EX_REQ)
          processExReqFromL2Cache(shmem_req);
-      else if (shmem_req->getShmemMsg()->getType() == ShmemMsg::SH_REQ)
+      else if (shmem_req->getShmemMsg().getType() == ShmemMsg::SH_REQ)
          processShReqFromL2Cache(shmem_req);
       else
-         LOG_PRINT_ERROR("Unrecognized Request(%u)", shmem_req->getShmemMsg()->getType());
+         LOG_PRINT_ERROR("Unrecognized Request(%u)", shmem_req->getShmemMsg().getType());
    }
    LOG_PRINT("End processNextReqFromL2Cache(%#lx)", address);
 }
@@ -126,8 +126,8 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
 DirectoryEntry*
 DramDirectoryCntlr::processDirectoryEntryAllocationReq(ShmemReq* shmem_req)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
    Time msg_time = getShmemPerfModel()->getCurrTime();
 
    std::vector<DirectoryEntry*> replacement_candidate_list;
@@ -160,7 +160,7 @@ DramDirectoryCntlr::processDirectoryEntryAllocationReq(ShmemReq* shmem_req)
    bool msg_modeled = true;
    ShmemMsg nullify_msg(ShmemMsg::NULLIFY_REQ, MemComponent::DRAM_DIRECTORY, MemComponent::DRAM_DIRECTORY, requester, replaced_address, msg_modeled);
 
-   ShmemReq* nullify_req = new ShmemReq(&nullify_msg, msg_time);
+   ShmemReq* nullify_req = new ShmemReq(nullify_msg, msg_time);
    _dram_directory_req_queue.enqueue(replaced_address, nullify_req);
 
    assert(_dram_directory_req_queue.count(replaced_address) == 1);
@@ -172,9 +172,9 @@ DramDirectoryCntlr::processDirectoryEntryAllocationReq(ShmemReq* shmem_req)
 void
 DramDirectoryCntlr::processNullifyReq(ShmemReq* shmem_req)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
-   bool msg_modeled = shmem_req->getShmemMsg()->isModeled();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
+   bool msg_modeled = shmem_req->getShmemMsg().isModeled();
    
    DirectoryEntry* directory_entry = _dram_directory_cache->getDirectoryEntry(address);
    assert(directory_entry);
@@ -235,11 +235,11 @@ DramDirectoryCntlr::processNullifyReq(ShmemReq* shmem_req)
 }
 
 void
-DramDirectoryCntlr::processExReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf)
+DramDirectoryCntlr::processExReqFromL2Cache(ShmemReq* shmem_req, const Byte* cached_data_buf)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
-   bool msg_modeled = shmem_req->getShmemMsg()->isModeled();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
+   bool msg_modeled = shmem_req->getShmemMsg().isModeled();
    
    DirectoryEntry* directory_entry = _dram_directory_cache->getDirectoryEntry(address);
    if (directory_entry == NULL)
@@ -310,11 +310,11 @@ DramDirectoryCntlr::processExReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_da
 }
 
 void
-DramDirectoryCntlr::processShReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf)
+DramDirectoryCntlr::processShReqFromL2Cache(ShmemReq* shmem_req, const Byte* cached_data_buf)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
-   bool msg_modeled = shmem_req->getShmemMsg()->isModeled();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
+   bool msg_modeled = shmem_req->getShmemMsg().isModeled();
 
    DirectoryEntry* directory_entry = _dram_directory_cache->getDirectoryEntry(address);
    if (directory_entry == NULL)
@@ -378,7 +378,7 @@ DramDirectoryCntlr::processShReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_da
 
 void
 DramDirectoryCntlr::retrieveDataAndSendToL2Cache(ShmemMsg::Type reply_msg_type,
-      tile_id_t receiver, IntPtr address, Byte* cached_data_buf, bool msg_modeled)
+      tile_id_t receiver, IntPtr address, const Byte* cached_data_buf, bool msg_modeled)
 {
    if (cached_data_buf != NULL)
    {
@@ -428,7 +428,7 @@ DramDirectoryCntlr::processInvRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_m
       shmem_req->updateTime(getShmemPerfModel()->getCurrTime());
       getShmemPerfModel()->updateCurrTime(shmem_req->getTime());
 
-      if (shmem_req->getShmemMsg()->getType() == ShmemMsg::EX_REQ)
+      if (shmem_req->getShmemMsg().getType() == ShmemMsg::EX_REQ)
       {
          // An ShmemMsg::EX_REQ caused the invalidation
          if (directory_entry->getDState() == DirectoryState::UNCACHED)
@@ -436,12 +436,12 @@ DramDirectoryCntlr::processInvRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_m
             processExReqFromL2Cache(shmem_req);
          }
       }
-      else if (shmem_req->getShmemMsg()->getType() == ShmemMsg::SH_REQ)
+      else if (shmem_req->getShmemMsg().getType() == ShmemMsg::SH_REQ)
       {
          // A ShmemMsg::SH_REQ caused the invalidation
          processShReqFromL2Cache(shmem_req);
       }
-      else // shmem_req->getShmemMsg()->getType() == ShmemMsg::NULLIFY_REQ
+      else // shmem_req->getShmemMsg().getType() == ShmemMsg::NULLIFY_REQ
       {
          if (directory_entry->getDState() == DirectoryState::UNCACHED)
          {
@@ -474,17 +474,17 @@ DramDirectoryCntlr::processFlushRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem
       getShmemPerfModel()->updateCurrTime(shmem_req->getTime());
 
       // An involuntary/voluntary Flush
-      if (shmem_req->getShmemMsg()->getType() == ShmemMsg::EX_REQ)
+      if (shmem_req->getShmemMsg().getType() == ShmemMsg::EX_REQ)
       {
          processExReqFromL2Cache(shmem_req, shmem_msg->getDataBuf());
       }
-      else if (shmem_req->getShmemMsg()->getType() == ShmemMsg::SH_REQ)
+      else if (shmem_req->getShmemMsg().getType() == ShmemMsg::SH_REQ)
       {
          // Write Data to Dram
          sendDataToDram(address, shmem_msg->getDataBuf(), shmem_msg->isModeled());
          processShReqFromL2Cache(shmem_req, shmem_msg->getDataBuf());
       }
-      else // shmem_req->getShmemMsg()->getType() == ShmemMsg::NULLIFY_REQ
+      else // shmem_req->getShmemMsg().getType() == ShmemMsg::NULLIFY_REQ
       {
          // Write Data To Dram
          sendDataToDram(address, shmem_msg->getDataBuf(), shmem_msg->isModeled());
@@ -524,9 +524,8 @@ DramDirectoryCntlr::processWbRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_ms
       // Write Data to Dram
       sendDataToDram(address, shmem_msg->getDataBuf(), shmem_msg->isModeled());
 
-      LOG_ASSERT_ERROR(shmem_req->getShmemMsg()->getType() == ShmemMsg::SH_REQ,
-            "Address(0x%x), Req(%u)",
-            address, shmem_req->getShmemMsg()->getType());
+      LOG_ASSERT_ERROR(shmem_req->getShmemMsg().getType() == ShmemMsg::SH_REQ,
+                       "Address(%#lx), Req(%u)", address, shmem_req->getShmemMsg().getType());
       processShReqFromL2Cache(shmem_req, shmem_msg->getDataBuf());
    }
    else
@@ -536,7 +535,7 @@ DramDirectoryCntlr::processWbRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_ms
 }
 
 void
-DramDirectoryCntlr::sendDataToDram(IntPtr address, Byte* data_buf, bool modeled)
+DramDirectoryCntlr::sendDataToDram(IntPtr address, const Byte* data_buf, bool modeled)
 {
    // Write data to Dram
    _dram_cntlr->putDataToDram(address, data_buf, modeled);

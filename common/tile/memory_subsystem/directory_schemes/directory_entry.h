@@ -5,7 +5,7 @@
 using std::vector;
 using std::string;
 
-#include "fixed_types.h"
+#include "common_types.h"
 #include "directory_state.h"
 #include "directory_type.h"
 #include "caching_protocol.h"

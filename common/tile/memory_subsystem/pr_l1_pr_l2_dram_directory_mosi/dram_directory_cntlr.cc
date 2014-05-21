@@ -21,6 +21,7 @@ DramDirectoryCntlr::DramDirectoryCntlr(MemoryManager* memory_manager,
       string dram_directory_access_cycles_str)
    : _memory_manager(memory_manager)
    , _dram_cntlr(dram_cntlr)
+   , _cached_data_list(this)
    , _enabled(false)
 {
    _dram_directory_cache = new DirectoryCache(_memory_manager->getTile(),
@@ -69,7 +70,7 @@ DramDirectoryCntlr::handleMsgFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
          IntPtr address = shmem_msg->getAddress();
          
          // Add request onto a queue
-         ShmemReq* shmem_req = new ShmemReq(shmem_msg, msg_time);
+         ShmemReq* shmem_req = new ShmemReq(*shmem_msg, msg_time);
          _dram_directory_req_queue.enqueue(address, shmem_req);
 
          if (_dram_directory_req_queue.count(address) == 1)
@@ -145,7 +146,7 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
       shmem_req->updateProcessingStartTime(getShmemPerfModel()->getCurrTime());
       getShmemPerfModel()->updateCurrTime(shmem_req->getTime());
 
-      switch (shmem_req->getShmemMsg()->getType())
+      switch (shmem_req->getShmemMsg().getType())
       {
       case ShmemMsg::EX_REQ:
          processExReqFromL2Cache(shmem_req, (DirectoryEntry*) NULL, true);
@@ -154,7 +155,7 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
          processShReqFromL2Cache(shmem_req, (DirectoryEntry*) NULL, true);
          break;
       default:
-         LOG_PRINT_ERROR("Unrecognized Shmem Msg Type(%u)", shmem_req->getShmemMsg()->getType());
+         LOG_PRINT_ERROR("Unrecognized Shmem Msg Type(%u)", shmem_req->getShmemMsg().getType());
          break;
       }
    }
@@ -165,8 +166,8 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
 DirectoryEntry*
 DramDirectoryCntlr::processDirectoryEntryAllocationReq(ShmemReq* shmem_req)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
    Time msg_time = getShmemPerfModel()->getCurrTime();
 
    std::vector<DirectoryEntry*> replacement_candidate_list;
@@ -199,7 +200,7 @@ DramDirectoryCntlr::processDirectoryEntryAllocationReq(ShmemReq* shmem_req)
    ShmemMsg nullify_msg(ShmemMsg::NULLIFY_REQ, MemComponent::DRAM_DIRECTORY, MemComponent::DRAM_DIRECTORY,
                         requester, INVALID_TILE_ID, replaced_address, msg_modeled);
 
-   ShmemReq* nullify_req = new ShmemReq(&nullify_msg, msg_time);
+   ShmemReq* nullify_req = new ShmemReq(nullify_msg, msg_time);
    _dram_directory_req_queue.enqueue(replaced_address, nullify_req);
 
    assert(_dram_directory_req_queue.count(replaced_address) == 1);
@@ -211,9 +212,9 @@ DramDirectoryCntlr::processDirectoryEntryAllocationReq(ShmemReq* shmem_req)
 void
 DramDirectoryCntlr::processNullifyReq(ShmemReq* shmem_req, DirectoryEntry* directory_entry, bool first_call)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
-   bool msg_modeled = shmem_req->getShmemMsg()->isModeled();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
+   bool msg_modeled = shmem_req->getShmemMsg().isModeled();
   
    if (!directory_entry)
       directory_entry = _dram_directory_cache->getDirectoryEntry(address);
@@ -275,7 +276,7 @@ DramDirectoryCntlr::processNullifyReq(ShmemReq* shmem_req, DirectoryEntry* direc
    case DirectoryState::UNCACHED:
       {
          // Send data to Dram
-         Byte* cached_data_buf = _cached_data_list.lookup(address);
+         const Byte* cached_data_buf = _cached_data_list.lookup(address);
          if (cached_data_buf != NULL)
          {
             sendDataToDram(address, cached_data_buf, msg_modeled);
@@ -298,9 +299,9 @@ DramDirectoryCntlr::processNullifyReq(ShmemReq* shmem_req, DirectoryEntry* direc
 void
 DramDirectoryCntlr::processExReqFromL2Cache(ShmemReq* shmem_req, DirectoryEntry* directory_entry, bool first_call)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
-   bool msg_modeled = shmem_req->getShmemMsg()->isModeled();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
+   bool msg_modeled = shmem_req->getShmemMsg().isModeled();
   
    if (!directory_entry)
       directory_entry = _dram_directory_cache->getDirectoryEntry(address);
@@ -421,9 +422,9 @@ DramDirectoryCntlr::processExReqFromL2Cache(ShmemReq* shmem_req, DirectoryEntry*
 void
 DramDirectoryCntlr::processShReqFromL2Cache(ShmemReq* shmem_req, DirectoryEntry* directory_entry, bool first_call)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
-   bool msg_modeled = shmem_req->getShmemMsg()->isModeled();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
+   bool msg_modeled = shmem_req->getShmemMsg().isModeled();
 
    if (!directory_entry)
       directory_entry = _dram_directory_cache->getDirectoryEntry(address);
@@ -484,7 +485,7 @@ DramDirectoryCntlr::processShReqFromL2Cache(ShmemReq* shmem_req, DirectoryEntry*
          else
          {
             // Sharer list has space
-            Byte* cached_data_buf = _cached_data_list.lookup(address);
+            const Byte* cached_data_buf = _cached_data_list.lookup(address);
             if ((cached_data_buf == NULL) && (sharer_id != INVALID_TILE_ID))
             {
                // Need to fetch data from a sharer
@@ -560,7 +561,7 @@ void
 DramDirectoryCntlr::retrieveDataAndSendToL2Cache(ShmemMsg::Type reply_msg_type,
       tile_id_t receiver, IntPtr address, bool msg_modeled)
 {
-   Byte* cached_data_buf = _cached_data_list.lookup(address);
+   const Byte* cached_data_buf = _cached_data_list.lookup(address);
 
    if (cached_data_buf != NULL)
    {
@@ -704,7 +705,7 @@ DramDirectoryCntlr::processFlushRepFromL2Cache(tile_id_t sender, const ShmemMsg*
       ShmemReq* shmem_req = _dram_directory_req_queue.front(address);
      
       // Write-back to memory in certain circumstances
-      if (shmem_req->getShmemMsg()->getType() == ShmemMsg::SH_REQ)
+      if (shmem_req->getShmemMsg().getType() == ShmemMsg::SH_REQ)
       {
          DirectoryState::Type initial_dstate = curr_dstate;
          DirectoryState::Type final_dstate = directory_entry->getDState();
@@ -791,7 +792,7 @@ DramDirectoryCntlr::restartShmemReq(tile_id_t sender, ShmemReq* shmem_req, Direc
    shmem_req->updateProcessingFinishTime(getShmemPerfModel()->getCurrTime());
    getShmemPerfModel()->updateCurrTime(shmem_req->getTime());
 
-   ShmemMsg::Type msg_type = shmem_req->getShmemMsg()->getType();
+   ShmemMsg::Type msg_type = shmem_req->getShmemMsg().getType();
 
    DirectoryState::Type curr_dstate = directory_entry->getDState();
 
@@ -823,7 +824,7 @@ DramDirectoryCntlr::restartShmemReq(tile_id_t sender, ShmemReq* shmem_req, Direc
 }
 
 void
-DramDirectoryCntlr::sendDataToDram(IntPtr address, Byte* data_buf, bool msg_modeled)
+DramDirectoryCntlr::sendDataToDram(IntPtr address, const Byte* data_buf, bool msg_modeled)
 {
    // Write data to Dram
    _dram_cntlr->putDataToDram(address, data_buf, msg_modeled);
@@ -872,9 +873,9 @@ DramDirectoryCntlr::updateShmemReqEventCounters(ShmemReq* shmem_req, DirectoryEn
    if (!_enabled)
       return;
 
-   ShmemMsg::Type shmem_msg_type = shmem_req->getShmemMsg()->getType();
+   ShmemMsg::Type shmem_msg_type = shmem_req->getShmemMsg().getType();
    DirectoryState::Type dstate = directory_entry->getDState();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
    
    switch (shmem_msg_type)
    {
@@ -975,7 +976,7 @@ DramDirectoryCntlr::updateShmemReqLatencyCounters(const ShmemReq* shmem_req)
    if (!_enabled)
       return;
 
-   ShmemMsg::Type shmem_req_type = shmem_req->getShmemMsg()->getType();
+   ShmemMsg::Type shmem_req_type = shmem_req->getShmemMsg().getType();
    DirectoryState::Type initial_dstate = shmem_req->getInitialDState();
    bool initial_broadcast_mode = shmem_req->getInitialBroadcastMode();
 
@@ -1183,19 +1184,20 @@ DramDirectoryCntlr::getShmemPerfModel()
    return _memory_manager->getShmemPerfModel();
 }
 
-DramDirectoryCntlr::DataList::DataList()
+DramDirectoryCntlr::DataList::DataList(DramDirectoryCntlr* directory_cntlr)
+   : _directory_cntlr(directory_cntlr)
 {}
 
 DramDirectoryCntlr::DataList::~DataList()
 {}
 
 void
-DramDirectoryCntlr::DataList::insert(IntPtr address, Byte* data, UInt32 size)
+DramDirectoryCntlr::DataList::insert(IntPtr address, const Byte* data, UInt32 size)
 {
-   Byte* alloc_data = new Byte[size];
+   Byte* alloc_data = new (getTileID()) Byte[size];
    memcpy(alloc_data, data, size);
 
-   pair<map<IntPtr,Byte*>::iterator, bool> ret = _data_list.insert(make_pair(address, alloc_data));
+   pair<map<IntPtr, const Byte*>::iterator, bool> ret = _data_list.insert(make_pair(address, alloc_data));
    if (ret.second == false)
    {
       // There is already some data present
@@ -1209,25 +1211,31 @@ DramDirectoryCntlr::DataList::insert(IntPtr address, Byte* data, UInt32 size)
                     _data_list.size(), Config::getSingleton()->getTotalTiles());
 }
 
-Byte*
+const Byte*
 DramDirectoryCntlr::DataList::lookup(IntPtr address)
 {
-   std::map<IntPtr,Byte*>::iterator data_list_it = _data_list.find(address);
+   std::map<IntPtr, const Byte*>::iterator data_list_it = _data_list.find(address);
    if (data_list_it != _data_list.end())
       return (data_list_it->second);
    else
-      return ((Byte*) NULL);
+      return ((const Byte*) NULL);
 }
 
 void
 DramDirectoryCntlr::DataList::erase(IntPtr address)
 {
-   std::map<IntPtr,Byte*>::iterator data_list_it = _data_list.find(address);
+   std::map<IntPtr, const Byte*>::iterator data_list_it = _data_list.find(address);
    LOG_ASSERT_ERROR(data_list_it != _data_list.end(),
-         "Unable to erase address(0x%x) from _data_list", address);
+         "Unable to erase address(%#lx) from _data_list", address);
 
    delete [] (data_list_it->second);
    _data_list.erase(data_list_it);
+}
+
+tile_id_t
+DramDirectoryCntlr::DataList::getTileID() const
+{
+   return _directory_cntlr->getMemoryManager()->getTile()->getId();
 }
 
 }

@@ -150,6 +150,7 @@ Simulator::~Simulator()
 
 void Simulator::printSimulationSummary()
 {
+   // Byte::printSummary();
    if (Config::getSingleton()->getCurrentProcessNum() == 0)
    {
       ofstream os(Config::getSingleton()->getOutputFileName().c_str());

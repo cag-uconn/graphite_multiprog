@@ -1,7 +1,7 @@
 #ifndef TRANSPORT_H
 #define TRANSPORT_H
 
-#include "fixed_types.h"
+#include "common_types.h"
 
 class Transport
 {
@@ -19,7 +19,7 @@ public:
       virtual bool query() = 0;
 
    protected:
-      tile_id_t getTileId();
+      tile_id_t getTileId() const;
       Node(tile_id_t tile_id);
 
    private:

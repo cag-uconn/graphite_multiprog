@@ -42,13 +42,13 @@ CacheSet::read_line(UInt32 line_index, UInt32 offset, Byte *out_buf, UInt32 byte
 }
 
 void 
-CacheSet::write_line(UInt32 line_index, UInt32 offset, Byte *in_buf, UInt32 bytes)
+CacheSet::write_line(UInt32 line_index, UInt32 offset, const Byte *in_buf, UInt32 bytes)
 {
    assert(offset + bytes <= _line_size);
    assert((in_buf == NULL) == (bytes == 0));
 
    if (in_buf != NULL)
-      memcpy(&_lines[line_index * _line_size + offset], (void*) in_buf, bytes);
+      memcpy(&_lines[line_index * _line_size + offset], in_buf, bytes);
 
    // Update replacement policy
    _replacement_policy->update(_cache_line_info_array, _set_num, line_index);
@@ -74,7 +74,7 @@ CacheSet::find(IntPtr tag, UInt32* line_index)
 }
 
 void 
-CacheSet::insert(CacheLineInfo* inserted_cache_line_info, Byte* fill_buf,
+CacheSet::insert(CacheLineInfo* inserted_cache_line_info, const Byte* fill_buf,
                  bool* eviction, CacheLineInfo* evicted_cache_line_info, Byte* writeback_buf)
 {
    // This replacement strategy does not take into account the fact that
@@ -99,7 +99,7 @@ CacheSet::insert(CacheLineInfo* inserted_cache_line_info, Byte* fill_buf,
 
    _cache_line_info_array[index]->assign(inserted_cache_line_info);
    if (fill_buf != NULL)
-      memcpy(&_lines[index * _line_size], (void*) fill_buf, _line_size);
+      memcpy(&_lines[index * _line_size], fill_buf, _line_size);
 
    // Update replacement policy
    _replacement_policy->update(_cache_line_info_array, _set_num, index);

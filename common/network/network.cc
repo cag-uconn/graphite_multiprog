@@ -98,7 +98,7 @@ void Network::netPullFromTransport()
    {
       LOG_PRINT("Entering netPullFromTransport");
 
-      NetPacket packet(_transport->recv());
+      NetPacket packet(_transport->recv(), _tile->getId());
 
       LOG_PRINT("Pull packet : type %i, from (%i, %i), time %llu",
                 (SInt32)packet.type, packet.sender.tile_id, packet.sender.core_type, packet.time.toNanosec());
@@ -214,7 +214,7 @@ SInt32 Network::netSend(module_t module, NetPacket& packet)
 SInt32 Network::forwardPacket(const NetPacket& packet)
 {
    // Create a buffer suitable for forwarding
-   Byte* buffer = packet.makeBuffer();
+   Byte* buffer = packet.makeBuffer(_tile->getId());
    NetPacket* buf_pkt = (NetPacket*) buffer;
 
    LOG_ASSERT_ERROR((buf_pkt->type >= 0) && (buf_pkt->type < NUM_PACKET_TYPES),
@@ -309,7 +309,7 @@ class NetRecvIterator
          };
       }
 
-      inline Boolean done()
+      inline bool done()
       {
          switch (_mode)
          {
@@ -357,9 +357,7 @@ NetPacket Network::netRecv(const NetMatch &match)
 
    // Track via iterator to minimize copying
    NetQueue::iterator itr;
-   Boolean found;
-
-   found = false;
+   bool found = false;
 
    NetRecvIterator sender = match.senders.empty()
                             ? NetRecvIterator(_numMod)
@@ -679,13 +677,13 @@ NetPacket::NetPacket(Time t, PacketType ty, core_id_t s,
 {
 }
 
-NetPacket::NetPacket(Byte *buffer)
+NetPacket::NetPacket(Byte *buffer, heap_id_t heap_id)
 {
    memcpy(this, buffer, sizeof(*this));
 
    if (length > 0)
    {
-      Byte* data_buffer = new Byte[length];
+      Byte* data_buffer = new(heap_id) Byte[length];
       memcpy(data_buffer, buffer + sizeof(*this), length);
       data = data_buffer;
    }
@@ -701,12 +699,12 @@ UInt32 NetPacket::bufferSize() const
    return (sizeof(*this) + length);
 }
 
-Byte* NetPacket::makeBuffer() const
+Byte* NetPacket::makeBuffer(heap_id_t heap_id) const
 {
    UInt32 size = bufferSize();
    assert(size >= sizeof(NetPacket));
 
-   Byte *buffer = new Byte[size];
+   Byte *buffer = new(heap_id) Byte[size];
 
    memcpy(buffer, this, sizeof(*this));
    memcpy(buffer + sizeof(*this), data, length);

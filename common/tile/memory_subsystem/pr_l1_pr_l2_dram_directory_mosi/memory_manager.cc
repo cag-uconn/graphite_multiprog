@@ -221,18 +221,21 @@ MemoryManager::coreInitiateMemoryAccess(MemComponent::Type mem_component,
 void
 MemoryManager::handleMsgFromNetwork(NetPacket& packet)
 {
-   core_id_t sender = packet.sender;
-   ShmemMsg* shmem_msg = ShmemMsg::getShmemMsg((Byte*) packet.data);
+   ShmemMsg shmem_msg((const Byte*) packet.data);
+
+   tile_id_t sender = packet.sender.tile_id;
+   tile_id_t receiver = packet.receiver.tile_id;
+   
    Time msg_time = packet.time;
 
-   MemComponent::Type receiver_mem_component = shmem_msg->getReceiverMemComponent();
-   MemComponent::Type sender_mem_component = shmem_msg->getSenderMemComponent();
+   MemComponent::Type receiver_mem_component = shmem_msg.getReceiverMemComponent();
+   MemComponent::Type sender_mem_component = shmem_msg.getSenderMemComponent();
 
    LOG_PRINT("Time(%llu), Got Shmem Msg: type(%s), address(%#lx), "
              "sender_mem_component(%s), receiver_mem_component(%s), sender(%i), receiver(%i)", 
-             msg_time.toNanosec(), SPELL_SHMSG(shmem_msg->getType()), shmem_msg->getAddress(),
+             msg_time.toNanosec(), SPELL_SHMSG(shmem_msg.getType()), shmem_msg.getAddress(),
              SPELL_MEMCOMP(sender_mem_component), SPELL_MEMCOMP(receiver_mem_component),
-             sender.tile_id, packet.receiver.tile_id);    
+             sender, receiver);    
 
    switch (receiver_mem_component)
    {
@@ -241,17 +244,16 @@ MemoryManager::handleMsgFromNetwork(NetPacket& packet)
       {
          case MemComponent::L1_ICACHE:
          case MemComponent::L1_DCACHE:
-            assert(sender.tile_id == getTile()->getId());
-            _L2_cache_cntlr->handleMsgFromL1Cache(shmem_msg);
+            assert(sender == getTile()->getId());
+            _L2_cache_cntlr->handleMsgFromL1Cache(&shmem_msg);
             break;
 
          case MemComponent::DRAM_DIRECTORY:
-            _L2_cache_cntlr->handleMsgFromDramDirectory(sender.tile_id, shmem_msg);
+            _L2_cache_cntlr->handleMsgFromDramDirectory(sender, &shmem_msg);
             break;
 
          default:
-            LOG_PRINT_ERROR("Unrecognized sender component(%u)",
-                  sender_mem_component);
+            LOG_PRINT_ERROR("Unrecognized sender component(%u)", sender_mem_component);
             break;
       }
       break;
@@ -262,32 +264,19 @@ MemoryManager::handleMsgFromNetwork(NetPacket& packet)
          LOG_ASSERT_ERROR(_dram_cntlr_present, "Dram Cntlr NOT present");
 
          case MemComponent::L2_CACHE:
-            _dram_directory_cntlr->handleMsgFromL2Cache(sender.tile_id, shmem_msg);
+            _dram_directory_cntlr->handleMsgFromL2Cache(sender, &shmem_msg);
             break;
 
          default:
-            LOG_PRINT_ERROR("Unrecognized sender component(%u)",
-                  sender_mem_component);
+            LOG_PRINT_ERROR("Unrecognized sender component(%u)", sender_mem_component);
             break;
       }
       break;
 
    default:
-      LOG_PRINT_ERROR("Unrecognized receiver component(%u)",
-            receiver_mem_component);
+      LOG_PRINT_ERROR("Unrecognized receiver component(%u)", receiver_mem_component);
       break;
    }
-
-   // Delete the allocated Shared Memory Message
-   // First delete 'data_buf' if it is present
-   // LOG_PRINT("Finished handling Shmem Msg");
-
-   if (shmem_msg->getDataLength() > 0)
-   {
-      assert(shmem_msg->getDataBuf());
-      delete [] shmem_msg->getDataBuf();
-   }
-   delete shmem_msg;
 }
 
 void
@@ -295,7 +284,7 @@ MemoryManager::sendMsg(tile_id_t receiver, ShmemMsg& shmem_msg)
 {
    assert((shmem_msg.getDataBuf() == NULL) == (shmem_msg.getDataLength() == 0));
 
-   Byte* msg_buf = shmem_msg.makeMsgBuf();
+   Byte* msg_buf = shmem_msg.makeMsgBuf(getTile()->getId());
    Time msg_time = getShmemPerfModel()->getCurrTime();
 
    LOG_PRINT("Time(%llu), Sending Msg: type(%s), address(%#lx), "
@@ -324,7 +313,7 @@ MemoryManager::broadcastMsg(ShmemMsg& shmem_msg)
 {
    assert((shmem_msg.getDataBuf() == NULL) == (shmem_msg.getDataLength() == 0));
 
-   Byte* msg_buf = shmem_msg.makeMsgBuf();
+   Byte* msg_buf = shmem_msg.makeMsgBuf(getTile()->getId());
    Time msg_time = getShmemPerfModel()->getCurrTime();
 
    LOG_PRINT("Time(%llu), Broadcasting Msg: type(%s), address(%#lx), "

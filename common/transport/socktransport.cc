@@ -168,7 +168,7 @@ void SockTransport::updateBufferLists()
          m_recv_sockets[i].recv(&tag, sizeof(tag), true);
 
          // now receive packet
-         Byte *buffer = new Byte[length];
+         Byte *buffer = new(TRANSPORT_HEAP_ID) Byte[length];
          m_recv_sockets[i].recv(buffer, length, true);
 
          m_recv_locks[i].release();
@@ -384,7 +384,7 @@ void SockTransport::SockNode::send(SInt32 dest_proc,
 
    if (dest_proc == m_transport->m_proc_index)
    {
-      Byte* buff_cpy = new Byte[length];
+      Byte* buff_cpy = new(getHeapID()) Byte[length];
       memcpy(buff_cpy, buffer, length);
 
       m_transport->insertInBufferList(tag, buff_cpy);
@@ -393,7 +393,7 @@ void SockTransport::SockNode::send(SInt32 dest_proc,
    {
       SInt32 pkt_len = sizeof(length) + sizeof(tag) + length;
 
-      Byte *pkt_buff = new Byte[pkt_len];
+      Byte *pkt_buff = new(getHeapID()) Byte[pkt_len];
 
       // Length, Tag, Data, (Checksum)
       Packet *p = (Packet*)pkt_buff;
@@ -410,6 +410,12 @@ void SockTransport::SockNode::send(SInt32 dest_proc,
    }
 
    LOG_PRINT("Message sent.");
+}
+
+heap_id_t SockTransport::SockNode::getHeapID() const
+{
+   tile_id_t tag = getTileId();
+   return (tag == GLOBAL_TAG) ? TRANSPORT_HEAP_ID : tag;
 }
 
 // -- Socket

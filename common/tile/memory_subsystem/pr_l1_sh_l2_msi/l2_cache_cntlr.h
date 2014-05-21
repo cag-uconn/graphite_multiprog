@@ -73,20 +73,20 @@ namespace PrL1ShL2MSI
                             ShmemMsg::Type shmem_msg_type, bool update_miss_counters = false);
       void setCacheLineInfo(IntPtr address, ShL2CacheLineInfo* L2_cache_line_info);
       void readCacheLine(IntPtr address, Byte* data_buf);
-      void writeCacheLine(IntPtr address, Byte* data_buf);
+      void writeCacheLine(IntPtr address, const Byte* data_buf);
       void allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line_info);
 
       // Process Request to invalidate the sharers of a cache line
-      void processNullifyReq(ShmemReq* nullify_req, Byte* data_buf);
+      void processNullifyReq(ShmemReq* nullify_req, const Byte* data_buf);
       // Process Request from L1-I/L1-D caches
-      void processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool first_call = false);
-      void processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool first_call = false);
+      void processExReqFromL1Cache(ShmemReq* shmem_req, const Byte* data_buf, bool first_call = false);
+      void processShReqFromL1Cache(ShmemReq* shmem_req, const Byte* data_buf, bool first_call = false);
       void processInvRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem_msg, ShL2CacheLineInfo* L2_cache_line_info);
       void processFlushRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem_msg, ShL2CacheLineInfo* L2_cache_line_info);
       void processWbRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem_msg, ShL2CacheLineInfo* L2_cache_line_info);
 
       // Restart the shmem request
-      void restartShmemReq(ShmemReq* shmem_req, ShL2CacheLineInfo* L2_cache_line_info, Byte* data_buf);
+      void restartShmemReq(ShmemReq* shmem_req, ShL2CacheLineInfo* L2_cache_line_info, const Byte* data_buf);
       // Process the next request to a cache line
       void processNextReqFromL1Cache(IntPtr address);
       // Process shmem request
@@ -99,11 +99,11 @@ namespace PrL1ShL2MSI
       // Read data from L2 cache and send to L1-I/L1-D cache
       void readCacheLineAndSendToL1Cache(ShmemMsg::Type reply_msg_type,
                                          IntPtr address, MemComponent::Type requester_mem_component,
-                                         Byte* data_buf,
+                                         const Byte* data_buf,
                                          tile_id_t requester, bool msg_modeled);
       // Fetch/store data from/in DRAM
       void fetchDataFromDram(IntPtr address, tile_id_t requester, bool msg_modeled);
-      void storeDataInDram(IntPtr address, Byte* data_buf, tile_id_t requester, bool msg_modeled);
+      void storeDataInDram(IntPtr address, const Byte* data_buf, tile_id_t requester, bool msg_modeled);
 
       // Utilities
       tile_id_t getTileId();

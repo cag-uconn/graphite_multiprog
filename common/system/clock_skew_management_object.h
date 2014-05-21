@@ -8,7 +8,7 @@ class Network;
 class UnstructuredBuffer;
 class NetPacket;
 
-#include "fixed_types.h"
+#include "common_types.h"
 #include "time_types.h"
 
 class ClockSkewManagementObject

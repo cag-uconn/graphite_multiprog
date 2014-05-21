@@ -13,14 +13,15 @@ DIRECTORIES = $(SIM_ROOT)/common/tile/        									\
 			 $(SIM_ROOT)/common/network/components/router/						\
 			 $(SIM_ROOT)/common/network/components/link/							\
           $(SIM_ROOT)/common/transport/       									\
-          $(SIM_ROOT)/common/misc/            									\
-          $(SIM_ROOT)/common/config/	      									\
           $(SIM_ROOT)/common/system/          									\
           $(SIM_ROOT)/common/system/clock_skew_management_schemes/		\
 			 $(SIM_ROOT)/common/shared_models/      								\
           $(SIM_ROOT)/common/shared_models/queue_models/     				\
           $(SIM_ROOT)/common/user/													\
-          $(SIM_ROOT)/common/mcpat/													\
+          $(SIM_ROOT)/common/misc/            									\
+          $(SIM_ROOT)/common/config/	      									\
+          $(SIM_ROOT)/common/allocator/											\
+			 $(SIM_ROOT)/common/mcpat/													\
 			 $(SIM_ROOT)/																	\
 			 $(CURDIR)/
 

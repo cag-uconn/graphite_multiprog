@@ -40,7 +40,8 @@ namespace PrL1PrL2DramDirectoryMOSI
 
       void handleMsgFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg);
 
-      DirectoryCache* getDramDirectoryCache() { return _dram_directory_cache; }
+      MemoryManager* getMemoryManager() const       { return _memory_manager;       }
+      DirectoryCache* getDramDirectoryCache() const { return _dram_directory_cache; }
      
       void outputSummary(ostream& out);
       static void dummyOutputSummary(ostream& out);
@@ -52,15 +53,18 @@ namespace PrL1PrL2DramDirectoryMOSI
       class DataList
       {
       public:
-         DataList();
+         DataList(DramDirectoryCntlr* directory_cntlr);
          ~DataList();
          
-         void insert(IntPtr address, Byte* data, UInt32 size);
-         Byte* lookup(IntPtr address);
+         void insert(IntPtr address, const Byte* data, UInt32 size);
+         const Byte* lookup(IntPtr address);
          void erase(IntPtr address);
       
       private:
-         map<IntPtr, Byte*> _data_list;
+         tile_id_t getTileID() const;
+
+         map<IntPtr, const Byte*> _data_list;
+         DramDirectoryCntlr* _directory_cntlr;
       };
 
       MemoryManager* _memory_manager;
@@ -121,7 +125,7 @@ namespace PrL1PrL2DramDirectoryMOSI
       void processInvRepFromL2Cache(tile_id_t sender, const ShmemMsg* shmem_msg);
       void processFlushRepFromL2Cache(tile_id_t sender, const ShmemMsg* shmem_msg);
       void processWbRepFromL2Cache(tile_id_t sender, const ShmemMsg* shmem_msg);
-      void sendDataToDram(IntPtr address, Byte* data_buf, bool msg_modeled);
+      void sendDataToDram(IntPtr address, const Byte* data_buf, bool msg_modeled);
    
       void sendShmemMsg(ShmemMsg::Type requester_msg_type, ShmemMsg::Type send_msg_type, IntPtr address,
                         tile_id_t requester, tile_id_t single_receiver, bool all_tiles_sharers, vector<tile_id_t>& sharers_list,

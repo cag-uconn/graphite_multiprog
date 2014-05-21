@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "fixed_types.h"
+#include "common_types.h"
 
 class QueueModel
 {

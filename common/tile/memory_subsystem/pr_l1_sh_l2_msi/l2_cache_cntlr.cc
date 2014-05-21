@@ -8,7 +8,7 @@
 #include "config.h"
 #include "log.h"
 
-#define TYPE(shmem_req)    (shmem_req->getShmemMsg()->getType())
+#define TYPE(shmem_req)    (shmem_req->getShmemMsg().getType())
 
 namespace PrL1ShL2MSI
 {
@@ -117,13 +117,13 @@ L2CacheCntlr::setCacheLineInfo(IntPtr address, ShL2CacheLineInfo* L2_cache_line_
 void
 L2CacheCntlr::readCacheLine(IntPtr address, Byte* data_buf)
 {
-  _L2_cache->accessCacheLine(address, Cache::LOAD, data_buf, getCacheLineSize());
+  _L2_cache->readCacheLine(address, data_buf, getCacheLineSize());
 }
 
 void
-L2CacheCntlr::writeCacheLine(IntPtr address, Byte* data_buf)
+L2CacheCntlr::writeCacheLine(IntPtr address, const Byte* data_buf)
 {
-   _L2_cache->accessCacheLine(address, Cache::STORE, data_buf, getCacheLineSize());
+   _L2_cache->writeCacheLine(address, data_buf, getCacheLineSize());
 }
 
 void
@@ -144,7 +144,7 @@ L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line
    ShL2CacheLineInfo evicted_cache_line_info;
    Byte writeback_buf[getCacheLineSize()];
 
-   _L2_cache->insertCacheLine(address, L2_cache_line_info, (Byte*) NULL,
+   _L2_cache->insertCacheLine(address, L2_cache_line_info, (const Byte*) NULL,
                               &eviction, &evicted_address, &evicted_cache_line_info, writeback_buf);
 
    if (eviction)
@@ -169,7 +169,7 @@ L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line
                            getTileId(), evicted_address,
                            msg_modeled); 
       // Create a new ShmemReq for removing the sharers of the evicted cache line
-      ShmemReq* nullify_req = new ShmemReq(&nullify_msg, eviction_time);
+      ShmemReq* nullify_req = new ShmemReq(nullify_msg, eviction_time);
       // Insert the nullify_req into the set of requests to be processed
       _L2_cache_req_queue.enqueue(evicted_address, nullify_req);
       
@@ -207,7 +207,7 @@ L2CacheCntlr::handleMsgFromL1Cache(tile_id_t sender, ShmemMsg* shmem_msg)
    if ( (shmem_msg_type == ShmemMsg::EX_REQ) || (shmem_msg_type == ShmemMsg::SH_REQ) )
    {
       // Add request onto a queue
-      ShmemReq* shmem_req = new ShmemReq(shmem_msg, msg_time);
+      ShmemReq* shmem_req = new ShmemReq(*shmem_msg, msg_time);
       _L2_cache_req_queue.enqueue(address, shmem_req);
 
       if (_L2_cache_req_queue.count(address) == 1)
@@ -354,11 +354,11 @@ L2CacheCntlr::processShmemReq(ShmemReq* shmem_req)
 }
 
 void
-L2CacheCntlr::processNullifyReq(ShmemReq* nullify_req, Byte* data_buf)
+L2CacheCntlr::processNullifyReq(ShmemReq* nullify_req, const Byte* data_buf)
 {
-   IntPtr address = nullify_req->getShmemMsg()->getAddress();
-   tile_id_t requester = nullify_req->getShmemMsg()->getRequester();
-   bool msg_modeled = nullify_req->getShmemMsg()->isModeled();
+   IntPtr address = nullify_req->getShmemMsg().getAddress();
+   tile_id_t requester = nullify_req->getShmemMsg().getRequester();
+   bool msg_modeled = nullify_req->getShmemMsg().isModeled();
 
    // get cache line info 
    ShL2CacheLineInfo L2_cache_line_info;
@@ -438,13 +438,13 @@ L2CacheCntlr::processNullifyReq(ShmemReq* nullify_req, Byte* data_buf)
 }
 
 void
-L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool first_call)
+L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, const Byte* data_buf, bool first_call)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
-   __attribute__((unused)) MemComponent::Type requester_mem_component = shmem_req->getShmemMsg()->getSenderMemComponent();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
+   __attribute__((unused)) MemComponent::Type requester_mem_component = shmem_req->getShmemMsg().getSenderMemComponent();
    assert(requester_mem_component == MemComponent::L1_DCACHE);
-   bool msg_modeled = shmem_req->getShmemMsg()->isModeled();
+   bool msg_modeled = shmem_req->getShmemMsg().isModeled();
 
    ShL2CacheLineInfo L2_cache_line_info;
    getCacheLineInfo(address, &L2_cache_line_info, ShmemMsg::EX_REQ, first_call);
@@ -560,13 +560,13 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool 
 }
 
 void
-L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, Byte* data_buf, bool first_call)
+L2CacheCntlr::processShReqFromL1Cache(ShmemReq* shmem_req, const Byte* data_buf, bool first_call)
 {
-   IntPtr address = shmem_req->getShmemMsg()->getAddress();
-   tile_id_t requester = shmem_req->getShmemMsg()->getRequester();
+   IntPtr address = shmem_req->getShmemMsg().getAddress();
+   tile_id_t requester = shmem_req->getShmemMsg().getRequester();
    // Get the requesting mem component (L1-I/L1-D cache)
-   MemComponent::Type requester_mem_component = shmem_req->getShmemMsg()->getSenderMemComponent();
-   bool msg_modeled = shmem_req->getShmemMsg()->isModeled();
+   MemComponent::Type requester_mem_component = shmem_req->getShmemMsg().getSenderMemComponent();
+   bool msg_modeled = shmem_req->getShmemMsg().isModeled();
 
    ShL2CacheLineInfo L2_cache_line_info;
    getCacheLineInfo(address, &L2_cache_line_info, ShmemMsg::SH_REQ, first_call);
@@ -805,7 +805,7 @@ L2CacheCntlr::processWbRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem_ms
 }
 
 void
-L2CacheCntlr::restartShmemReq(ShmemReq* shmem_req, ShL2CacheLineInfo* L2_cache_line_info, Byte* data_buf)
+L2CacheCntlr::restartShmemReq(ShmemReq* shmem_req, ShL2CacheLineInfo* L2_cache_line_info, const Byte* data_buf)
 {
    // Add 1 cycle to denote that we are restarting the request
    getShmemPerfModel()->incrCurrTime(Latency(1, _L2_cache->getFrequency()));
@@ -871,7 +871,7 @@ L2CacheCntlr::sendInvalidationMsg(ShmemMsg::Type requester_msg_type,
 void
 L2CacheCntlr::readCacheLineAndSendToL1Cache(ShmemMsg::Type reply_msg_type,
                                             IntPtr address, MemComponent::Type requester_mem_component,
-                                            Byte* data_buf,
+                                            const Byte* data_buf,
                                             tile_id_t requester, bool msg_modeled)
 {
    if (data_buf != NULL)
@@ -907,7 +907,7 @@ L2CacheCntlr::fetchDataFromDram(IntPtr address, tile_id_t requester, bool msg_mo
 }
 
 void
-L2CacheCntlr::storeDataInDram(IntPtr address, Byte* data_buf, tile_id_t requester, bool msg_modeled)
+L2CacheCntlr::storeDataInDram(IntPtr address, const Byte* data_buf, tile_id_t requester, bool msg_modeled)
 {
    ShmemMsg send_msg(ShmemMsg::DRAM_STORE_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_CNTLR,
                      requester, address,

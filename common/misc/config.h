@@ -16,6 +16,7 @@
 #include <cassert>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "fixed_types.h"
 
 class Config

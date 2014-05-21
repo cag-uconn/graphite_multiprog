@@ -78,7 +78,7 @@ namespace PrL1ShL2MSI
       void getCacheLineInfo(MemComponent::Type mem_component, IntPtr address, PrL1CacheLineInfo* L1_cache_line_info);
       void setCacheLineInfo(MemComponent::Type mem_component, IntPtr address, PrL1CacheLineInfo* L1_cache_line_info);
       void readCacheLine(MemComponent::Type mem_component, IntPtr address, Byte* data_buf);
-      void insertCacheLine(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, Byte* data_buf);
+      void insertCacheLine(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, const Byte* data_buf);
       void invalidateCacheLine(MemComponent::Type mem_component, IntPtr address);
 
       void accessCache(MemComponent::Type mem_component,

@@ -152,11 +152,11 @@ L1CacheCntlr::accessCache(MemComponent::Type mem_component,
    {
    case Core::READ:
    case Core::READ_EX:
-      L1_cache->accessCacheLine(address + offset, Cache::LOAD, data_buf, data_length);
+      L1_cache->readCacheLine(address + offset, data_buf, data_length);
       break;
 
    case Core::WRITE:
-      L1_cache->accessCacheLine(address + offset, Cache::STORE, data_buf, data_length);
+      L1_cache->writeCacheLine(address + offset, data_buf, data_length);
       break;
 
    default:
@@ -223,11 +223,11 @@ L1CacheCntlr::readCacheLine(MemComponent::Type mem_component, IntPtr address, By
 {
    Cache* L1_cache = getL1Cache(mem_component);
    assert(L1_cache);
-   L1_cache->accessCacheLine(address, Cache::LOAD, data_buf, getCacheLineSize());
+   L1_cache->readCacheLine(address, data_buf, getCacheLineSize());
 }
 
 void
-L1CacheCntlr::insertCacheLine(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, Byte* fill_buf)
+L1CacheCntlr::insertCacheLine(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, const Byte* fill_buf)
 {
    Cache* L1_cache = getL1Cache(mem_component);
    assert(L1_cache);
@@ -364,7 +364,7 @@ void
 L1CacheCntlr::processExRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    IntPtr address = shmem_msg->getAddress();
-   Byte* data_buf = shmem_msg->getDataBuf();
+   const Byte* data_buf = shmem_msg->getDataBuf();
    MemComponent::Type mem_component = shmem_msg->getReceiverMemComponent();
 
    assert(address == _outstanding_shmem_msg.getAddress());
@@ -376,7 +376,7 @@ void
 L1CacheCntlr::processShRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    IntPtr address = shmem_msg->getAddress();
-   Byte* data_buf = shmem_msg->getDataBuf();
+   const Byte* data_buf = shmem_msg->getDataBuf();
    MemComponent::Type mem_component = shmem_msg->getReceiverMemComponent();
 
    assert(address == _outstanding_shmem_msg.getAddress());

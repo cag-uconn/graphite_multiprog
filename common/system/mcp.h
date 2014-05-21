@@ -8,7 +8,7 @@
 #include "syscall_server.h"
 #include "sync_server.h"
 #include "clock_skew_management_object.h"
-#include "fixed_types.h"
+#include "common_types.h"
 #include "thread.h"
 
 class MCP : public Runnable

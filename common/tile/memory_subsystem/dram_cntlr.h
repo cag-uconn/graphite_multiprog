@@ -30,7 +30,7 @@ public:
    DramPerfModel* getDramPerfModel() { return _dram_perf_model; }
 
    void getDataFromDram(IntPtr address, Byte* data_buf, bool modeled);
-   void putDataToDram(IntPtr address, Byte* data_buf, bool modeled);
+   void putDataToDram(IntPtr address, const Byte* data_buf, bool modeled);
    
 private:
    Tile* _tile;

@@ -56,7 +56,7 @@ namespace PrL1PrL2DramDirectoryMSI
                                 Byte* data_buf, UInt32 data_length);
 
       void insertCacheLine(MemComponent::Type mem_component,
-                           IntPtr address, CacheState::Type cstate, Byte* fill_buf,
+                           IntPtr address, CacheState::Type cstate, const Byte* fill_buf,
                            bool* eviction, IntPtr* evicted_address);
 
       CacheState::Type getCacheLineState(MemComponent::Type mem_component, IntPtr address);

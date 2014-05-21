@@ -27,12 +27,6 @@ class Cache
 {
 public:
    // types, constants
-   enum AccessType
-   {
-      LOAD = 0,
-      STORE
-   };
-
    enum OperationType
    {
       TAG_ARRAY_READ = 0,
@@ -84,8 +78,9 @@ public:
    ~Cache();
 
    // Cache operations
-   void accessCacheLine(IntPtr address, AccessType access_type, Byte* buf = NULL, UInt32 num_bytes = 0);
-   void insertCacheLine(IntPtr inserted_address, CacheLineInfo* inserted_cache_line_info, Byte* fill_buf,
+   void readCacheLine(IntPtr address, Byte* buf = NULL, UInt32 num_bytes = 0);
+   void writeCacheLine(IntPtr address, const Byte* buf = NULL, UInt32 num_bytes = 0);
+   void insertCacheLine(IntPtr inserted_address, CacheLineInfo* inserted_cache_line_info, const Byte* fill_buf,
                         bool* eviction, IntPtr* evicted_address, CacheLineInfo* evicted_cache_line_info, Byte* writeback_buf);
    void getCacheLineInfo(IntPtr address, CacheLineInfo* cache_line_info);
    void setCacheLineInfo(IntPtr address, CacheLineInfo* updated_cache_line_info);

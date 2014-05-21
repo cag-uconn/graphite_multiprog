@@ -183,11 +183,11 @@ L1CacheCntlr::accessCache(MemComponent::Type mem_component,
    {
    case Core::READ:
    case Core::READ_EX:
-      l1_cache->accessCacheLine(address + offset, Cache::LOAD, data_buf, data_length);
+      l1_cache->readCacheLine(address + offset, data_buf, data_length);
       break;
 
    case Core::WRITE:
-      l1_cache->accessCacheLine(address + offset, Cache::STORE, data_buf, data_length);
+      l1_cache->writeCacheLine(address + offset, data_buf, data_length);
       // Write-through cache - Write the L2 Cache also
       _l2_cache_cntlr->writeCacheLine(address, data_buf, offset, data_length);
       break;
@@ -238,7 +238,7 @@ L1CacheCntlr::operationPermissibleinL1Cache(MemComponent::Type mem_component,
 
 void
 L1CacheCntlr::insertCacheLine(MemComponent::Type mem_component,
-                              IntPtr address, CacheState::Type cstate, Byte* fill_buf,
+                              IntPtr address, CacheState::Type cstate, const Byte* fill_buf,
                               bool* eviction, IntPtr* evicted_address)
 {
    Cache* l1_cache = getL1Cache(mem_component);

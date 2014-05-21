@@ -3,7 +3,7 @@
 #include <vector>
 using namespace std;
 
-#include "fixed_types.h"
+#include "common_types.h"
 
 /* 
  * TODO abstract MMU stuff to a configure file to allow

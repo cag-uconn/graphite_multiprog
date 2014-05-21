@@ -10,7 +10,7 @@ using std::string;
 using std::ostringstream;
 using std::stringstream;
 
-#include "fixed_types.h"
+#include "common_types.h"
 #include "time_types.h"
 #include "mcpat_instruction.h"
 #include "micro_op.h"

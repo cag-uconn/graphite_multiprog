@@ -15,7 +15,7 @@ using std::pair;
 #include "lock.h"
 #include "config.h"
 #include "packet_type.h"
-#include "fixed_types.h"
+#include "common_types.h"
 #include "time_types.h"
 #include "constants.h"
 #include "dvfs.h"

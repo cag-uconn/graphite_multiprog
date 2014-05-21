@@ -1,7 +1,7 @@
 #pragma once
 
 #include "mem_component.h"
-#include "fixed_types.h"
+#include "common_types.h"
 #include "../shmem_msg.h"
 
 namespace PrL1PrL2DramDirectoryMSI
@@ -41,32 +41,31 @@ namespace PrL1PrL2DramDirectoryMSI
             MemComponent::Type receiver_mem_component,
             tile_id_t requester,
             IntPtr address,
-            Byte* data_buf,
+            const Byte* data_buf,
             UInt32 data_length,
             bool modeled);
-      ShmemMsg(const ShmemMsg* shmem_msg);
+      ShmemMsg(const ShmemMsg& shmem_msg);
+      explicit ShmemMsg(const Byte* msg_buf);
 
       ~ShmemMsg();
 
-      static ShmemMsg* getShmemMsg(Byte* msg_buf);
-      Byte* makeMsgBuf();
-      UInt32 getMsgLen();
+      Byte* makeMsgBuf(heap_id_t heap_id) const;
+      UInt32 getMsgLen() const;
 
       // Modeling
       UInt32 getModeledLength();
 
-      Type getType() const { return _msg_type; }
-      MemComponent::Type getSenderMemComponent() const { return _sender_mem_component; }
+      Type getType() const                               { return _msg_type; }
+      MemComponent::Type getSenderMemComponent() const   { return _sender_mem_component; }
       MemComponent::Type getReceiverMemComponent() const { return _receiver_mem_component; }
-      tile_id_t getRequester() const { return _requester; }
-      IntPtr getAddress() const { return _address; }
-      Byte* getDataBuf() const { return _data_buf; }
-      UInt32 getDataLength() const { return _data_length; }
-      bool isModeled() const { return _modeled; }
+      tile_id_t getRequester() const                     { return _requester; }
+      IntPtr getAddress() const                          { return _address; }
+      const Byte* getDataBuf() const                     { return _data_buf; }
+      UInt32 getDataLength() const                       { return _data_length; }
+      bool isModeled() const                             { return _modeled; }
 
-      void setAddress(IntPtr address) { _address = address; }
-      void setSenderMemComponent(MemComponent::Type mem_component) { _sender_mem_component = mem_component; }
-      void setDataBuf(Byte* data_buf) { _data_buf = data_buf; }
+      void setAddress(IntPtr address)                                { _address = address; }
+      void setSenderMemComponent(MemComponent::Type mem_component)   { _sender_mem_component = mem_component; }
 
    private:   
       Type _msg_type;
@@ -74,7 +73,7 @@ namespace PrL1PrL2DramDirectoryMSI
       MemComponent::Type _receiver_mem_component;
       tile_id_t _requester;
       IntPtr _address;
-      Byte* _data_buf;
+      const Byte* _data_buf;
       UInt32 _data_length;
       bool _modeled;
 

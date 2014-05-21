@@ -96,10 +96,10 @@ Cache::~Cache()
 }
 
 void
-Cache::accessCacheLine(IntPtr address, AccessType access_type, Byte* buf, UInt32 num_bytes)
+Cache::readCacheLine(IntPtr address, Byte* buf, UInt32 num_bytes)
 {
-   LOG_PRINT("accessCacheLine: Cache(%s), Address(%#lx), Access-Type(%s), Num-Bytes(%u) start",
-             _name.c_str(), address, (access_type == 0) ? "LOAD": "STORE", num_bytes);
+   LOG_PRINT("readCacheLine: Cache(%s), Address(%#lx), Num-Bytes(%u) start",
+             _name.c_str(), address, num_bytes);
    LOG_ASSERT_ERROR((buf == NULL) == (num_bytes == 0), "buf(%p), num_bytes(%u)", buf, num_bytes);
 
    CacheSet* set = getSet(address);
@@ -108,26 +108,46 @@ Cache::accessCacheLine(IntPtr address, AccessType access_type, Byte* buf, UInt32
    UInt32 line_index = -1;
   
    __attribute__((unused)) CacheLineInfo* cache_line_info = set->find(tag, &line_index);
-   LOG_ASSERT_ERROR(cache_line_info, "accessCacheLine: Cache(%s), Address(%#lx), Access-Type(%s), Num-Bytes(%u)",
-                    _name.c_str(), address, (access_type == 0) ? "LOAD" : "STORE", num_bytes);
+   LOG_ASSERT_ERROR(cache_line_info, "readCacheLine: Cache(%s), Address(%#lx), Num-Bytes(%u)",
+                    _name.c_str(), address, num_bytes);
 
-   if (access_type == LOAD)
-      set->read_line(line_index, line_offset, buf, num_bytes);
-   else
-      set->write_line(line_index, line_offset, buf, num_bytes);
+   set->read_line(line_index, line_offset, buf, num_bytes);
 
+   // Update data array reads
    if (_enabled)
-   {
-      // Update data array reads/writes
-      OperationType operation_type = (access_type == LOAD) ? DATA_ARRAY_READ : DATA_ARRAY_WRITE;
-      _event_counters[operation_type] ++;
-   }
-   LOG_PRINT("accessCacheLine: Cache(%s), Address(%#lx), Access-Type(%s), Num-Bytes(%u) end",
-             _name.c_str(), address, (access_type == 0) ? "LOAD": "STORE", num_bytes);
+      _event_counters[DATA_ARRAY_READ] ++;
+   
+   LOG_PRINT("readCacheLine: Cache(%s), Address(%#lx), Num-Bytes(%u) end",
+             _name.c_str(), address, num_bytes);
 }
 
 void
-Cache::insertCacheLine(IntPtr inserted_address, CacheLineInfo* inserted_cache_line_info, Byte* fill_buf,
+Cache::writeCacheLine(IntPtr address, const Byte* buf, UInt32 num_bytes)
+{
+   LOG_PRINT("writeCacheLine: Cache(%s), Address(%#lx), Num-Bytes(%u) start",
+             _name.c_str(), address, num_bytes);
+   LOG_ASSERT_ERROR((buf == NULL) == (num_bytes == 0), "buf(%p), num_bytes(%u)", buf, num_bytes);
+
+   CacheSet* set = getSet(address);
+   IntPtr tag = getTag(address);
+   UInt32 line_offset = getLineOffset(address);
+   UInt32 line_index = -1;
+  
+   __attribute__((unused)) CacheLineInfo* cache_line_info = set->find(tag, &line_index);
+   LOG_ASSERT_ERROR(cache_line_info, "writeCacheLine: Cache(%s), Address(%#lx), Num-Bytes(%u)",
+                    _name.c_str(), address, num_bytes);
+
+   set->write_line(line_index, line_offset, buf, num_bytes);
+
+   // Update data array writes
+   if (_enabled)
+      _event_counters[DATA_ARRAY_WRITE] ++;
+   
+   LOG_PRINT("writeCacheLine: Cache(%s), Address(%#lx), Num-Bytes(%u) end",
+             _name.c_str(), address, num_bytes);
+}
+void
+Cache::insertCacheLine(IntPtr inserted_address, CacheLineInfo* inserted_cache_line_info, const Byte* fill_buf,
                        bool* eviction, IntPtr* evicted_address, CacheLineInfo* evicted_cache_line_info, Byte* writeback_buf)
 {
    LOG_PRINT("insertCacheLine: Cache(%s), Address(%#lx) start", _name.c_str(), inserted_address);

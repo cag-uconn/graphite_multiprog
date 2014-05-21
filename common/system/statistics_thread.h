@@ -1,6 +1,6 @@
 #pragma once
 
-#include "fixed_types.h"
+#include "common_types.h"
 #include "thread.h"
 #include "cond.h"
 

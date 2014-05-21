@@ -2,6 +2,7 @@
 
 using namespace std;
 
+#include "common_types.h"
 #include "tile.h"
 #include "core.h"
 #include "cache.h"

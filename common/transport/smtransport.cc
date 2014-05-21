@@ -97,7 +97,7 @@ void SmTransport::SmNode::send(SInt32 dest_id, const void* buffer, UInt32 length
 
 void SmTransport::SmNode::send(SmNode *dest_node, const void *buffer, UInt32 length)
 {
-   Byte *data = new Byte[length];
+   Byte *data = new(getTileId()) Byte[length];
    memcpy(data, buffer, length);
 
    LOG_PRINT("sending msg -- size: %i, data: %p, dest: %p", length, data, dest_node);

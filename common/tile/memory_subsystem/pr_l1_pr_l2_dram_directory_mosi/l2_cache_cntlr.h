@@ -11,7 +11,6 @@ namespace PrL1PrL2DramDirectoryMOSI
 #include "cache_line_info.h"
 #include "address_home_lookup.h"
 #include "shmem_msg.h"
-#include "shmem_req.h"
 #include "mem_component.h"
 #include "fixed_types.h"
 #include "shmem_perf_model.h"
@@ -83,15 +82,15 @@ namespace PrL1PrL2DramDirectoryMOSI
       // L2 cache operations
       void invalidateCacheLine(IntPtr address, PrL2CacheLineInfo& L2_cache_line_info);
       void readCacheLine(IntPtr address, Byte* data_buf);
-      void insertCacheLine(IntPtr address, CacheState::Type cstate, Byte* fill_buf, MemComponent::Type mem_component);
+      void insertCacheLine(IntPtr address, CacheState::Type cstate, const Byte* fill_buf, MemComponent::Type mem_component);
 
       // L1 cache operations
       void setCacheLineStateInL1(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate);
       void invalidateCacheLineInL1(MemComponent::Type mem_component, IntPtr address);
-      void insertCacheLineInL1(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, Byte* fill_buf);
+      void insertCacheLineInL1(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, const Byte* fill_buf);
 
       // Insert cache line in hierarchy
-      void insertCacheLineInHierarchy(IntPtr address, CacheState::Type cstate, Byte* fill_buf);
+      void insertCacheLineInHierarchy(IntPtr address, CacheState::Type cstate, const Byte* fill_buf);
 
       // Process Request from L1 Cache
       // Check if msg from L1 ends in the L2 cache

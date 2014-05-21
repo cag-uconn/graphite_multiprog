@@ -13,9 +13,9 @@ public:
    ~CacheSet();
 
    void read_line(UInt32 line_index, UInt32 offset, Byte *out_buf, UInt32 bytes);
-   void write_line(UInt32 line_index, UInt32 offset, Byte *in_buf, UInt32 bytes);
+   void write_line(UInt32 line_index, UInt32 offset, const Byte *in_buf, UInt32 bytes);
    CacheLineInfo* find(IntPtr tag, UInt32* line_index = NULL);
-   void insert(CacheLineInfo* inserted_cache_line_info, Byte* fill_buf,
+   void insert(CacheLineInfo* inserted_cache_line_info, const Byte* fill_buf,
                bool* eviction, CacheLineInfo* evicted_cache_line_info, Byte* writeback_buf);
    CacheLineInfo** getCacheLineInfoArray() const               { return _cache_line_info_array; }
 

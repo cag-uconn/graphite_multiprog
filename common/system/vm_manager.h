@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include "fixed_types.h"
+#include "common_types.h"
 
 class VMManager
 {

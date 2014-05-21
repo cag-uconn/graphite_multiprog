@@ -12,10 +12,10 @@ namespace PrL1PrL2DramDirectoryMOSI
    class ShmemReq
    {
    public:
-      ShmemReq(ShmemMsg* shmem_msg, Time time);
+      ShmemReq(const ShmemMsg& shmem_msg, Time time);
       ~ShmemReq();
 
-      ShmemMsg* getShmemMsg() const
+      const ShmemMsg& getShmemMsg() const
       { return _shmem_msg; }
       Time getSerializationTime() const
       { return _processing_start_time - _arrival_time; }
@@ -55,7 +55,7 @@ namespace PrL1PrL2DramDirectoryMOSI
       { return _upgrade_reply; }
   
    private:
-      ShmemMsg* _shmem_msg;
+      const ShmemMsg _shmem_msg;
       
       Time _arrival_time;
       Time _processing_start_time;

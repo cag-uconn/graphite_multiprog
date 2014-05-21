@@ -38,12 +38,12 @@ DramCntlr::getDataFromDram(IntPtr address, Byte* data_buf, bool modeled)
 {
    if (_data_map[address] == NULL)
    {
-      _data_map[address] = new Byte[_cache_line_size];
+      _data_map[address] = new(_tile->getId()) Byte[_cache_line_size];
       memset((void*) _data_map[address], 0x00, _cache_line_size);
    }
    memcpy((void*) data_buf, (void*) _data_map[address], _cache_line_size);
 
-   Latency dram_access_latency = modeled ? runDramPerfModel() : Latency(0,DRAM_FREQUENCY);
+   Latency dram_access_latency = modeled ? runDramPerfModel() : Latency(0, DRAM_FREQUENCY);
    LOG_PRINT("Dram Access Latency(%llu)", dram_access_latency.getCycles());
    getShmemPerfModel()->incrCurrTime(dram_access_latency);
 
@@ -51,13 +51,13 @@ DramCntlr::getDataFromDram(IntPtr address, Byte* data_buf, bool modeled)
 }
 
 void
-DramCntlr::putDataToDram(IntPtr address, Byte* data_buf, bool modeled)
+DramCntlr::putDataToDram(IntPtr address, const Byte* data_buf, bool modeled)
 {
    LOG_ASSERT_ERROR(_data_map[address] != NULL, "Data Buffer does not exist");
    
-   memcpy((void*) _data_map[address], (void*) data_buf, _cache_line_size);
+   memcpy((void*) _data_map[address], data_buf, _cache_line_size);
 
-   __attribute__((unused)) Latency dram_access_latency = modeled ? runDramPerfModel() : Latency(0,DRAM_FREQUENCY);
+   __attribute__((unused)) Latency dram_access_latency = modeled ? runDramPerfModel() : Latency(0, DRAM_FREQUENCY);
    
    addToDramAccessCount(address, WRITE);
 }

@@ -45,7 +45,7 @@ namespace PrL1PrL2DramDirectoryMSI
       // Handle Request from L1 Cache - This is done for better simulator performance
       pair<bool,Cache::MissType> processShmemRequestFromL1Cache(MemComponent::Type mem_component, Core::mem_op_t mem_op_type, IntPtr address);
       // Write-through Cache. Hence needs to be written by the APP thread
-      void writeCacheLine(IntPtr address, Byte* data_buf, UInt32 offset, UInt32 data_length);
+      void writeCacheLine(IntPtr address, const Byte* data_buf, UInt32 offset, UInt32 data_length);
 
       // Handle message from L1 Cache
       void handleMsgFromL1Cache(ShmemMsg* shmem_msg);
@@ -67,16 +67,16 @@ namespace PrL1PrL2DramDirectoryMSI
       
       // L2 cache operations
       void readCacheLine(IntPtr address, Byte* data_buf);
-      void insertCacheLine(IntPtr address, CacheState::Type cstate, Byte* fill_buf, MemComponent::Type mem_component);
+      void insertCacheLine(IntPtr address, CacheState::Type cstate, const Byte* fill_buf, MemComponent::Type mem_component);
       void invalidateCacheLine(IntPtr address, PrL2CacheLineInfo& l2_cache_line_info);
 
       // L1 cache operations
       void setCacheLineStateInL1(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate);
       void invalidateCacheLineInL1(MemComponent::Type mem_component, IntPtr address);
-      void insertCacheLineInL1(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, Byte* fill_buf);
+      void insertCacheLineInL1(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, const Byte* fill_buf);
 
       // Insert cache line in hierarchy
-      void insertCacheLineInHierarchy(IntPtr address, CacheState::Type cstate, Byte* fill_buf);
+      void insertCacheLineInHierarchy(IntPtr address, CacheState::Type cstate, const Byte* fill_buf);
 
       // Process Request from L1 Cache
       void processExReqFromL1Cache(ShmemMsg* shmem_msg);

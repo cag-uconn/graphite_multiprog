@@ -26,6 +26,7 @@ public:
 
    private:
       void send(SInt32 dest_proc, SInt32 tag, const void *buffer, UInt32 length);
+      heap_id_t getHeapID() const;
 
       SockTransport *m_transport;
    };

@@ -4,7 +4,6 @@
 
 #include "transport.h"
 #include "smtransport.h"
-//#include "mpitransport.h"
 #include "socktransport.h"
 
 #include "config.h"
@@ -52,7 +51,7 @@ Transport::Node::Node(tile_id_t tile_id)
 {
 }
 
-tile_id_t Transport::Node::getTileId()
+tile_id_t Transport::Node::getTileId() const
 {
    return m_tile_id;
 }

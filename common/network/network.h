@@ -42,14 +42,14 @@ public:
    Time contention_delay;
 
    NetPacket();
-   explicit NetPacket(Byte*);
    NetPacket(Time time, PacketType type, core_id_t sender, 
              core_id_t receiver, UInt32 length, const void *data);
    NetPacket(Time time, PacketType type, SInt32 sender, 
              SInt32 receiver, UInt32 length, const void *data);
+   explicit NetPacket(Byte* buffer, heap_id_t heap_id);
 
    UInt32 bufferSize() const;
-   Byte *makeBuffer() const;
+   Byte *makeBuffer(heap_id_t heap_id) const;
 
    static const SInt32 BROADCAST = 0xDEADBABE;
 };

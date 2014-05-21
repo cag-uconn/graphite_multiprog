@@ -53,13 +53,13 @@ namespace PrL1PrL2DramDirectoryMSI
       void processNullifyReq(ShmemReq* shmem_req);
 
       void processNextReqFromL2Cache(IntPtr address);
-      void processExReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf = NULL);
-      void processShReqFromL2Cache(ShmemReq* shmem_req, Byte* cached_data_buf = NULL);
-      void retrieveDataAndSendToL2Cache(ShmemMsg::Type reply_msg_type, tile_id_t receiver, IntPtr address, Byte* cached_data_buf, bool msg_modeled);
+      void processExReqFromL2Cache(ShmemReq* shmem_req, const Byte* cached_data_buf = NULL);
+      void processShReqFromL2Cache(ShmemReq* shmem_req, const Byte* cached_data_buf = NULL);
+      void retrieveDataAndSendToL2Cache(ShmemMsg::Type reply_msg_type, tile_id_t receiver, IntPtr address, const Byte* cached_data_buf, bool msg_modeled);
 
       void processInvRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg);
       void processFlushRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg);
       void processWbRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg);
-      void sendDataToDram(IntPtr address, Byte* data_buf, bool msg_modeled);
+      void sendDataToDram(IntPtr address, const Byte* data_buf, bool msg_modeled);
    };
 }

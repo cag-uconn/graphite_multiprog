@@ -13,6 +13,7 @@ class RemoteQueryHelper;
 class DVFSManager;
 
 #include "fixed_types.h"
+#include "common_types.h"
 #include "network.h"
 
 class Tile
