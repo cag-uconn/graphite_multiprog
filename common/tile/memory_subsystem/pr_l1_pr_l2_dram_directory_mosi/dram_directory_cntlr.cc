@@ -70,10 +70,10 @@ DramDirectoryCntlr::handleMsgFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
          IntPtr address = shmem_msg->getAddress();
          
          // Add request onto a queue
-         ShmemReq* shmem_req = new ShmemReq(*shmem_msg, msg_time);
-         _dram_directory_req_queue.enqueue(address, shmem_req);
+         ShmemReq* shmem_req = new(getTileID()) ShmemReq(*shmem_msg, msg_time);
+         _dram_directory_req_queue.push(address, shmem_req);
 
-         if (_dram_directory_req_queue.count(address) == 1)
+         if (_dram_directory_req_queue.size(address) == 1)
          {
             // The req is processed immediately
             shmem_req->updateProcessingStartTime(msg_time);
@@ -120,10 +120,11 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
 {
    LOG_PRINT("Start processNextReqFromL2Cache(%#lx)", address);
 
-   assert(_dram_directory_req_queue.count(address) >= 1);
+   assert(_dram_directory_req_queue.size(address) >= 1);
    
    // Get the completed shmem req
-   ShmemReq* completed_shmem_req = _dram_directory_req_queue.dequeue(address);
+   ShmemReq* completed_shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+   _dram_directory_req_queue.pop(address);
 
    // Update Finish time
    completed_shmem_req->updateProcessingFinishTime(getShmemPerfModel()->getCurrTime());
@@ -140,7 +141,7 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
    if (!_dram_directory_req_queue.empty(address))
    {
       LOG_PRINT("A new shmem req for address(%#lx) found", address);
-      ShmemReq* shmem_req = _dram_directory_req_queue.front(address);
+      ShmemReq* shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
 
       // Update the Shared Mem time appropriately
       shmem_req->updateProcessingStartTime(getShmemPerfModel()->getCurrTime());
@@ -181,7 +182,7 @@ DramDirectoryCntlr::processDirectoryEntryAllocationReq(ShmemReq* shmem_req)
              ((*replacement_candidate)->getNumSharers() > (*it)->getNumSharers()) 
            )
            &&
-           (_dram_directory_req_queue.count((*it)->getAddress()) == 0)
+           (_dram_directory_req_queue.size((*it)->getAddress()) == 0)
          )
       {
          replacement_candidate = it;
@@ -200,10 +201,10 @@ DramDirectoryCntlr::processDirectoryEntryAllocationReq(ShmemReq* shmem_req)
    ShmemMsg nullify_msg(ShmemMsg::NULLIFY_REQ, MemComponent::DRAM_DIRECTORY, MemComponent::DRAM_DIRECTORY,
                         requester, INVALID_TILE_ID, replaced_address, msg_modeled);
 
-   ShmemReq* nullify_req = new ShmemReq(nullify_msg, msg_time);
-   _dram_directory_req_queue.enqueue(replaced_address, nullify_req);
+   ShmemReq* nullify_req = new(getTileID()) ShmemReq(nullify_msg, msg_time);
+   _dram_directory_req_queue.push(replaced_address, nullify_req);
 
-   assert(_dram_directory_req_queue.count(replaced_address) == 1);
+   assert(_dram_directory_req_queue.size(replaced_address) == 1);
    processNullifyReq(nullify_req, (DirectoryEntry*) NULL, true);
 
    return directory_entry;
@@ -630,10 +631,10 @@ DramDirectoryCntlr::processInvRepFromL2Cache(tile_id_t sender, const ShmemMsg* s
       break;
    }
 
-   if (_dram_directory_req_queue.count(address) > 0)
+   if (_dram_directory_req_queue.size(address) > 0)
    {
       // Get the latest request for the data
-      ShmemReq* shmem_req = _dram_directory_req_queue.front(address);
+      ShmemReq* shmem_req = static_cast<ShmemReq*>(static_cast<ShmemReq*>(_dram_directory_req_queue.front(address)));
       restartShmemReq(sender, shmem_req, directory_entry);
    }
 }
@@ -696,13 +697,13 @@ DramDirectoryCntlr::processFlushRepFromL2Cache(tile_id_t sender, const ShmemMsg*
       break;
    }
 
-   if (_dram_directory_req_queue.count(address) > 0)
+   if (_dram_directory_req_queue.size(address) > 0)
    {
       // First save the data in one of the buffers in the directory cntlr
       _cached_data_list.insert(address, shmem_msg->getDataBuf(), getCacheLineSize());
 
       // Get the latest request for the data
-      ShmemReq* shmem_req = _dram_directory_req_queue.front(address);
+      ShmemReq* shmem_req = static_cast<ShmemReq*>(static_cast<ShmemReq*>(_dram_directory_req_queue.front(address)));
      
       // Write-back to memory in certain circumstances
       if (shmem_req->getShmemMsg().getType() == ShmemMsg::SH_REQ)
@@ -742,7 +743,7 @@ DramDirectoryCntlr::processWbRepFromL2Cache(tile_id_t sender, const ShmemMsg* sh
    case DirectoryState::MODIFIED:
       LOG_ASSERT_ERROR(sender == directory_entry->getOwner(),
             "Address(%#lx), sender(%i), owner(%i)", address, sender, directory_entry->getOwner());
-      LOG_ASSERT_ERROR(_dram_directory_req_queue.count(address) > 0,
+      LOG_ASSERT_ERROR(_dram_directory_req_queue.size(address) > 0,
             "Address(%#lx), WB_REP, req queue empty!!", address);
 
       directory_entry->setDState(DirectoryState::OWNED);
@@ -769,13 +770,13 @@ DramDirectoryCntlr::processWbRepFromL2Cache(tile_id_t sender, const ShmemMsg* sh
       break;
    }
 
-   if (_dram_directory_req_queue.count(address) > 0)
+   if (_dram_directory_req_queue.size(address) > 0)
    {
       // First save the data in one of the buffers in the directory cntlr
       _cached_data_list.insert(address, shmem_msg->getDataBuf(), getCacheLineSize());
 
       // Get the latest request for the data
-      ShmemReq* shmem_req = _dram_directory_req_queue.front(address);
+      ShmemReq* shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
       restartShmemReq(sender, shmem_req, directory_entry);
    }
    else
@@ -1172,6 +1173,12 @@ DramDirectoryCntlr::dummyOutputSummary(ostream& out)
    out << "    Average Invalidation Processing Time - Broadcast Mode (in nanoseconds): " << endl;
 }
 
+tile_id_t
+DramDirectoryCntlr::getTileID() const
+{
+   return _memory_manager->getTile()->getId();
+}
+
 UInt32
 DramDirectoryCntlr::getCacheLineSize()
 {
@@ -1235,7 +1242,7 @@ DramDirectoryCntlr::DataList::erase(IntPtr address)
 tile_id_t
 DramDirectoryCntlr::DataList::getTileID() const
 {
-   return _directory_cntlr->getMemoryManager()->getTile()->getId();
+   return _directory_cntlr->getTileID();
 }
 
 }

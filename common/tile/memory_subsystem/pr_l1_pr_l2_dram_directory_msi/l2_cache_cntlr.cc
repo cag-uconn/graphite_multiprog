@@ -94,12 +94,12 @@ L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, const Byt
       invalidateCacheLineInL1(evicted_cache_line_info.getCachedLoc(), evicted_address);
 
       UInt32 home_node_id = getHome(evicted_address);
-      bool eviction_msg_modeled = Config::getSingleton()->isApplicationTile(getTileId());
+      bool eviction_msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
 
       if (evicted_cache_line_info.getCState() == CacheState::MODIFIED)
       {
          // Send back the data also
-         ShmemMsg msg(ShmemMsg::FLUSH_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileId(), evicted_address,
+         ShmemMsg msg(ShmemMsg::FLUSH_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileID(), evicted_address,
                       writeback_buf, getCacheLineSize(), eviction_msg_modeled);
          _memory_manager->sendMsg(home_node_id, msg);
       }
@@ -108,7 +108,7 @@ L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, const Byt
          LOG_ASSERT_ERROR(evicted_cache_line_info.getCState() == CacheState::SHARED,
                "evicted_address(%#lx), cache state(%u), cached loc(%u)",
                evicted_address, evicted_cache_line_info.getCState(), evicted_cache_line_info.getCachedLoc());
-         ShmemMsg msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileId(), evicted_address, eviction_msg_modeled);
+         ShmemMsg msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileID(), evicted_address, eviction_msg_modeled);
          _memory_manager->sendMsg(home_node_id, msg);
       }
    }
@@ -271,12 +271,12 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemMsg* shmem_msg)
    {
       // This will clear the 'Present' bit also
       invalidateCacheLine(address, l2_cache_line_info);
-      ShmemMsg msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileId(), address, shmem_msg->isModeled());
+      ShmemMsg msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileID(), address, shmem_msg->isModeled());
       _memory_manager->sendMsg(getHome(address), msg);
    }
 
    // Send out EX_REQ to DRAM_DIRECTORY
-   ShmemMsg msg(ShmemMsg::EX_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileId(), address, shmem_msg->isModeled());
+   ShmemMsg msg(ShmemMsg::EX_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileID(), address, shmem_msg->isModeled());
    _memory_manager->sendMsg(getHome(address), msg);
 }
 
@@ -286,7 +286,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemMsg* shmem_msg)
    IntPtr address = shmem_msg->getAddress();
 
    // Send out SH_REQ ro DRAM_DIRECTORY
-   ShmemMsg msg(ShmemMsg::SH_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileId(), address, shmem_msg->isModeled());
+   ShmemMsg msg(ShmemMsg::SH_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileID(), address, shmem_msg->isModeled());
    _memory_manager->sendMsg(getHome(address), msg);
 }
 
@@ -294,7 +294,7 @@ void
 L2CacheCntlr::handleMsgFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    // add synchronization cost
-   if (sender == getTileId()){
+   if (sender == getTileID()){
       getShmemPerfModel()->incrCurrTime(_l2_cache->getSynchronizationDelay(DIRECTORY));
    }
    else{
@@ -526,7 +526,7 @@ L2CacheCntlr::operationPermissibleinL2Cache(Core::mem_op_t mem_op_type, IntPtr a
 }
 
 tile_id_t
-L2CacheCntlr::getTileId()
+L2CacheCntlr::getTileID()
 {
    return _memory_manager->getTile()->getId();
 }

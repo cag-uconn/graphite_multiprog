@@ -10,7 +10,7 @@ namespace PrL1PrL2DramDirectoryMSI
 }
 
 #include "directory_cache.h"
-#include "hash_map_list.h"
+#include "directory_req_queue.h"
 #include "dram_cntlr.h"
 #include "address_home_lookup.h"
 #include "shmem_req.h"
@@ -43,8 +43,9 @@ namespace PrL1PrL2DramDirectoryMSI
       MemoryManager* _memory_manager;
       DirectoryCache* _dram_directory_cache;
       DramCntlr* _dram_cntlr;
-      HashMapList<IntPtr,ShmemReq*> _dram_directory_req_queue;
+      DirectoryReqQueue _dram_directory_req_queue;
 
+      tile_id_t getTileID() const;
       UInt32 getCacheLineSize();
       ShmemPerfModel* getShmemPerfModel();
 

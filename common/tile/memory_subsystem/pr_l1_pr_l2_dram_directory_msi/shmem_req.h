@@ -3,10 +3,11 @@
 #include "shmem_msg.h"
 #include "common_types.h"
 #include "time_types.h"
+#include "../shmem_req.h"
 
 namespace PrL1PrL2DramDirectoryMSI
 {
-   class ShmemReq
+   class ShmemReq : public ::ShmemReq
    {
    public:
       ShmemReq(const ShmemMsg& shmem_msg, Time time);

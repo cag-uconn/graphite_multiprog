@@ -12,7 +12,7 @@ namespace PrL1PrL2DramDirectoryMOSI
 }
 
 #include "directory_cache.h"
-#include "hash_map_list.h"
+#include "directory_req_queue.h"
 #include "dram_cntlr.h"
 #include "address_home_lookup.h"
 #include "shmem_req.h"
@@ -71,7 +71,7 @@ namespace PrL1PrL2DramDirectoryMOSI
       DirectoryCache* _dram_directory_cache;
       DramCntlr* _dram_cntlr;
 
-      HashMapList<IntPtr,ShmemReq*> _dram_directory_req_queue;
+      DirectoryReqQueue _dram_directory_req_queue;
       DataList _cached_data_list;
 
       // Type of directory - (full_map, limited_no_broadcast, ackwise, limitless)
@@ -110,6 +110,7 @@ namespace PrL1PrL2DramDirectoryMOSI
       UInt64 _total_sharers_invalidated_broadcast_mode;
       Time _total_invalidation_processing_time_broadcast_mode;
 
+      tile_id_t getTileID() const;
       UInt32 getCacheLineSize();
       ShmemPerfModel* getShmemPerfModel();
 

@@ -127,12 +127,12 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
       L1_cache_hit = false;
 
       // Send out a request to the network thread for the cache data
-      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileId());
+      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
       ShmemMsg::Type shmem_msg_type = getShmemMsgType(mem_op_type);
       ShmemMsg shmem_msg(shmem_msg_type, MemComponent::CORE, mem_component,
-                         getTileId(), address,
+                         getTileID(), address,
                          msg_modeled);
-      _memory_manager->sendMsg(getTileId(), shmem_msg);
+      _memory_manager->sendMsg(getTileID(), shmem_msg);
 
       // Wait for the sim thread
       _memory_manager->waitForSimThread();
@@ -248,14 +248,14 @@ L1CacheCntlr::insertCacheLine(MemComponent::Type mem_component, IntPtr address, 
       LOG_PRINT("evicted address(%#lx)", evicted_address);
 
       UInt32 L2_cache_home = getL2CacheHome(evicted_address);
-      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileId());
+      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
 
       CacheState::Type evicted_cstate = evicted_cache_line_info.getCState();
       if (evicted_cstate == CacheState::MODIFIED)
       {
          // Send back the data also
          ShmemMsg send_shmem_msg(ShmemMsg::FLUSH_REP, mem_component, MemComponent::L2_CACHE,
-                                 getTileId(), evicted_address,
+                                 getTileID(), evicted_address,
                                  writeback_buf, getCacheLineSize(),
                                  msg_modeled);
          _memory_manager->sendMsg(L2_cache_home, send_shmem_msg);
@@ -265,7 +265,7 @@ L1CacheCntlr::insertCacheLine(MemComponent::Type mem_component, IntPtr address, 
          LOG_ASSERT_ERROR(evicted_cstate == CacheState::SHARED, "evicted_address(%#lx), evicted_cstate(%u)",
                           evicted_address, evicted_cstate);
          ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, mem_component, MemComponent::L2_CACHE,
-                                 getTileId(), evicted_address,
+                                 getTileID(), evicted_address,
                                  msg_modeled);
          _memory_manager->sendMsg(L2_cache_home, send_shmem_msg);
       }
@@ -304,7 +304,7 @@ void
 L1CacheCntlr::handleMsgFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    // L2 Cache synchronization delay 
-   if (sender == getTileId())
+   if (sender == getTileID())
       getShmemPerfModel()->incrCurrTime(getL1Cache(shmem_msg->getReceiverMemComponent())->getSynchronizationDelay(L2_CACHE));
    else{
       getShmemPerfModel()->incrCurrTime(getL1Cache(shmem_msg->getReceiverMemComponent())->getSynchronizationDelay(NETWORK_MEMORY));
@@ -563,7 +563,7 @@ L1CacheCntlr::getShmemMsgType(Core::mem_op_t mem_op_type)
 }
 
 tile_id_t
-L1CacheCntlr::getTileId()
+L1CacheCntlr::getTileID()
 {
    return _memory_manager->getTile()->getId();
 }

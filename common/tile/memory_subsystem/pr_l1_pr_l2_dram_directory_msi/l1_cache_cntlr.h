@@ -87,7 +87,7 @@ namespace PrL1PrL2DramDirectoryMSI
       ShmemMsg::Type getShmemMsgType(Core::mem_op_t mem_op_type);
 
       // Utilities
-      tile_id_t getTileId();
+      tile_id_t getTileID();
       UInt32 getCacheLineSize();
       ShmemPerfModel* getShmemPerfModel();
    };

@@ -6,10 +6,11 @@ using std::vector;
 #include "fixed_types.h"
 #include "directory_state.h"
 #include "time_types.h"
+#include "../shmem_req.h"
 
 namespace PrL1PrL2DramDirectoryMOSI
 {
-   class ShmemReq
+   class ShmemReq : public ::ShmemReq
    {
    public:
       ShmemReq(const ShmemMsg& shmem_msg, Time time);

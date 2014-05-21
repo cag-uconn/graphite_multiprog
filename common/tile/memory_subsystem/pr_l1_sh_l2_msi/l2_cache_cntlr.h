@@ -17,7 +17,7 @@ using std::map;
 #include "shmem_req.h"
 #include "mem_component.h"
 #include "fixed_types.h"
-#include "hash_map_list.h"
+#include "directory_req_queue.h"
 #include "shmem_perf_model.h"
 #include "cache_replacement_policy.h"
 #include "cache_hash_fn.h"
@@ -64,7 +64,7 @@ namespace PrL1ShL2MSI
       bool _enabled;
 
       // Req list into the L2 cache
-      HashMapList<IntPtr,ShmemReq*> _L2_cache_req_queue;
+      DirectoryReqQueue _L2_cache_req_queue;
       // Evicted cache line map
       map<IntPtr,ShL2CacheLineInfo> _evicted_cache_line_map;
 
@@ -106,7 +106,7 @@ namespace PrL1ShL2MSI
       void storeDataInDram(IntPtr address, const Byte* data_buf, tile_id_t requester, bool msg_modeled);
 
       // Utilities
-      tile_id_t getTileId();
+      tile_id_t getTileID();
       UInt32 getCacheLineSize();
       ShmemPerfModel* getShmemPerfModel();
       Core::mem_op_t getMemOpTypeFromShmemMsgType(ShmemMsg::Type shmem_msg_type);

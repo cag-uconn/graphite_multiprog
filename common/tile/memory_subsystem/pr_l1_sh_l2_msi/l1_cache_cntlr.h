@@ -103,7 +103,7 @@ namespace PrL1ShL2MSI
       tile_id_t getL2CacheHome(IntPtr address);
 
       // Utilities
-      tile_id_t getTileId();
+      tile_id_t getTileID();
       UInt32 getCacheLineSize();
       ShmemPerfModel* getShmemPerfModel();
    };

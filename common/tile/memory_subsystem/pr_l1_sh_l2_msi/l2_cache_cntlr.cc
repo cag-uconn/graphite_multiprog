@@ -53,9 +53,6 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
 L2CacheCntlr::~L2CacheCntlr()
 {
    // Some eviction requests
-   LOG_ASSERT_ERROR(_L2_cache_req_queue.size() == _evicted_cache_line_map.size(),
-                    "Req list size(%u), Evicted cache line map size(%u)",
-                    _L2_cache_req_queue.size(), _evicted_cache_line_map.size());
    delete _L2_cache;
    delete _L2_cache_replacement_policy_obj;
    delete _L2_cache_hash_fn_obj;
@@ -157,7 +154,7 @@ L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line
       __attribute__((unused)) DirectoryEntry* evicted_directory_entry = evicted_cache_line_info.getDirectoryEntry();
       LOG_ASSERT_ERROR(evicted_directory_entry, "Cant find directory entry for address(%#lx)", evicted_address);
 
-      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileId());
+      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
       Time eviction_time = getShmemPerfModel()->getCurrTime();
       
       LOG_PRINT("Eviction: Address(%#lx), Cache State(%u), Directory State(%u), Num Sharers(%i)",
@@ -166,12 +163,12 @@ L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line
 
       // Create a nullify req and add it onto the queue for processing
       ShmemMsg nullify_msg(ShmemMsg::NULLIFY_REQ, MemComponent::L2_CACHE, MemComponent::L2_CACHE,
-                           getTileId(), evicted_address,
+                           getTileID(), evicted_address,
                            msg_modeled); 
       // Create a new ShmemReq for removing the sharers of the evicted cache line
-      ShmemReq* nullify_req = new ShmemReq(nullify_msg, eviction_time);
+      ShmemReq* nullify_req = new(getTileID()) ShmemReq(nullify_msg, eviction_time);
       // Insert the nullify_req into the set of requests to be processed
-      _L2_cache_req_queue.enqueue(evicted_address, nullify_req);
+      _L2_cache_req_queue.push(evicted_address, nullify_req);
       
       // Insert the evicted cache line info into the evicted cache line map for future reference
       _evicted_cache_line_map.insert(make_pair(evicted_address, evicted_cache_line_info));
@@ -190,7 +187,7 @@ void
 L2CacheCntlr::handleMsgFromL1Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    // add synchronization cost
-   if (sender == getTileId()){
+   if (sender == getTileID()){
       getShmemPerfModel()->incrCurrTime(_L2_cache->getSynchronizationDelay(DVFSManager::convertToModule(shmem_msg->getSenderMemComponent())));
    }
    else{
@@ -207,10 +204,10 @@ L2CacheCntlr::handleMsgFromL1Cache(tile_id_t sender, ShmemMsg* shmem_msg)
    if ( (shmem_msg_type == ShmemMsg::EX_REQ) || (shmem_msg_type == ShmemMsg::SH_REQ) )
    {
       // Add request onto a queue
-      ShmemReq* shmem_req = new ShmemReq(*shmem_msg, msg_time);
-      _L2_cache_req_queue.enqueue(address, shmem_req);
+      ShmemReq* shmem_req = new(getTileID()) ShmemReq(*shmem_msg, msg_time);
+      _L2_cache_req_queue.push(address, shmem_req);
 
-      if (_L2_cache_req_queue.count(address) == 1)
+      if (_L2_cache_req_queue.size(address) == 1)
       {
          // Process the request
          processShmemReq(shmem_req);
@@ -262,7 +259,7 @@ L2CacheCntlr::handleMsgFromL1Cache(tile_id_t sender, ShmemMsg* shmem_msg)
       // Get the latest request for the data (if any) and process it
       if (!_L2_cache_req_queue.empty(address))
       {
-         ShmemReq* shmem_req = _L2_cache_req_queue.front(address);
+         ShmemReq* shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
          restartShmemReq(shmem_req, &L2_cache_line_info, shmem_msg->getDataBuf());
       }
    }
@@ -285,7 +282,7 @@ L2CacheCntlr::handleMsgFromDram(tile_id_t sender, ShmemMsg* shmem_msg)
    _L2_cache->getCacheLineInfo(address, &L2_cache_line_info);
 
    // Write the data into the L2 cache if it is a SH_REQ
-   ShmemReq* shmem_req = _L2_cache_req_queue.front(address);
+   ShmemReq* shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
    if (TYPE(shmem_req) == ShmemMsg::SH_REQ)
       writeCacheLine(address, shmem_msg->getDataBuf());
    else
@@ -308,10 +305,11 @@ L2CacheCntlr::processNextReqFromL1Cache(IntPtr address)
    // Add 1 cycle to denote that we are moving to the next request
    getShmemPerfModel()->incrCurrTime(Latency(1, _L2_cache->getFrequency()));
 
-   assert(_L2_cache_req_queue.count(address) >= 1);
+   assert(_L2_cache_req_queue.size(address) >= 1);
    
    // Get the completed shmem req
-   ShmemReq* completed_shmem_req = _L2_cache_req_queue.dequeue(address);
+   ShmemReq* completed_shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
+   _L2_cache_req_queue.pop(address);
 
    // Delete the completed shmem req
    delete completed_shmem_req;
@@ -319,7 +317,7 @@ L2CacheCntlr::processNextReqFromL1Cache(IntPtr address)
    if (!_L2_cache_req_queue.empty(address))
    {
       LOG_PRINT("A new shmem req for address(%#lx) found", address);
-      ShmemReq* shmem_req = _L2_cache_req_queue.front(address);
+      ShmemReq* shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
 
       // Update the Shared Mem current time appropriately
       shmem_req->updateTime(getShmemPerfModel()->getCurrTime());
@@ -743,7 +741,7 @@ L2CacheCntlr::processFlushRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem
                           address, sender, directory_entry->getOwner());
 
          // Write the line to the L2 cache if there is no request (or a SH_REQ)
-         ShmemReq* shmem_req = _L2_cache_req_queue.front(address);
+         ShmemReq* shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
          if ( (shmem_req == NULL) || (TYPE(shmem_req) == ShmemMsg::SH_REQ) )
          {
             writeCacheLine(address, shmem_msg->getDataBuf());
@@ -932,7 +930,7 @@ L2CacheCntlr::getMemOpTypeFromShmemMsgType(ShmemMsg::Type shmem_msg_type)
 }
 
 tile_id_t
-L2CacheCntlr::getTileId()
+L2CacheCntlr::getTileID()
 {
    return _memory_manager->getTile()->getId();
 }

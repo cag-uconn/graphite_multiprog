@@ -108,7 +108,7 @@ namespace PrL1PrL2DramDirectoryMOSI
       void processBufferedShmemReqFromDramDirectory();
 
       // Utilities
-      tile_id_t getTileId();
+      tile_id_t getTileID();
       UInt32 getCacheLineSize();
       ShmemPerfModel* getShmemPerfModel();
 

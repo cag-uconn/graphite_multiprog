@@ -150,12 +150,12 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
       _memory_manager->incrCurrTime(MemComponent::L2_CACHE, CachePerfModel::ACCESS_TAGS);
       
       // Send out a request to the network thread for the cache data
-      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileId());
+      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
 
       ShmemMsg::Type shmem_msg_type = getShmemMsgType(mem_op_type);
       ShmemMsg shmem_msg(shmem_msg_type, mem_component, MemComponent::L2_CACHE,
-                         getTileId(), INVALID_TILE_ID, address, msg_modeled);
-      _memory_manager->sendMsg(getTileId(), shmem_msg);
+                         getTileID(), INVALID_TILE_ID, address, msg_modeled);
+      _memory_manager->sendMsg(getTileID(), shmem_msg);
 
       _memory_manager->waitForSimThread();
 
@@ -324,7 +324,7 @@ L1CacheCntlr::getL1Cache(MemComponent::Type mem_component)
 }
 
 tile_id_t
-L1CacheCntlr::getTileId()
+L1CacheCntlr::getTileID()
 {
    return _memory_manager->getTile()->getId();
 }

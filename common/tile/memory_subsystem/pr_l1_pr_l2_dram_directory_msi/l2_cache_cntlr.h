@@ -92,7 +92,7 @@ namespace PrL1PrL2DramDirectoryMSI
       void processWbReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_msg);
 
       // Utilities
-      tile_id_t getTileId();
+      tile_id_t getTileID();
       UInt32 getCacheLineSize();
       ShmemPerfModel* getShmemPerfModel();
 

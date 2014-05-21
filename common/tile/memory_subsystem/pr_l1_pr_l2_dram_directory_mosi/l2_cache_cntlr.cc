@@ -121,13 +121,13 @@ L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, const Byt
 
       UInt32 home_node_id = getHome(evicted_address);
 
-      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileId());
+      bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
 
       if ((evicted_cstate == CacheState::MODIFIED) || (evicted_cstate == CacheState::OWNED))
       {
          // Send back the data also
          ShmemMsg send_shmem_msg(ShmemMsg::FLUSH_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY
-                                , getTileId(), INVALID_TILE_ID, evicted_address
+                                , getTileID(), INVALID_TILE_ID, evicted_address
                                 , writeback_buf, getCacheLineSize(), msg_modeled
                                 );
          _memory_manager->sendMsg(home_node_id, send_shmem_msg);
@@ -139,7 +139,7 @@ L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, const Byt
                           evicted_address, evicted_cache_line_info.getCState(), evicted_cache_line_info.getCachedLoc());
         
          ShmemMsg send_shmem_msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY
-                                , getTileId(), INVALID_TILE_ID, evicted_address
+                                , getTileID(), INVALID_TILE_ID, evicted_address
                                 ,  msg_modeled
                                 );
          _memory_manager->sendMsg(home_node_id, send_shmem_msg);
@@ -279,7 +279,7 @@ L2CacheCntlr::handleMsgFromL1Cache(ShmemMsg* shmem_msg)
    _outstanding_shmem_msg_time = getShmemPerfModel()->getCurrTime();
 
    ShmemMsg send_shmem_msg(shmem_msg_type, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY,
-                           getTileId(), INVALID_TILE_ID, address, shmem_msg->isModeled()); 
+                           getTileID(), INVALID_TILE_ID, address, shmem_msg->isModeled()); 
    _memory_manager->sendMsg(getHome(address), send_shmem_msg);
 }
 
@@ -287,7 +287,7 @@ void
 L2CacheCntlr::handleMsgFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    // add synchronization cost
-   if (sender == getTileId()){
+   if (sender == getTileID()){
       getShmemPerfModel()->incrCurrTime(_L2_cache->getSynchronizationDelay(DIRECTORY));
    }
    else{
@@ -562,7 +562,7 @@ L2CacheCntlr::processWbReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_ms
 void
 L2CacheCntlr::processInvFlushCombinedReqFromDramDirectory(tile_id_t sender, ShmemMsg* shmem_msg)
 {
-   if (shmem_msg->getSingleReceiver() == getTileId())
+   if (shmem_msg->getSingleReceiver() == getTileID())
    {
       shmem_msg->setMsgType(ShmemMsg::FLUSH_REQ);
       processFlushReqFromDramDirectory(sender, shmem_msg);
@@ -655,7 +655,7 @@ L2CacheCntlr::operationPermissibleinL2Cache(Core::mem_op_t mem_op_type, IntPtr a
 }
 
 tile_id_t
-L2CacheCntlr::getTileId()
+L2CacheCntlr::getTileID()
 {
    return _memory_manager->getTile()->getId();
 }
