@@ -1,11 +1,10 @@
 #pragma once
 
 #include <map>
-#include <stack>
 using std::map;
-using std::stack;
 
 #include "fixed_types.h"
+#include "fsb_allocator.h"
 #include "shmem_req.h"
 
 class DirectoryReqQueue
@@ -35,8 +34,6 @@ private:
    };
 
    typedef map<IntPtr, Queue> AddressMap;
-   typedef stack<Queue::Node*> FreeList;
-
    AddressMap _address_map;
-   FreeList _free_list;
+   FSBAllocator* _node_allocator;
 };

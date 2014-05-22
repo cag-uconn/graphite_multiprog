@@ -3,28 +3,19 @@
 
 DirectoryReqQueue::DirectoryReqQueue()
 {
-   // Populate free list
-   for (UInt32 i = 0; i < Config::getSingleton()->getTotalTiles(); i++)
-      _free_list.push(new Queue::Node());
+   _node_allocator = new FSBAllocator(sizeof(Queue::Node), Config::getSingleton()->getTotalTiles());
 }
 
 DirectoryReqQueue::~DirectoryReqQueue()
 {
-   // Remove free list
-   for (UInt32 i = 0; i < Config::getSingleton()->getTotalTiles(); i++)
-   {
-      delete _free_list.top();
-      _free_list.pop();
-   }
+   delete _node_allocator;
 }
 
 void
 DirectoryReqQueue::push(IntPtr address, ShmemReq* shmem_req)
 {
    // Get node from free list
-   assert(!_free_list.empty());
-   Queue::Node* node = _free_list.top();
-   _free_list.pop();
+   Queue::Node* node = (Queue::Node*) _node_allocator->allocate();
    
    // Initialize node
    node->_req = shmem_req;
@@ -53,11 +44,11 @@ DirectoryReqQueue::pop(IntPtr address)
    assert(it != _address_map.end());
    
    Queue& queue = (*it).second;
-   // Add to free list
-   _free_list.push(queue._head);
-   assert(_free_list.size() <= (Config::getSingleton()->getTotalTiles()));
-   
-   queue._head = queue._head->_next;
+   Queue::Node* next_node = queue._head->_next;
+
+   _node_allocator->free((char*) queue._head);
+
+   queue._head = next_node;
    queue._size --;
    assert((queue._size == 0) == (queue._head == NULL));
 
