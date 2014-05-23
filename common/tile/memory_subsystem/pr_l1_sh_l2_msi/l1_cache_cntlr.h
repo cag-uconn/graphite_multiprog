@@ -81,10 +81,8 @@ namespace PrL1ShL2MSI
       void insertCacheLine(MemComponent::Type mem_component, IntPtr address, CacheState::Type cstate, const Byte* data_buf);
       void invalidateCacheLine(MemComponent::Type mem_component, IntPtr address);
 
-      void accessCache(MemComponent::Type mem_component,
-                       Core::mem_op_t mem_op_type, 
-                       IntPtr address, UInt32 offset,
-                       Byte* data_buf, UInt32 data_length);
+      void accessCacheLine(MemComponent::Type mem_component, Core::mem_op_t mem_op_type, 
+                           IntPtr address, Byte* data_buf, UInt32 offset, UInt32 data_length);
       pair<bool, Cache::MissType> operationPermissibleinL1Cache(MemComponent::Type mem_component, 
                                                                 IntPtr address, Core::mem_op_t mem_op_type,
                                                                 UInt32 access_num);

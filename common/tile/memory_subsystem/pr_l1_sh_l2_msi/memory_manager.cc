@@ -49,7 +49,6 @@ MemoryManager::MemoryManager(Tile* tile)
    bool L2_cache_track_miss_types = false;
    
    // L2 Directory
-   SInt32 L2_directory_max_num_sharers = 0;
    SInt32 L2_directory_max_hw_sharers = 0;
    std::string L2_directory_type_str;
    
@@ -98,7 +97,6 @@ MemoryManager::MemoryManager(Tile* tile)
       L2_cache_track_miss_types = Sim()->getCfg()->getBool(L2_cache_type + "/track_miss_types");
 
       // Directory
-      L2_directory_max_num_sharers = Sim()->getConfig()->getTotalTiles();
       L2_directory_max_hw_sharers = Sim()->getCfg()->getInt("l2_directory/max_hw_sharers");
       L2_directory_type_str = Sim()->getCfg()->getString("l2_directory/directory_type");
 
@@ -124,7 +122,7 @@ MemoryManager::MemoryManager(Tile* tile)
    // Set L2 directory params
    L2DirectoryCfg::setDirectoryType(DirectoryEntry::parseDirectoryType(L2_directory_type_str));
    L2DirectoryCfg::setMaxHWSharers(L2_directory_max_hw_sharers);
-   L2DirectoryCfg::setMaxNumSharers(L2_directory_max_num_sharers);
+   L2DirectoryCfg::setMaxNumSharers(Sim()->getConfig()->getTotalTiles());
 
    // DRAM home lookup 
    UInt32 dram_home_lookup_param = ceilLog2(_cache_line_size);
@@ -305,12 +303,10 @@ MemoryManager::sendMsg(tile_id_t receiver, ShmemMsg& shmem_msg)
                     getTile()->getId(), receiver,
                     shmem_msg.getMsgLen(), (const void*) msg_buf);
 
-   if ((getTile()->getId() == receiver) || (shmem_msg.getSenderMemComponent() == MemComponent::DRAM_CNTLR)){
+   if ((getTile()->getId() == receiver) || (shmem_msg.getSenderMemComponent() == MemComponent::DRAM_CNTLR))
       getNetwork()->netSend(packet);
-   }
-   else{
+   else
       getNetwork()->netSend(DVFSManager::convertToModule(shmem_msg.getSenderMemComponent()), packet);
-   }
 
    // Delete the Msg Buf
    delete [] msg_buf;

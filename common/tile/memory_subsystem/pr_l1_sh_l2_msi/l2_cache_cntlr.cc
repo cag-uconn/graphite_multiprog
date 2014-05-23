@@ -157,9 +157,9 @@ L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line
       bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
       Time eviction_time = getShmemPerfModel()->getCurrTime();
       
-      LOG_PRINT("Eviction: Address(%#lx), Cache State(%u), Directory State(%u), Num Sharers(%i)",
-                evicted_address, evicted_cache_line_info.getCState(),
-                evicted_directory_entry->getDState(), evicted_directory_entry->getNumSharers());
+      LOG_PRINT("Eviction: Address(%#lx), Cache Line State(%s), Directory State(%s), Num Sharers(%i)",
+                evicted_address, SPELL_CSTATE(evicted_cache_line_info.getCState()),
+                SPELL_DSTATE(evicted_directory_entry->getDState()), evicted_directory_entry->getNumSharers());
 
       // Create a nullify req and add it onto the queue for processing
       ShmemMsg nullify_msg(ShmemMsg::NULLIFY_REQ, MemComponent::L2_CACHE, MemComponent::L2_CACHE,
@@ -187,12 +187,10 @@ void
 L2CacheCntlr::handleMsgFromL1Cache(tile_id_t sender, ShmemMsg* shmem_msg)
 {
    // add synchronization cost
-   if (sender == getTileID()){
+   if (sender == getTileID())
       getShmemPerfModel()->incrCurrTime(_L2_cache->getSynchronizationDelay(DVFSManager::convertToModule(shmem_msg->getSenderMemComponent())));
-   }
-   else{
+   else
       getShmemPerfModel()->incrCurrTime(_L2_cache->getSynchronizationDelay(NETWORK_MEMORY));
-   }
 
    // Incr current time for every message that comes into the L2 cache
    _memory_manager->incrCurrTime(MemComponent::L2_CACHE, CachePerfModel::ACCESS_DATA_AND_TAGS);

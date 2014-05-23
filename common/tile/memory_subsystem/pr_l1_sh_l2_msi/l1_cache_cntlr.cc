@@ -112,7 +112,7 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
          // L1 Cache
          _memory_manager->incrCurrTime(mem_component, CachePerfModel::ACCESS_DATA_AND_TAGS);
 
-         accessCache(mem_component, mem_op_type, address, offset, data_buf, data_length);
+         accessCacheLine(mem_component, mem_op_type, address, data_buf, offset, data_length);
                  
          return L1_cache_hit;
       }
@@ -143,9 +143,8 @@ L1CacheCntlr::processMemOpFromCore(MemComponent::Type mem_component,
 }
 
 void
-L1CacheCntlr::accessCache(MemComponent::Type mem_component,
-      Core::mem_op_t mem_op_type, IntPtr address, UInt32 offset,
-      Byte* data_buf, UInt32 data_length)
+L1CacheCntlr::accessCacheLine(MemComponent::Type mem_component, Core::mem_op_t mem_op_type,
+                              IntPtr address, Byte* data_buf, UInt32 offset, UInt32 data_length)
 {
    Cache* L1_cache = getL1Cache(mem_component);
    switch (mem_op_type)
