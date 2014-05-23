@@ -284,7 +284,10 @@ MemoryManager::sendMsg(tile_id_t receiver, ShmemMsg& shmem_msg)
 {
    assert((shmem_msg.getDataBuf() == NULL) == (shmem_msg.getDataLength() == 0));
 
-   Byte* msg_buf = shmem_msg.makeMsgBuf(getTile()->getId());
+   // Package into msg buffer
+   Byte msg_buf[shmem_msg.getMsgLen()];
+   shmem_msg.makeMsgBuf(msg_buf);
+
    Time msg_time = getShmemPerfModel()->getCurrTime();
 
    LOG_PRINT("Time(%llu), Sending Msg: type(%s), address(%#lx), "
@@ -294,18 +297,13 @@ MemoryManager::sendMsg(tile_id_t receiver, ShmemMsg& shmem_msg)
              shmem_msg.getRequester(), getTile()->getId(), receiver);
 
    NetPacket packet(msg_time, SHARED_MEM,
-         getTile()->getId(), receiver,
-         shmem_msg.getMsgLen(), (const void*) msg_buf);
+                    getTile()->getId(), receiver,
+                    shmem_msg.getMsgLen(), (const void*) msg_buf);
 
-   if (getTile()->getId() == receiver){
+   if (getTile()->getId() == receiver)
       getNetwork()->netSend(packet);
-   }
-   else{
+   else
       getNetwork()->netSend(DVFSManager::convertToModule(shmem_msg.getSenderMemComponent()), packet);
-   }
-
-   // Delete the Msg Buf
-   delete [] msg_buf;
 }
 
 void
@@ -313,7 +311,10 @@ MemoryManager::broadcastMsg(ShmemMsg& shmem_msg)
 {
    assert((shmem_msg.getDataBuf() == NULL) == (shmem_msg.getDataLength() == 0));
 
-   Byte* msg_buf = shmem_msg.makeMsgBuf(getTile()->getId());
+   // Package into msg buffer
+   Byte msg_buf[shmem_msg.getMsgLen()];
+   shmem_msg.makeMsgBuf(msg_buf);
+
    Time msg_time = getShmemPerfModel()->getCurrTime();
 
    LOG_PRINT("Time(%llu), Broadcasting Msg: type(%s), address(%#lx), "
@@ -323,12 +324,9 @@ MemoryManager::broadcastMsg(ShmemMsg& shmem_msg)
              shmem_msg.getRequester(), getTile()->getId());
 
    NetPacket packet(msg_time, SHARED_MEM,
-         getTile()->getId(), NetPacket::BROADCAST,
-         shmem_msg.getMsgLen(), (const void*) msg_buf);
+                    getTile()->getId(), NetPacket::BROADCAST,
+                    shmem_msg.getMsgLen(), (const void*) msg_buf);
    getNetwork()->netSend(packet);
-
-   // Delete the Msg Buf
-   delete [] msg_buf;
 }
 
 void

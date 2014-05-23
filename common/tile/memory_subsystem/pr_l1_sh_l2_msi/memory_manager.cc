@@ -287,12 +287,17 @@ MemoryManager::sendMsg(tile_id_t receiver, ShmemMsg& shmem_msg)
 {
    LOG_ASSERT_ERROR((shmem_msg.getDataBuf() == NULL) == (shmem_msg.getDataLength() == 0),
                     "Address(%#lx), Type(%u), Sender Component(%u), Receiver Component(%u)",
-                    shmem_msg.getAddress(), shmem_msg.getType(), shmem_msg.getSenderMemComponent(), shmem_msg.getReceiverMemComponent());
+                    shmem_msg.getAddress(), shmem_msg.getType(),
+                    shmem_msg.getSenderMemComponent(), shmem_msg.getReceiverMemComponent());
 
-   Byte* msg_buf = shmem_msg.makeMsgBuf(getTile()->getId());
+   // Package into msg buffer
+   Byte msg_buf[shmem_msg.getMsgLen()];
+   shmem_msg.makeMsgBuf(msg_buf);
+
    Time msg_time = getShmemPerfModel()->getCurrTime();
 
-   LOG_PRINT("Time(%llu), Sending Msg: type(%u), address(%#lx), sender_mem_component(%u), receiver_mem_component(%u), "
+   LOG_PRINT("Time(%llu), Sending Msg: type(%u), address(%#lx), "
+             "sender_mem_component(%u), receiver_mem_component(%u), "
              "requester(%i), sender(%i), receiver(%i), modeled(%s)",
              msg_time.toNanosec(), shmem_msg.getType(), shmem_msg.getAddress(),
              shmem_msg.getSenderMemComponent(), shmem_msg.getReceiverMemComponent(),
@@ -307,9 +312,6 @@ MemoryManager::sendMsg(tile_id_t receiver, ShmemMsg& shmem_msg)
       getNetwork()->netSend(packet);
    else
       getNetwork()->netSend(DVFSManager::convertToModule(shmem_msg.getSenderMemComponent()), packet);
-
-   // Delete the Msg Buf
-   delete [] msg_buf;
 }
 
 void
@@ -317,10 +319,14 @@ MemoryManager::broadcastMsg(ShmemMsg& shmem_msg)
 {
    assert((shmem_msg.getDataBuf() == NULL) == (shmem_msg.getDataLength() == 0));
 
-   Byte* msg_buf = shmem_msg.makeMsgBuf(getTile()->getId());
+   // Package into msg buffer
+   Byte msg_buf[shmem_msg.getMsgLen()];
+   shmem_msg.makeMsgBuf(msg_buf);
+
    Time msg_time = getShmemPerfModel()->getCurrTime();
 
-   LOG_PRINT("Time(%llu), Broadcasting Msg: type(%u), address(%#lx), sender_mem_component(%u), receiver_mem_component(%u), "
+   LOG_PRINT("Time(%llu), Broadcasting Msg: type(%u), address(%#lx), "
+             "sender_mem_component(%u), receiver_mem_component(%u), "
              "requester(%i), sender(%i), modeled(%s)",
              msg_time.toNanosec(), shmem_msg.getType(), shmem_msg.getAddress(),
              shmem_msg.getSenderMemComponent(), shmem_msg.getReceiverMemComponent(),
@@ -328,12 +334,9 @@ MemoryManager::broadcastMsg(ShmemMsg& shmem_msg)
              shmem_msg.isModeled() ? "TRUE" : "FALSE");
 
    NetPacket packet(msg_time, SHARED_MEM,
-         getTile()->getId(), NetPacket::BROADCAST,
-         shmem_msg.getMsgLen(), (const void*) msg_buf);
+                    getTile()->getId(), NetPacket::BROADCAST,
+                    shmem_msg.getMsgLen(), (const void*) msg_buf);
    getNetwork()->netSend(packet);
-
-   // Delete the Msg Buf
-   delete [] msg_buf;
 }
 
 void

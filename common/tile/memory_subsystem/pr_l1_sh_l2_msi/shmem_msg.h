@@ -55,7 +55,7 @@ public:
    
    ~ShmemMsg();
 
-   Byte* makeMsgBuf(heap_id_t heap_id) const;
+   void makeMsgBuf(Byte* msg_buf) const;
    UInt32 getMsgLen() const;
 
    // Modeled Parameters

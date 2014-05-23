@@ -31,25 +31,25 @@ namespace PrL1PrL2DramDirectoryMSI
       
       ShmemMsg();
       ShmemMsg(Type msg_type,
-            MemComponent::Type sender_mem_component,
-            MemComponent::Type receiver_mem_component,
-            tile_id_t requester,
-            IntPtr address,
-            bool modeled);
+               MemComponent::Type sender_mem_component,
+               MemComponent::Type receiver_mem_component,
+               tile_id_t requester,
+               IntPtr address,
+               bool modeled);
       ShmemMsg(Type msg_type,
-            MemComponent::Type sender_mem_component,
-            MemComponent::Type receiver_mem_component,
-            tile_id_t requester,
-            IntPtr address,
-            const Byte* data_buf,
-            UInt32 data_length,
-            bool modeled);
+               MemComponent::Type sender_mem_component,
+               MemComponent::Type receiver_mem_component,
+               tile_id_t requester,
+               IntPtr address,
+               const Byte* data_buf,
+               UInt32 data_length,
+               bool modeled);
       ShmemMsg(const ShmemMsg& shmem_msg);
       explicit ShmemMsg(const Byte* msg_buf);
 
       ~ShmemMsg();
 
-      Byte* makeMsgBuf(heap_id_t heap_id) const;
+      void makeMsgBuf(Byte* msg_buf) const;
       UInt32 getMsgLen() const;
 
       // Modeling

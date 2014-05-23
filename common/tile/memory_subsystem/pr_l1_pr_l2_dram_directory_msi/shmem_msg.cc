@@ -16,11 +16,11 @@ namespace PrL1PrL2DramDirectoryMSI
    {}
 
    ShmemMsg::ShmemMsg(Type msg_type,
-         MemComponent::Type sender_mem_component,
-         MemComponent::Type receiver_mem_component,
-         tile_id_t requester,
-         IntPtr address,
-         bool modeled)
+                      MemComponent::Type sender_mem_component,
+                      MemComponent::Type receiver_mem_component,
+                      tile_id_t requester,
+                      IntPtr address,
+                      bool modeled)
       : _msg_type(msg_type)
       , _sender_mem_component(sender_mem_component)
       , _receiver_mem_component(receiver_mem_component)
@@ -32,13 +32,13 @@ namespace PrL1PrL2DramDirectoryMSI
    {}
 
    ShmemMsg::ShmemMsg(Type msg_type,
-         MemComponent::Type sender_mem_component,
-         MemComponent::Type receiver_mem_component,
-         tile_id_t requester,
-         IntPtr address,
-         const Byte* data_buf,
-         UInt32 data_length,
-         bool modeled)
+                      MemComponent::Type sender_mem_component,
+                      MemComponent::Type receiver_mem_component,
+                      tile_id_t requester,
+                      IntPtr address,
+                      const Byte* data_buf,
+                      UInt32 data_length,
+                      bool modeled)
       : _msg_type(msg_type)
       , _sender_mem_component(sender_mem_component)
       , _receiver_mem_component(receiver_mem_component)
@@ -71,18 +71,15 @@ namespace PrL1PrL2DramDirectoryMSI
    ShmemMsg::~ShmemMsg()
    {}
 
-   Byte*
-   ShmemMsg::makeMsgBuf(heap_id_t heap_id) const
+   void
+   ShmemMsg::makeMsgBuf(Byte* msg_buf) const
    {
-      Byte* msg_buf = new(heap_id) Byte[getMsgLen()];
       memcpy(msg_buf, (void*) this, sizeof(*this));
       if (_data_length > 0)
       {
          LOG_ASSERT_ERROR(_data_buf != NULL, "_data_buf(%p)", _data_buf);
          memcpy(msg_buf + sizeof(*this), (void*) _data_buf, _data_length); 
       }
-
-      return msg_buf; 
    }
 
    UInt32
