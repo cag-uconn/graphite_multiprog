@@ -3,17 +3,6 @@ SOURCES = synthetic_memory.cc
 
 APP_FLAGS ?= "< inputs/input.64"
 
-MODE ?=
-
-APP_SPECIFIC_CXX_FLAGS ?= -I$(SIM_ROOT)/common/tile \
-								  -I$(SIM_ROOT)/common/tile/core \
-								  -I$(SIM_ROOT)/common/system \
-								  -I$(SIM_ROOT)/common/tile/memory_subsystem \
-								  -I$(SIM_ROOT)/common/tile/memory_subsystem/cache \
-								  -I$(SIM_ROOT)/common/tile/memory_subsystem/performance_models \
-								  -I$(SIM_ROOT)/common/shared_models \
-								  -I$(SIM_ROOT)/common/network \
-								  -I$(SIM_ROOT)/common/transport \
-								  -I$(SIM_ROOT)/common/config 
+MODE ?= native
 
 include ../../Makefile.tests

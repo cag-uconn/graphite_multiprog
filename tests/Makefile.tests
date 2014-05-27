@@ -17,7 +17,6 @@
 # MODE - set to 'pin' to use pin, set to '' for running application standalone
 # CONFIG_FILE - configuration file to use to run the Graphite simulator
 # OUTPUT_DIR - directory to write the simulation output
-# APP_SPECIFIC_CXX_FLAGS - application-specific CXX flags (e.g., include paths)
 # SIM_FLAGS - config flags passed to the simulator. Derived from CORES, PROCS. See sim_flags_fn.
 # EXEC - command to run; derived from TARGET and APP_FLAGS
 
@@ -76,7 +75,6 @@ PIN_RUN = $(PIN_BIN) $(PIN_DEBUG_FLAGS) -injection child -mt -t $(PIN_TOOL)
 
 CONFIG_FILE_ABS_PATH := $(SIM_ROOT)/$(CONFIG_FILE)
 OUTPUT_DIR_ABS_PATH := $(SIM_ROOT)/results/$(OUTPUT_DIR)
-APP_SPECIFIC_CXX_FLAGS ?= 
 
 # Compute SIM_FLAGS
 sim_flags_fn = -c $(CONFIG_FILE_ABS_PATH)
@@ -118,8 +116,14 @@ include $(SIM_ROOT)/common/Makefile.common
 include $(SIM_ROOT)/contrib/Makefile.common
 endif
 
-CXXFLAGS = $(DBG_FLAGS) $(OPT_FLAGS) -Wall $(APP_SPECIFIC_CXX_FLAGS) -I$(SIM_ROOT)/common/user -I$(SIM_ROOT)/common/misc
-CFLAGS = $(CXXFLAGS) -std=c99
+ifeq ($(MODE),pin)
+	INCLUDE_DIRECTORIES = $(SIM_ROOT)/common/user
+endif
+
+INCLUDE_PATH = $(foreach dir,$(INCLUDE_DIRECTORIES),-I$(dir))
+COMPILE_FLAGS = $(DBG_FLAGS) $(OPT_FLAGS) -Wall $(INCLUDE_PATH)
+CXXFLAGS = -std=c++0x $(COMPILE_FLAGS)
+CFLAGS = -std=c99 $(COMPILE_FLAGS)
 
 # Rules
 CARBON_LIB = $(SIM_ROOT)/lib/libcarbon_sim.a
