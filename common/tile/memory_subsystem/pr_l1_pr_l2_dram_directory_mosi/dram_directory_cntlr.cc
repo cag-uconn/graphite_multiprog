@@ -123,7 +123,7 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
    assert(_dram_directory_req_queue.size(address) >= 1);
    
    // Get the completed shmem req
-   ShmemReq* completed_shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+   ShmemReq* completed_shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
    _dram_directory_req_queue.pop(address);
 
    // Update Finish time
@@ -141,7 +141,7 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
    if (!_dram_directory_req_queue.empty(address))
    {
       LOG_PRINT("A new shmem req for address(%#lx) found", address);
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
 
       // Update the Shared Mem time appropriately
       shmem_req->updateProcessingStartTime(getShmemPerfModel()->getCurrTime());
@@ -634,7 +634,7 @@ DramDirectoryCntlr::processInvRepFromL2Cache(tile_id_t sender, const ShmemMsg* s
    if (_dram_directory_req_queue.size(address) > 0)
    {
       // Get the latest request for the data
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(static_cast<ShmemReq*>(_dram_directory_req_queue.front(address)));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
       restartShmemReq(sender, shmem_req, directory_entry);
    }
 }
@@ -703,7 +703,7 @@ DramDirectoryCntlr::processFlushRepFromL2Cache(tile_id_t sender, const ShmemMsg*
       _cached_data_list.insert(address, shmem_msg->getDataBuf(), getCacheLineSize());
 
       // Get the latest request for the data
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(static_cast<ShmemReq*>(_dram_directory_req_queue.front(address)));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
      
       // Write-back to memory in certain circumstances
       if (shmem_req->getShmemMsg().getType() == ShmemMsg::SH_REQ)
@@ -776,7 +776,7 @@ DramDirectoryCntlr::processWbRepFromL2Cache(tile_id_t sender, const ShmemMsg* sh
       _cached_data_list.insert(address, shmem_msg->getDataBuf(), getCacheLineSize());
 
       // Get the latest request for the data
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
       restartShmemReq(sender, shmem_req, directory_entry);
    }
    else

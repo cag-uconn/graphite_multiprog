@@ -101,14 +101,14 @@ DramDirectoryCntlr::processNextReqFromL2Cache(IntPtr address)
    LOG_PRINT("Start processNextReqFromL2Cache(%#lx)", address);
 
    assert(_dram_directory_req_queue.size(address) >= 1);
-   ShmemReq* completed_shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+   ShmemReq* completed_shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
    _dram_directory_req_queue.pop(address);
    delete completed_shmem_req;
 
    if (! _dram_directory_req_queue.empty(address))
    {
       LOG_PRINT("A new shmem req for address(%#lx) found", address);
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
 
       // Update the Shared Mem current time appropriately
       shmem_req->updateTime(getShmemPerfModel()->getCurrTime());
@@ -423,7 +423,7 @@ DramDirectoryCntlr::processInvRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_m
 
    if (_dram_directory_req_queue.size(address) > 0)
    {
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
 
       // Update Times in the Shmem Perf Model and the Shmem Req
       shmem_req->updateTime(getShmemPerfModel()->getCurrTime());
@@ -468,7 +468,7 @@ DramDirectoryCntlr::processFlushRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem
 
    if (_dram_directory_req_queue.size(address) != 0)
    {
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
 
       // Update times
       shmem_req->updateTime(getShmemPerfModel()->getCurrTime());
@@ -516,7 +516,7 @@ DramDirectoryCntlr::processWbRepFromL2Cache(tile_id_t sender, ShmemMsg* shmem_ms
 
    if (_dram_directory_req_queue.size(address) != 0)
    {
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_dram_directory_req_queue.front(address));
 
       // Update Time
       shmem_req->updateTime(getShmemPerfModel()->getCurrTime());

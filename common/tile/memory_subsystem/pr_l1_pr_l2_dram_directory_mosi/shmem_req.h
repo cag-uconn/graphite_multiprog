@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vector>
-using std::vector;
 #include "shmem_msg.h"
 #include "fixed_types.h"
 #include "directory_state.h"

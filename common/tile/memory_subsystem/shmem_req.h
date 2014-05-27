@@ -4,4 +4,7 @@
 
 class ShmemReq : public ScalableAllocator<ShmemReq>
 {
+public:
+   ShmemReq() {}
+   virtual ~ShmemReq() {}
 };

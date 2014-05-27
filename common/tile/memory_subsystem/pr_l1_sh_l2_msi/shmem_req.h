@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vector>
-using std::vector;
 #include "shmem_msg.h"
 #include "common_types.h"
 #include "time_types.h"

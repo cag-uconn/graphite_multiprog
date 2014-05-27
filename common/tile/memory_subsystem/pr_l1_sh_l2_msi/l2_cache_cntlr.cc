@@ -257,7 +257,7 @@ L2CacheCntlr::handleMsgFromL1Cache(tile_id_t sender, ShmemMsg* shmem_msg)
       // Get the latest request for the data (if any) and process it
       if (!_L2_cache_req_queue.empty(address))
       {
-         ShmemReq* shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
+         ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
          restartShmemReq(shmem_req, &L2_cache_line_info, shmem_msg->getDataBuf());
       }
    }
@@ -280,7 +280,7 @@ L2CacheCntlr::handleMsgFromDram(tile_id_t sender, ShmemMsg* shmem_msg)
    _L2_cache->getCacheLineInfo(address, &L2_cache_line_info);
 
    // Write the data into the L2 cache if it is a SH_REQ
-   ShmemReq* shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
+   ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
    if (TYPE(shmem_req) == ShmemMsg::SH_REQ)
       writeCacheLine(address, shmem_msg->getDataBuf());
    else
@@ -306,7 +306,7 @@ L2CacheCntlr::processNextReqFromL1Cache(IntPtr address)
    assert(_L2_cache_req_queue.size(address) >= 1);
    
    // Get the completed shmem req
-   ShmemReq* completed_shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
+   ShmemReq* completed_shmem_req = dynamic_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
    _L2_cache_req_queue.pop(address);
 
    // Delete the completed shmem req
@@ -315,7 +315,7 @@ L2CacheCntlr::processNextReqFromL1Cache(IntPtr address)
    if (!_L2_cache_req_queue.empty(address))
    {
       LOG_PRINT("A new shmem req for address(%#lx) found", address);
-      ShmemReq* shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
+      ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
 
       // Update the Shared Mem current time appropriately
       shmem_req->updateTime(getShmemPerfModel()->getCurrTime());
@@ -739,7 +739,7 @@ L2CacheCntlr::processFlushRepFromL1Cache(tile_id_t sender, const ShmemMsg* shmem
                           address, sender, directory_entry->getOwner());
 
          // Write the line to the L2 cache if there is no request (or a SH_REQ)
-         ShmemReq* shmem_req = static_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
+         ShmemReq* shmem_req = dynamic_cast<ShmemReq*>(_L2_cache_req_queue.front(address));
          if ( (shmem_req == NULL) || (TYPE(shmem_req) == ShmemMsg::SH_REQ) )
          {
             writeCacheLine(address, shmem_msg->getDataBuf());
