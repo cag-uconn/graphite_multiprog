@@ -1022,7 +1022,7 @@ IntPtr SyscallMdl::marshallBrkCall (syscall_args_t &args)
    }
 }
 
-IntPtr SyscallMdl::marshallFutexCall (syscall_args_t &args)
+IntPtr SyscallMdl::marshallFutexCall(syscall_args_t &args)
 {
    int *addr1 = (int*) args.arg0;
    int op = (int) args.arg1;
@@ -1036,6 +1036,15 @@ IntPtr SyscallMdl::marshallFutexCall (syscall_args_t &args)
       Core *core = Sim()->getTileManager()->getCurrentCore();
       LOG_ASSERT_ERROR(core, "Core = ((NULL))");
 
+      struct timespec timeout_buf;
+      if (timeout)
+      {
+         if (SIMULATION_MODE == Config::FULL)
+            core->accessMemory(Core::NONE, Core::READ, (IntPtr) timeout, (char*) &timeout_buf, sizeof(timeout_buf));
+         else // (SIMULATION_MODE == Config::LITE)
+            memcpy(&timeout_buf, timeout, sizeof(timeout_buf));
+      }
+      
       UInt64 start_time;
       UInt64 end_time;
 
@@ -1048,6 +1057,8 @@ IntPtr SyscallMdl::marshallFutexCall (syscall_args_t &args)
       m_send_buff.put(timeout);
       m_send_buff.put(addr2);
       m_send_buff.put(val3);
+      if (timeout)
+         m_send_buff.put(timeout_buf);
 
       m_send_buff.put(start_time);
 

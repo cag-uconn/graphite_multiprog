@@ -78,7 +78,7 @@ private:
    void marshallSchedGetAffinityCall(core_id_t core_id);
 
    // Handling Futexes
-   void futexWait(core_id_t core_id, int *addr, int val, UInt64 curr_time);
+   void futexWait(core_id_t core_id, int *addr, int val, struct timespec* timeout, UInt64 curr_time);
 #ifdef KERNEL_SQUEEZE
    void futexWaitClockReal(core_id_t core_id, int *addr, int val, UInt64 curr_time);
 #endif

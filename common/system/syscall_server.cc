@@ -794,12 +794,13 @@ void SyscallServer::marshallExitGroupCall(core_id_t core_id)
 
 void SyscallServer::marshallFutexCall(core_id_t core_id)
 {
-   int *addr1;
+   int* addr1;
    int op;
    int val1;
-   void *timeout;
-   int *addr2;
+   struct timespec* timeout;
+   int* addr2;
    int val3;
+   struct timespec timeout_buf;
 
    UInt64 curr_time;
 
@@ -809,6 +810,8 @@ void SyscallServer::marshallFutexCall(core_id_t core_id)
    m_recv_buff.get(timeout);
    m_recv_buff.get(addr2);
    m_recv_buff.get(val3);
+   if (timeout)
+      m_recv_buff.get(timeout_buf);
    
    m_recv_buff.get(curr_time);
 
@@ -859,7 +862,7 @@ void SyscallServer::marshallFutexCall(core_id_t core_id)
 #ifdef KERNEL_SQUEEZE
    if ((op == FUTEX_WAIT) || (op == (FUTEX_WAIT | FUTEX_PRIVATE_FLAG)))
    {
-      futexWait(core_id, addr1, val1, curr_time); 
+      futexWait(core_id, addr1, val1, &timeout_buf, curr_time); 
    }
    else if ((op == FUTEX_WAKE) || (op == (FUTEX_WAKE | FUTEX_PRIVATE_FLAG)))
    {
@@ -884,7 +887,7 @@ void SyscallServer::marshallFutexCall(core_id_t core_id)
 #ifdef KERNEL_LENNY
    if ((op == FUTEX_WAIT) || (op == (FUTEX_WAIT | FUTEX_PRIVATE_FLAG)))
    {
-      futexWait(core_id, addr1, val1, curr_time); 
+      futexWait(core_id, addr1, val1, &timeout_buf, curr_time); 
    }
    else if ((op == FUTEX_WAKE) || (op == (FUTEX_WAKE | FUTEX_PRIVATE_FLAG)))
    {
@@ -904,7 +907,7 @@ void SyscallServer::marshallFutexCall(core_id_t core_id)
 }
 
 // -- Futex related functions --
-void SyscallServer::futexWait(core_id_t core_id, int *addr, int val, UInt64 curr_time)
+void SyscallServer::futexWait(core_id_t core_id, int *addr, int val, struct timespec* timeout, UInt64 curr_time)
 {
    SimFutex *sim_futex = &m_futexes[(IntPtr) addr];
 
