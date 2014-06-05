@@ -128,7 +128,9 @@ void LCP::updateCommId(void *vp)
                  /*receiver*/ update->tile_id,
                  /*length*/ 0,
                  /*data*/ NULL);
-   Byte *buffer = ack.makeBuffer(LCP_HEAP_ID);
+   
+   Byte buffer[ack.bufferSize()];
+   ack.makeBuffer(buffer);
+   
    _transport->send(update->tile_id, buffer, ack.bufferSize());
-   delete [] buffer;
 }

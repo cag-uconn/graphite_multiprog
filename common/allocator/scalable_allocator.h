@@ -11,7 +11,6 @@ using std::endl;
 
 typedef int heap_id_t;
 
-#define LCP_HEAP_ID        ((int) Config::getSingleton()->getTotalTiles())
 #define TRANSPORT_HEAP_ID  ((int) Config::getSingleton()->getTotalTiles())
 #define NUM_HEAPS          ((int) Config::getSingleton()->getTotalTiles() + 1)
 

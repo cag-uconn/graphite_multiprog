@@ -216,7 +216,9 @@ SInt32 Network::forwardPacket(const NetPacket& packet)
    ScopedLock sl(_hop_queue_lock);
 
    // Create a buffer suitable for forwarding
-   Byte* buffer = packet.makeBuffer(_tile->getId());
+   Byte buffer[packet.bufferSize()];
+   packet.makeBuffer(buffer);
+   
    NetPacket* buf_pkt = (NetPacket*) buffer;
 
    LOG_ASSERT_ERROR((buf_pkt->type >= 0) && (buf_pkt->type < NUM_PACKET_TYPES),
@@ -252,8 +254,6 @@ SInt32 Network::forwardPacket(const NetPacket& packet)
          _transport->send(hop._next_tile_id, buffer, packet.bufferSize());
       }
    }
-
-   delete [] buffer;
 
    return packet.length;
 }
@@ -700,15 +700,9 @@ UInt32 NetPacket::bufferSize() const
    return (sizeof(*this) + length);
 }
 
-Byte* NetPacket::makeBuffer(heap_id_t heap_id) const
+void NetPacket::makeBuffer(Byte* buffer) const
 {
-   UInt32 size = bufferSize();
-   assert(size >= sizeof(NetPacket));
-
-   Byte *buffer = new(heap_id) Byte[size];
-
    memcpy(buffer, this, sizeof(*this));
-   memcpy(buffer + sizeof(*this), data, length);
-
-   return buffer;
+   if (length > 0)
+      memcpy(buffer + sizeof(*this), data, length);
 }

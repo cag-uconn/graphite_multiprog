@@ -50,7 +50,7 @@ public:
    explicit NetPacket(Byte* buffer, heap_id_t heap_id);
 
    UInt32 bufferSize() const;
-   Byte *makeBuffer(heap_id_t heap_id) const;
+   void makeBuffer(Byte* buffer) const;
 
    static const SInt32 BROADCAST = 0xDEADBABE;
 };

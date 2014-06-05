@@ -23,7 +23,10 @@ PerformanceCounterManager::togglePerformanceCounters(Byte* msg)
          NetPacket ack(Time(0) /* time */, LCP_TOGGLE_PERFORMANCE_COUNTERS_ACK /* packet type */,
                        0 /* sender - doesn't matter */, 0 /* receiver */,
                        0 /* length */, NULL /* data */);
-         Byte* buffer = ack.makeBuffer(LCP_HEAP_ID);
+         
+         Byte buffer[ack.bufferSize()];
+         ack.makeBuffer(buffer);
+
          Transport::Node* transport = Transport::getSingleton()->getGlobalNode();
          transport->send(0, buffer, ack.bufferSize());
       }
@@ -36,7 +39,10 @@ PerformanceCounterManager::togglePerformanceCounters(Byte* msg)
          NetPacket ack(Time(0) /* time */, LCP_TOGGLE_PERFORMANCE_COUNTERS_ACK /* packet type */,
                        0 /* sender - doesn't matter */, 0 /* receiver */,
                        0 /* length */, NULL /* data */);
-         Byte* buffer = ack.makeBuffer(LCP_HEAP_ID);
+         
+         Byte buffer[ack.bufferSize()];
+         ack.makeBuffer(buffer);
+         
          Transport::Node* transport = Transport::getSingleton()->getGlobalNode();
          transport->send(0, buffer, ack.bufferSize());
       }
