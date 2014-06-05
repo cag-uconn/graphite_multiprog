@@ -40,6 +40,9 @@
 // ------ Included for writev
 #include <sys/uio.h>
 
+// ------ Included for futex
+#include <linux/futex.h>
+
 #define SIMULATION_MODE    (Config::getSingleton()->getSimulationMode())
 
 using namespace std;
@@ -1036,20 +1039,6 @@ IntPtr SyscallMdl::marshallFutexCall(syscall_args_t &args)
       Core *core = Sim()->getTileManager()->getCurrentCore();
       LOG_ASSERT_ERROR(core, "Core = ((NULL))");
 
-      struct timespec timeout_buf;
-      if (timeout)
-      {
-         if (SIMULATION_MODE == Config::FULL)
-            core->accessMemory(Core::NONE, Core::READ, (IntPtr) timeout, (char*) &timeout_buf, sizeof(timeout_buf));
-         else // (SIMULATION_MODE == Config::LITE)
-            memcpy(&timeout_buf, timeout, sizeof(timeout_buf));
-      }
-      
-      UInt64 start_time;
-      UInt64 end_time;
-
-      start_time = core->getModel()->getCurrTime().getTime();
-
       // Package the arguments for the syscall
       m_send_buff.put(addr1);
       m_send_buff.put(op);
@@ -1057,8 +1046,19 @@ IntPtr SyscallMdl::marshallFutexCall(syscall_args_t &args)
       m_send_buff.put(timeout);
       m_send_buff.put(addr2);
       m_send_buff.put(val3);
-      if (timeout)
+      
+      if (((op == FUTEX_WAIT) || (op == (FUTEX_WAIT | FUTEX_PRIVATE_FLAG))) && timeout)
+      {
+         struct timespec timeout_buf;
+         if (SIMULATION_MODE == Config::FULL)
+            core->accessMemory(Core::NONE, Core::READ, (IntPtr) timeout, (char*) &timeout_buf, sizeof(timeout_buf));
+         else // (SIMULATION_MODE == Config::LITE)
+            memcpy(&timeout_buf, timeout, sizeof(timeout_buf));
          m_send_buff.put(timeout_buf);
+      }
+      
+      UInt64 start_time = core->getModel()->getCurrTime().getTime();
+      UInt64 end_time;
 
       m_send_buff.put(start_time);
 
