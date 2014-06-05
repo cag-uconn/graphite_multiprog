@@ -208,7 +208,7 @@ void SockTransport::insertInBufferList(SInt32 tag, Byte *buffer)
 
    LOG_ASSERT_ERROR(0 <= tag && tag < m_num_lists, "Unexpected tag value: %d", tag);
    m_buffer_list_locks[tag].acquire();
-   m_buffer_lists[tag].push_back(buffer);
+   m_buffer_lists[tag].push(buffer);
 
    m_buffer_list_locks[tag].release();
    
@@ -350,7 +350,7 @@ Byte* SockTransport::SockNode::recv()
    buffer_list &list = m_transport->m_buffer_lists[tag];
    LOG_ASSERT_ERROR(!list.empty(), "Buffer list empty after waiting on semaphore.");
    Byte* buffer = list.front();
-   list.pop_front();
+   list.pop();
 
    lock.release();
 

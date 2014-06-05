@@ -5,7 +5,7 @@
 #include "thread.h"
 #include "semaphore.h"
 
-#include <list>
+#include <queue>
 
 class SockTransport : public Transport
 {
@@ -103,7 +103,7 @@ private:
    Thread *m_update_thread;
    UpdateThreadState m_update_thread_state;
 
-   typedef std::list<Byte*> buffer_list;
+   typedef std::queue<Byte*> buffer_list;
    SInt32 m_num_lists;
    buffer_list *m_buffer_lists;
 
