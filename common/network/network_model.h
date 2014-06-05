@@ -1,9 +1,6 @@
 #ifndef NETWORK_MODEL_H
 #define NETWORK_MODEL_H
 
-class NetPacket;
-class Network;
-
 #include <vector>
 #include <queue>
 #include <string>
@@ -19,7 +16,10 @@ using std::pair;
 #include "time_types.h"
 #include "constants.h"
 #include "dvfs.h"
-#include "mcpat_cache_interface.h"
+#include "dvfs_manager.h"
+
+class NetPacket;
+class Network;
 
 #define CORE_ID(x)         ((core_id_t) {x, MAIN_CORE_TYPE})
 #define TILE_ID(x)         (x.tile_id)

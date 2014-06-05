@@ -213,6 +213,8 @@ SInt32 Network::netSend(module_t module, NetPacket& packet)
 
 SInt32 Network::forwardPacket(const NetPacket& packet)
 {
+   ScopedLock sl(_hop_queue_lock);
+
    // Create a buffer suitable for forwarding
    Byte* buffer = packet.makeBuffer(_tile->getId());
    NetPacket* buf_pkt = (NetPacket*) buffer;
@@ -222,13 +224,12 @@ SInt32 Network::forwardPacket(const NetPacket& packet)
 
    NetworkModel *model = getNetworkModelFromPacketType(buf_pkt->type);
 
-   queue<NetworkModel::Hop> hop_queue;
-   model->__routePacket(*buf_pkt, hop_queue);
+   model->__routePacket(*buf_pkt, _hop_queue);
 
-   while (!hop_queue.empty())
+   while (!_hop_queue.empty())
    {
-      NetworkModel::Hop hop = hop_queue.front();
-      hop_queue.pop();
+      NetworkModel::Hop hop = _hop_queue.front();
+      _hop_queue.pop();
 
       buf_pkt->node_type = hop._next_node_type;
       buf_pkt->time = hop._time;
@@ -240,7 +241,7 @@ SInt32 Network::forwardPacket(const NetPacket& packet)
          Tile* next_tile = Sim()->getTileManager()->getTileFromID(hop._next_tile_id);
          assert(next_tile);
          NetworkModel* next_network_model = next_tile->getNetwork()->getNetworkModelFromPacketType(buf_pkt->type);
-         next_network_model->__routePacket(*buf_pkt, hop_queue);
+         next_network_model->__routePacket(*buf_pkt, _hop_queue);
       }
       else
       {

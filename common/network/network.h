@@ -5,10 +5,12 @@
 #include <fstream>
 #include <vector>
 #include <list>
+#include <queue>
 using std::ostream;
 using std::ofstream;
 using std::vector;
 using std::list;
+using std::queue;
 
 #include "packet_type.h"
 #include "fixed_types.h"
@@ -17,10 +19,9 @@ using std::list;
 #include "transport.h"
 #include "time_types.h"
 #include "dvfs.h"
+#include "network_model.h"
 
 class Tile;
-class Network;
-class NetworkModel;
 
 // -- Network Packets -- //
 
@@ -131,6 +132,9 @@ private:
 
    SInt32 _tid;
    SInt32 _numMod;
+
+   queue<NetworkModel::Hop> _hop_queue;
+   Lock _hop_queue_lock;
 
    NetQueue _netQueue;
    Lock _netQueueLock;

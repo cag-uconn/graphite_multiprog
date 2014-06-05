@@ -1,15 +1,20 @@
 #pragma once
 
+#include <iostream>
 #include <list>
 #include <map>
+using std::ostream;
 using std::list;
 using std::pair;
 using std::map;
 
+#include "time_types.h"
 #include "fixed_types.h"
 #include "dvfs.h"
-#include "network.h"
 #include "mem_component.h"
+
+class NetPacket;
+class Tile;
 
 // Called over the network (callbacks)
 void getDVFSCallback(void* obj, NetPacket packet);

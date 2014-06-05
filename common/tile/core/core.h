@@ -14,7 +14,7 @@ class ClockSkewManagementClient;
 class PinMemoryManager;
 
 #include "mem_component.h"
-#include "fixed_types.h"
+#include "common_types.h"
 #include "capi.h"
 #include "packet_type.h"
 #include "time_types.h"

@@ -280,7 +280,8 @@ void SyncClient::barrierWait(carbon_barrier_t *barrier)
    ThreadScheduler * thread_scheduler = Sim()->getThreadScheduler();
    assert(thread_scheduler);
 
-   thread_scheduler->yieldThread(false);  // Yield thread before waiting on barrier, so other thread in the queue may run; false for non-preemptive yield.
+   // Yield thread before waiting on barrier, so other thread in the queue may run; false for non-preemptive yield.
+   thread_scheduler->yieldThread(false);
 
    // Set the CoreState to 'STALLED'
    m_core->setState(Core::STALLED);
@@ -288,7 +289,6 @@ void SyncClient::barrierWait(carbon_barrier_t *barrier)
    NetPacket recv_pkt;
    recv_pkt = m_network->netRecv(Config::getSingleton()->getMCPCoreId(), m_core->getId(), MCP_RESPONSE_TYPE);
    assert(recv_pkt.length == sizeof(unsigned int) + sizeof(UInt64));
-
 
    LOG_PRINT("barrierResponse!: barrier(%u), start_time(%llu ps)", *barrier, start_time);
 

@@ -2,11 +2,13 @@
 #include <utility>
 #include <iostream>
 using std::make_pair;
+
 #include "dvfs_manager.h"
 #include "memory_manager.h"
 #include "simulator.h"
 #include "tile.h"
 #include "core.h"
+#include "network.h"
 #include "network_model.h"
 #include "core_model.h"
 #include "packetize.h"
