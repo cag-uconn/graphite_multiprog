@@ -53,7 +53,7 @@ public:
    void enableModels();
    void disableModels();
 
-   bool isEnabled() const                                      { return _enabled; }
+   inline bool isEnabled() const                               { return _enabled; }
 
    static void enablePerformanceModelsInCurrentProcess();
    static void disablePerformanceModelsInCurrentProcess();
@@ -110,7 +110,7 @@ private:
    static Simulator *_singleton;
 };
 
-__attribute__((unused)) static Simulator *Sim()
+static inline Simulator* Sim()
 {
    return Simulator::getSingleton();
 }
