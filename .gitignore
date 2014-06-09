@@ -20,3 +20,6 @@ lib/pin_sim.so
 # result files
 results/
 !results/.DO_NOT_DELETE
+
+# profiling results
+perf.data*
