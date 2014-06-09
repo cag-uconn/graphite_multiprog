@@ -272,6 +272,7 @@ void Simulator::enableModels()
    _enabled = true;
    for (UInt32 i = 0; i < _config.getNumLocalTiles(); i++)
       _tile_manager->getTileFromIndex(i)->enableModels();
+   enableFrontEnd();
 }
 
 void Simulator::disableModels()
@@ -280,6 +281,7 @@ void Simulator::disableModels()
    _enabled = false;
    for (UInt32 i = 0; i < _config.getNumLocalTiles(); i++)
       _tile_manager->getTileFromIndex(i)->disableModels();
+   disableFrontEnd();
 }
 
 void Simulator::enablePerformanceModelsInCurrentProcess()
@@ -291,3 +293,11 @@ void Simulator::disablePerformanceModelsInCurrentProcess()
 {
    Sim()->disableModels();
 }
+
+__attribute__((weak))
+void Simulator::enableFrontEnd()
+{}
+
+__attribute__((weak))
+void Simulator::disableFrontEnd()
+{}

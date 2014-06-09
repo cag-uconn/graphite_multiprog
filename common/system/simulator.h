@@ -72,6 +72,9 @@ private:
    void initializePowerModelingTools();
    void deInitializePowerModelingTools();
 
+   void enableFrontEnd();
+   void disableFrontEnd();
+
    Network& getMCPNetwork();
    
    friend class LCP;

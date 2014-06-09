@@ -12,9 +12,6 @@ extern HashMap core_map;
 
 void handleInstruction(THREADID thread_id, Instruction* instruction)
 {
-   if (!Sim()->isEnabled())
-      return;
-
    CoreModel *core_model = core_map.get<Core>(thread_id)->getModel();
    core_model->queueInstruction(instruction);
    core_model->iterate();
@@ -22,9 +19,6 @@ void handleInstruction(THREADID thread_id, Instruction* instruction)
 
 void handleBranch(THREADID thread_id, BOOL taken, ADDRINT target)
 {
-   if (!Sim()->isEnabled())
-      return;
-
    CoreModel *core_model = core_map.get<Core>(thread_id)->getModel();
    DynamicBranchInfo info(taken, target);
    core_model->pushDynamicBranchInfo(info);
@@ -349,6 +343,9 @@ InstructionType getInstructionType(INS ins)
 
 VOID addInstructionModeling(INS ins)
 {
+   if (!Sim()->isEnabled())
+      return;
+
    RegisterOperandList read_register_operands;
    RegisterOperandList write_register_operands;
    UInt32 num_read_memory_operands = 0;

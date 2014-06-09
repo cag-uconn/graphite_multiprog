@@ -19,9 +19,6 @@ static bool enabled()
 
 void handleRuntimeEnergyMonitoring(THREADID thread_id)
 {
-   if (!Sim()->isEnabled())
-      return;
-
    Core* core = core_map.get<Core>(thread_id);
    assert(core);
    Tile* tile = core->getTile();
@@ -40,6 +37,9 @@ void handleRuntimeEnergyMonitoring(THREADID thread_id)
 void addRuntimeEnergyMonitoring(INS ins)
 {
    if (!enabled())
+      return;
+
+   if (!Sim()->isEnabled())
       return;
 
    INS_InsertCall(ins, IPOINT_BEFORE,

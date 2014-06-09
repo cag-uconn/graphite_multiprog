@@ -12,6 +12,9 @@ namespace lite
 
 void addMemoryModeling(INS ins)
 {
+   if (!Sim()->isEnabled())
+      return;
+
    if (INS_IsMemoryRead(ins) || INS_IsMemoryWrite(ins))
    {
       if (INS_IsMemoryRead(ins))
@@ -58,9 +61,6 @@ void addMemoryModeling(INS ins)
 
 void handleMemoryRead(THREADID thread_id, bool is_atomic_update, IntPtr read_address, UInt32 read_data_size)
 {
-   if (!Sim()->isEnabled())
-      return;
-
    Byte read_data_buf[read_data_size];
 
    Core* core = core_map.get<Core>(thread_id);
@@ -75,9 +75,6 @@ void handleMemoryRead(THREADID thread_id, bool is_atomic_update, IntPtr read_add
 
 void handleMemoryWrite(THREADID thread_id, bool is_atomic_update, IntPtr write_address, UInt32 write_data_size)
 {
-   if (!Sim()->isEnabled())
-      return;
-
    Core* core = core_map.get<Core>(thread_id);
    core->initiateMemoryAccess(MemComponent::L1_DCACHE,
          (is_atomic_update) ? Core::UNLOCK : Core::NONE,

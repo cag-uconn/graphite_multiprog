@@ -16,9 +16,6 @@ static bool enabled()
 
 void handleYield(THREADID thread_id)
 {
-   if (!Sim()->isEnabled())
-      return;
-
    Core* core = core_map.get<Core>(thread_id);
    assert(core);
    if (core->getTile()->getId() >= (tile_id_t) Sim()->getConfig()->getApplicationTiles())
@@ -35,6 +32,9 @@ void handleYield(THREADID thread_id)
 void addYield(INS ins)
 { 
    if (!enabled())
+      return;
+
+   if (!Sim()->isEnabled())
       return;
 
    // Do not yield on branch or memory instructions because we deal with them asynchronously.

@@ -108,6 +108,9 @@ VOID initProgressTrace()
 
 VOID shutdownProgressTrace()
 {
+   if (!enabled())
+      return;
+
    for (unsigned int i = 0; i < files.size(); i++)
    {
       if (files[i])
@@ -129,6 +132,9 @@ VOID threadStartProgressTrace()
 VOID addProgressTrace(INS ins)
 {
    if (!enabled())
+      return;
+
+   if (!Sim()->isEnabled())
       return;
 
    INS_InsertCall(ins, IPOINT_BEFORE,
