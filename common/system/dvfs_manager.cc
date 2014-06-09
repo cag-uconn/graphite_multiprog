@@ -340,7 +340,8 @@ DVFSManager::initializeDVFSDomainMap()
       for (vector<string>::iterator param_it = dvfs_parameter_tuple.begin();
             param_it != dvfs_parameter_tuple.end(); param_it ++)
       {
-         if (param_num == 0){
+         if (param_num == 0)
+         {
             frequency = convertFromString<double>(*param_it);
             if (frequency <= 0)
             {
@@ -348,7 +349,8 @@ DVFSManager::initializeDVFSDomainMap()
                exit(EXIT_FAILURE);
             }
          }
-         else{
+         else
+         {
             // create domain mask
             string module = trimSpaces(*param_it);
             domain_modules_str.push_back(module);
@@ -451,7 +453,6 @@ DVFSManager::getInitialFrequencyAndVoltage(module_t module, double &frequency, d
 void
 DVFSManager::getTileEnergy(tile_id_t tile_id, double *energy)
 {
-
    // send request
    UnstructuredBuffer send_buffer;
    core_id_t remote_core_id = {tile_id, MAIN_CORE_TYPE};
@@ -468,7 +469,6 @@ DVFSManager::getTileEnergy(tile_id_t tile_id, double *energy)
 
 void DVFSManager::doGetTileEnergy(core_id_t requester)
 {
-
    double energy = _tile->getTileEnergyMonitor()->getTileEnergy();
 
    UnstructuredBuffer send_buffer;
@@ -480,7 +480,6 @@ void DVFSManager::doGetTileEnergy(core_id_t requester)
 void
 getTileEnergyCallback(void* obj, NetPacket packet)
 {
-
    DVFSManager* dvfs_manager = (DVFSManager* ) obj;
    dvfs_manager->doGetTileEnergy(packet.sender);
 }
@@ -517,19 +516,21 @@ DVFSManager::hasSameDVFSDomain(module_t module1, module_t module2)
 }
 
 module_t
-DVFSManager::convertToModule(MemComponent::Type component){
-   switch(component){
-      case MemComponent::L1_ICACHE:
-         return L1_ICACHE;
-      case MemComponent::L1_DCACHE:
-         return L1_DCACHE;
-      case MemComponent::L2_CACHE:
-         return L2_CACHE;
-      case MemComponent::DRAM_DIRECTORY:
-         return DIRECTORY;
-      default:
-         LOG_PRINT_ERROR("Unknown memory component.");
-         break;
+DVFSManager::convertToModule(MemComponent::Type component)
+{
+   switch(component)
+   {
+   case MemComponent::L1_ICACHE:
+      return L1_ICACHE;
+   case MemComponent::L1_DCACHE:
+      return L1_DCACHE;
+   case MemComponent::L2_CACHE:
+      return L2_CACHE;
+   case MemComponent::DRAM_DIRECTORY:
+      return DIRECTORY;
+   default:
+      LOG_PRINT_ERROR("Unknown memory component.");
+      break;
    }
    return INVALID_MODULE;
 }
