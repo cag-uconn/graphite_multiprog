@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 {
    CarbonStartSim(argc, argv);
 
-   Simulator::enablePerformanceModelsInCurrentProcess();
+   CarbonEnableModels();
 
    // Read Command Line Arguments
    for (SInt32 i = 1; i < argc-1; i += 2)
@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
    
    printf("Joined all threads\n");
 
-   Simulator::disablePerformanceModelsInCurrentProcess();
+   CarbonDisableModels();
 
    CarbonStopSim();
  

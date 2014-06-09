@@ -18,7 +18,7 @@ PerformanceCounterManager::togglePerformanceCounters(Byte* msg)
    {
    case ENABLE:
       {
-         Simulator::enablePerformanceModelsInCurrentProcess();
+         Sim()->enableModels();
          // Send ACK back to tile 0
          NetPacket ack(Time(0) /* time */, LCP_TOGGLE_PERFORMANCE_COUNTERS_ACK /* packet type */,
                        0 /* sender - doesn't matter */, 0 /* receiver */,
@@ -34,7 +34,7 @@ PerformanceCounterManager::togglePerformanceCounters(Byte* msg)
    
    case DISABLE:
       {
-         Simulator::disablePerformanceModelsInCurrentProcess();
+         Sim()->disableModels();
          // Send ACK back to tile 0
          NetPacket ack(Time(0) /* time */, LCP_TOGGLE_PERFORMANCE_COUNTERS_ACK /* packet type */,
                        0 /* sender - doesn't matter */, 0 /* receiver */,

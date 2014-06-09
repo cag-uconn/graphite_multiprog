@@ -14,7 +14,7 @@ int main (int argc, char *argv[])
    printf("Starting (shared_mem_test1)\n");
    CarbonStartSim(argc, argv);
    // Enable Performance Models
-   Simulator::enablePerformanceModelsInCurrentProcess();
+   CarbonEnableModels();
 
    IntPtr address = (IntPtr) 0x1000;
 
@@ -53,7 +53,7 @@ int main (int argc, char *argv[])
    assert(read_val_0 == 110);
 
    // Disable Performance Models
-   Simulator::disablePerformanceModelsInCurrentProcess();
+   CarbonDisableModels();
    CarbonStopSim();
    
    printf("Finished (shared_mem_test1) - SUCCESS\n");

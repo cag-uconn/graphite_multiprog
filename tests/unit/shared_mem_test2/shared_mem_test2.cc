@@ -23,7 +23,7 @@ int main (int argc, char *argv[])
    // Start simulator
    CarbonStartSim(argc, argv);
    // Enable performance models
-   Simulator::enablePerformanceModelsInCurrentProcess();
+   CarbonEnableModels();
 
    // Init barrier
    CarbonBarrierInit(&barrier, num_threads);
@@ -62,7 +62,7 @@ int main (int argc, char *argv[])
    }
   
    // Disable performance models
-   Simulator::disablePerformanceModelsInCurrentProcess();
+   CarbonDisableModels();
    // Shutdown simulator 
    CarbonStopSim();
 

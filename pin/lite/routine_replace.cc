@@ -60,7 +60,7 @@ void routineCallback(RTN rtn, void* v)
       RTN_Open(rtn);
 
       RTN_InsertCall(rtn, IPOINT_BEFORE,
-            AFUNPTR(Simulator::disablePerformanceModelsInCurrentProcess),
+            AFUNPTR(Simulator::__disableModels),
             IARG_END);
 
       RTN_Close(rtn);
@@ -75,7 +75,7 @@ void routineCallback(RTN rtn, void* v)
       if (! Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
       {
          RTN_InsertCall(rtn, IPOINT_BEFORE,
-               AFUNPTR(Simulator::enablePerformanceModelsInCurrentProcess),
+               AFUNPTR(Simulator::__enableModels),
                IARG_END);
       }
 
@@ -83,7 +83,7 @@ void routineCallback(RTN rtn, void* v)
       if (! Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
       {
          RTN_InsertCall(rtn, IPOINT_AFTER,
-               AFUNPTR(Simulator::disablePerformanceModelsInCurrentProcess),
+               AFUNPTR(Simulator::__disableModels),
                IARG_END);
       }
 

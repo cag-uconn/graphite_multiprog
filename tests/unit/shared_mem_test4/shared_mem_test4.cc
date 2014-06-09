@@ -23,7 +23,7 @@ int main (int argc, char *argv[])
 {
    printf("Starting (shared_mem_test4)\n");
    CarbonStartSim(argc, argv);
-   Simulator::enablePerformanceModelsInCurrentProcess();
+   CarbonEnableModels();
 
    CarbonBarrierInit(&barrier, num_threads);
 
@@ -44,7 +44,7 @@ int main (int argc, char *argv[])
   
    printf("shared_mem_test4 (SUCCESS)\n");
   
-   Simulator::disablePerformanceModelsInCurrentProcess();
+   CarbonDisableModels();
    CarbonStopSim();
    return 0;
 }

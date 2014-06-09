@@ -55,8 +55,8 @@ public:
 
    inline bool isEnabled() const                               { return _enabled; }
 
-   static void enablePerformanceModelsInCurrentProcess();
-   static void disablePerformanceModelsInCurrentProcess();
+   static void __enableModels();
+   static void __disableModels();
 
 private:
    // Print final output of simulation

@@ -284,12 +284,12 @@ void Simulator::disableModels()
    disableFrontEnd();
 }
 
-void Simulator::enablePerformanceModelsInCurrentProcess()
+void Simulator::__enableModels()
 {
    Sim()->enableModels();
 }
 
-void Simulator::disablePerformanceModelsInCurrentProcess()
+void Simulator::__disableModels()
 {
    Sim()->disableModels();
 }

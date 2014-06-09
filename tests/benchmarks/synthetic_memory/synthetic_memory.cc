@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
    computeSharedAddressToThreadMapping();
 
    // Enable all the models
-   Simulator::enablePerformanceModelsInCurrentProcess();
+   CarbonEnableModels();
 
    CarbonBarrierInit(&m_barrier, m_num_threads);
 
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
    }
    
    // Disable all the models
-   Simulator::disablePerformanceModelsInCurrentProcess();
+   CarbonDisableModels();
 
    deInitializeGlobalVariables();
 

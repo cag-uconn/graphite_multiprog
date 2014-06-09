@@ -14,8 +14,7 @@ int main (int argc, char *argv[])
 {
    printf("Starting (shared_mem_basic)\n");
    CarbonStartSim(argc, argv);
-
-   Simulator::enablePerformanceModelsInCurrentProcess();
+   CarbonEnableModels();
    
    IntPtr address = 0x1000;
 
@@ -37,7 +36,7 @@ int main (int argc, char *argv[])
    // LOG_ASSERT_ERROR(num_misses == 0, "num_misses(%u)", num_misses);
    LOG_ASSERT_ERROR(read_val == 100, "read_val(%u)", read_val);
 
-   Simulator::disablePerformanceModelsInCurrentProcess();
+   CarbonDisableModels();
    CarbonStopSim();
 
    printf("Finished (shared_mem_basic) - SUCCESS\n");

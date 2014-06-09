@@ -24,7 +24,7 @@ int main (int argc, char *argv[])
    // Start simulator
    CarbonStartSim(argc, argv);
    // Enable Models
-   Simulator::enablePerformanceModelsInCurrentProcess();
+   CarbonEnableModels();
 
    carbon_thread_t tid_list[num_threads];
 
@@ -75,7 +75,7 @@ int main (int argc, char *argv[])
    printf("shared_mem_test3 (SUCCESS)\n");
    
    // Disable performance models
-   Simulator::disablePerformanceModelsInCurrentProcess();
+   CarbonDisableModels();
    // Shutdown simulator
    CarbonStopSim();
 

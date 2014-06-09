@@ -106,7 +106,7 @@ bool replaceUserAPIFunction(RTN& rtn, string& name)
       RTN_Open (rtn);
 
       RTN_InsertCall (rtn, IPOINT_BEFORE,
-                      AFUNPTR(Simulator::disablePerformanceModelsInCurrentProcess),
+                      AFUNPTR(Simulator::__disableModels),
                       IARG_END);
 
       RTN_Close (rtn);
@@ -121,7 +121,7 @@ bool replaceUserAPIFunction(RTN& rtn, string& name)
       if (! Sim()->getCfg()->getBool("general/trigger_models_within_application",false))
       {
          RTN_InsertCall(rtn, IPOINT_BEFORE,
-               AFUNPTR(Simulator::enablePerformanceModelsInCurrentProcess),
+               AFUNPTR(Simulator::__enableModels),
                IARG_END);
       }
 
@@ -129,7 +129,7 @@ bool replaceUserAPIFunction(RTN& rtn, string& name)
       if (! Sim()->getCfg()->getBool("general/trigger_models_within_application",false))
       {
          RTN_InsertCall(rtn, IPOINT_AFTER,
-               AFUNPTR(Simulator::disablePerformanceModelsInCurrentProcess),
+               AFUNPTR(Simulator::__disableModels),
                IARG_END);
       }
       
