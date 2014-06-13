@@ -8,6 +8,9 @@ extern "C" {
 void CarbonEnableModels(void);
 void CarbonDisableModels(void);
 
+void __CarbonEnableModels(void);
+void __CarbonDisableModels(void);
+
 #ifdef __cplusplus
 }
 #endif

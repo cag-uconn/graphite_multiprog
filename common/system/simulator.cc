@@ -268,6 +268,7 @@ Network& Simulator::getMCPNetwork()
 
 void Simulator::enableModels()
 {
+   LOG_PRINT("enableModels()");
    startTimer();
    _enabled = true;
    for (UInt32 i = 0; i < _config.getNumLocalTiles(); i++)
@@ -277,21 +278,12 @@ void Simulator::enableModels()
 
 void Simulator::disableModels()
 {
+   LOG_PRINT("disableModels()");
    stopTimer();
    _enabled = false;
    for (UInt32 i = 0; i < _config.getNumLocalTiles(); i++)
       _tile_manager->getTileFromIndex(i)->disableModels();
    disableFrontEnd();
-}
-
-void Simulator::__enableModels()
-{
-   Sim()->enableModels();
-}
-
-void Simulator::__disableModels()
-{
-   Sim()->disableModels();
 }
 
 __attribute__((weak))

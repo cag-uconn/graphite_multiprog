@@ -11,37 +11,6 @@
 #include "thread_manager.h"
 #include "thread_support.h"
 
-int spawnThreadSpawner(CONTEXT *ctxt)
-{
-   int res;
-
-   IntPtr reg_eip = PIN_GetContextReg(ctxt, REG_INST_PTR);
-
-   PIN_LockClient();
-   
-   AFUNPTR thread_spawner;
-   IMG img = IMG_FindByAddress(reg_eip);
-   RTN rtn = RTN_FindByName(img, "CarbonSpawnThreadSpawner");
-   thread_spawner = RTN_Funptr(rtn);
-
-   PIN_UnlockClient();
-   LOG_ASSERT_ERROR( thread_spawner != NULL, "ThreadSpawner function is null. You may not have linked to the carbon APIs correctly.");
-   
-   LOG_PRINT("Starting CarbonSpawnThreadSpawner(%p)", thread_spawner);
-   
-   PIN_CallApplicationFunction(ctxt,
-            PIN_ThreadId(),
-            CALLINGSTD_DEFAULT,
-            thread_spawner,
-            PIN_PARG(int), &res,
-            PIN_PARG_END());
-
-   LOG_PRINT("Thread spawner spawned");
-   LOG_ASSERT_ERROR(res == 0, "Failed to spawn Thread Spawner");
-
-   return res;
-}
-
 VOID copyStaticData(IMG& img)
 {
    Core* core = Sim()->getTileManager()->getCurrentCore();
@@ -62,7 +31,8 @@ VOID copyStaticData(IMG& img)
          {
             sec_address = SEC_Address(sec);
 
-            LOG_PRINT ("Copying Section: %s at Address: 0x%x of Size: %u to Simulated Memory", SEC_Name(sec).c_str(), (UInt32) sec_address, (UInt32) SEC_Size(sec));
+            LOG_PRINT ("Copying Section: %s at Address: %#x of Size: %u to Simulated Memory",
+                       SEC_Name(sec).c_str(), (UInt32) sec_address, (UInt32) SEC_Size(sec));
             core->accessMemory(Core::NONE, Core::WRITE, sec_address, (char*) sec_address, SEC_Size(sec));
          }
       }

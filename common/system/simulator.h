@@ -53,10 +53,7 @@ public:
    void enableModels();
    void disableModels();
 
-   inline bool isEnabled() const                               { return _enabled; }
-
-   static void __enableModels();
-   static void __disableModels();
+   bool isEnabled() const                                      { return _enabled; }
 
 private:
    // Print final output of simulation

@@ -17,6 +17,10 @@ int emuPthreadCreate(CONTEXT* context, AFUNPTR pthread_create_func_ptr,
 void emuCarbonJoinThread(CONTEXT* context, carbon_thread_t tid);
 int emuPthreadJoin(CONTEXT* context, AFUNPTR pthread_join_func_ptr,
       pthread_t thread, void** thead_return);
+
+void enableSimulatorModels(const CONTEXT* ctxt);
+void disableSimulatorModels(const CONTEXT* ctxt);
+
 IntPtr nullFunction();
 
 AFUNPTR getFunptr(CONTEXT* context, string func_name);

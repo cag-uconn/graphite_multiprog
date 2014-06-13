@@ -6,11 +6,11 @@
 
 bool replaceUserAPIFunction(RTN& rtn, string& name);
 
-void setupCarbonSpawnThreadSpawnerStack (CONTEXT *ctx);
-void setupCarbonThreadSpawnerStack (CONTEXT *ctx);
+// Initialization / shutdown
+void coordinateSimulatorModelsInitialization (const CONTEXT *ctxt);
+void disableSimulatorModels (const CONTEXT *ctxt);
 
 // Thread spawning and management
-void replacementMain (CONTEXT *ctxt);
 void replacementGetThreadToSpawn (CONTEXT *ctxt);
 void replacementThreadStartNull (CONTEXT *ctxt);
 void replacementThreadExitNull (CONTEXT *ctxt);
@@ -57,10 +57,6 @@ void replacementPthreadExitNull(CONTEXT *ctxt);
 // Enable/Disable Models
 void replacementEnableModels(CONTEXT* ctxt);
 void replacementDisableModels(CONTEXT* ctxt);
-
-// Cache Counters
-void replacementResetCacheCounters(CONTEXT *ctxt);
-void replacementDisableCacheCounters(CONTEXT *ctxt);
 
 // Getting Simulated Time
 void replacementCarbonGetTime(CONTEXT *ctxt);

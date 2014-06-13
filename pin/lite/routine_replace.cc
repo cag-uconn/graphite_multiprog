@@ -54,18 +54,6 @@ void routineCallback(RTN rtn, void* v)
       PROTO_Free(proto);
    }
 
-   // _start
-   if (rtn_name == "_start")
-   {
-      RTN_Open(rtn);
-
-      RTN_InsertCall(rtn, IPOINT_BEFORE,
-            AFUNPTR(Simulator::__disableModels),
-            IARG_END);
-
-      RTN_Close(rtn);
-   }
-
    // main
    if (rtn_name == "main")
    {
@@ -75,7 +63,8 @@ void routineCallback(RTN rtn, void* v)
       if (! Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
       {
          RTN_InsertCall(rtn, IPOINT_BEFORE,
-               AFUNPTR(Simulator::__enableModels),
+               AFUNPTR(enableSimulatorModels),
+               IARG_CONST_CONTEXT,
                IARG_END);
       }
 
@@ -83,7 +72,8 @@ void routineCallback(RTN rtn, void* v)
       if (! Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
       {
          RTN_InsertCall(rtn, IPOINT_AFTER,
-               AFUNPTR(Simulator::__disableModels),
+               AFUNPTR(disableSimulatorModels),
+               IARG_CONST_CONTEXT,
                IARG_END);
       }
 
@@ -803,6 +793,34 @@ int emuPthreadJoin(CONTEXT* context, AFUNPTR pthread_join_func_ptr,
    // We dont need to delete the thread descriptor
 
    return ret;
+}
+
+void enableSimulatorModels(const CONTEXT* ctxt)
+{
+   LOG_PRINT("enableSimulatorModels");
+   
+   static bool _enable_complete = false;
+   if (_enable_complete)
+      return;
+   _enable_complete = true;
+   
+   // Disable the models (if configured)
+   __CarbonEnableModels();
+   PIN_ExecuteAt(ctxt);
+}
+
+void disableSimulatorModels(const CONTEXT* ctxt)
+{
+   LOG_PRINT("disableSimulatorModels");
+   
+   static bool _disable_complete = false;
+   if (_disable_complete)
+      return;
+   _disable_complete = true;
+   
+   // Disable the models (if configured)
+   __CarbonDisableModels();
+   PIN_ExecuteAt(ctxt);
 }
 
 IntPtr nullFunction()

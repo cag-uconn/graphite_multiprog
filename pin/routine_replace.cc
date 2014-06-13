@@ -10,6 +10,7 @@
 #include "core.h"
 #include "tile_manager.h"
 #include "redirect_memory.h"
+#include "thread_spawner.h"
 #include "thread_start.h"
 #include "tile.h"
 #include "network.h"
@@ -40,8 +41,7 @@ bool replaceUserAPIFunction(RTN& rtn, string& name)
 
    // TODO: Check that the starting stack is located below the text segment
    // thread management
-   if (name == "main") msg_ptr = AFUNPTR (replacementMain);
-   else if (name == "CarbonGetThreadToSpawn") msg_ptr = AFUNPTR(replacementGetThreadToSpawn);
+   if (name == "CarbonGetThreadToSpawn") msg_ptr = AFUNPTR(replacementGetThreadToSpawn);
    else if (name == "CarbonThreadStart") msg_ptr = AFUNPTR (replacementThreadStartNull);
    else if (name == "CarbonThreadExit") msg_ptr = AFUNPTR (replacementThreadExitNull);
    else if (name == "CarbonGetTileId") msg_ptr = AFUNPTR(replacementGetTileId);
@@ -100,40 +100,28 @@ bool replaceUserAPIFunction(RTN& rtn, string& name)
    else if (name == "CarbonSetDVFSAllTiles") msg_ptr = AFUNPTR(replacementCarbonSetDVFSAllTiles);
    else if (name == "CarbonGetTileEnergy") msg_ptr = AFUNPTR(replacementCarbonGetTileEnergy);
 
-   // Turn off performance modeling at _start()
-   if (name == "_start")
-   {
-      RTN_Open (rtn);
-
-      RTN_InsertCall (rtn, IPOINT_BEFORE,
-                      AFUNPTR(Simulator::__disableModels),
-                      IARG_END);
-
-      RTN_Close (rtn);
-   }
-   
-   // Turn off performance modeling after main()
    if (name == "main")
    {
-      RTN_Open (rtn);
-
-      // Before main()
-      if (! Sim()->getCfg()->getBool("general/trigger_models_within_application",false))
-      {
-         RTN_InsertCall(rtn, IPOINT_BEFORE,
-               AFUNPTR(Simulator::__enableModels),
-               IARG_END);
-      }
+      RTN_Open(rtn);
+ 
+      // Before main() 
+      RTN_InsertCall(rtn, IPOINT_BEFORE,
+            AFUNPTR(coordinateSimulatorModelsInitialization),
+            IARG_CONST_CONTEXT,
+            IARG_END);
 
       // After main()
-      if (! Sim()->getCfg()->getBool("general/trigger_models_within_application",false))
+      if (! Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
       {
          RTN_InsertCall(rtn, IPOINT_AFTER,
-               AFUNPTR(Simulator::__disableModels),
+               AFUNPTR(disableSimulatorModels),
+               IARG_CONST_CONTEXT,
                IARG_END);
       }
-      
-      RTN_Close (rtn);
+
+      RTN_Close(rtn);
+
+      return true;
    }
 
    // do replacement
@@ -147,24 +135,24 @@ bool replaceUserAPIFunction(RTN& rtn, string& name)
             IARG_END);
 
       RTN_Close (rtn);
-
-      return true;
    }
-   else
-   {
-      return false;
-   }
+   
+   
+   return (msg_ptr != NULL);
 }
 
-void replacementMain (CONTEXT *ctxt)
+void coordinateSimulatorModelsInitialization(const CONTEXT *ctxt)
 {
-   LOG_PRINT("In replacementMain");
-   
+   LOG_PRINT("coordinateSimulatorModelsInitialization()");
+
+   static bool _initialization_complete = false;
+   if (_initialization_complete)
+      return;
+   _initialization_complete = true;
+
    // The main process, which is the first thread (thread 0), waits for all thread spawners to be created.
    if (Sim()->getConfig()->getCurrentProcessNum() == 0)
    {
-      LOG_PRINT("ReplaceMain start");
-      
       Core *core = Sim()->getTileManager()->getCurrentCore();
       UInt32 num_processes = Sim()->getConfig()->getProcessCount();
 
@@ -172,12 +160,17 @@ void replacementMain (CONTEXT *ctxt)
       // we're initializing, wait until the thread spawners are all initialized.
       for (UInt32 i = 1; i < num_processes; i++)
       {
-         // FIXME: 
          // This whole process should probably happen through the MCP
          core->getTile()->getNetwork()->netSend (Sim()->getConfig()->getThreadSpawnerCoreId(i), SYSTEM_INITIALIZATION_NOTIFY, NULL, 0);
 
          // main thread clock is not affected by start-up time of other processes
          core->getTile()->getNetwork()->netRecv (Sim()->getConfig()->getThreadSpawnerCoreId(i), core->getId(), SYSTEM_INITIALIZATION_ACK);
+      }
+    
+      // Initialization for all other processes have taken place. Now enable the models (if configured)
+      if (! Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
+      {
+         __CarbonEnableModels();
       }
       
       // Tell the thread spawner for each process that we're done initializing...even though we haven't?
@@ -188,9 +181,7 @@ void replacementMain (CONTEXT *ctxt)
 
       spawnThreadSpawner(ctxt);
 
-      LOG_PRINT("ReplaceMain end");
-
-      return;
+      PIN_ExecuteAt(ctxt);
    }
    else
    {
@@ -199,25 +190,7 @@ void replacementMain (CONTEXT *ctxt)
       core->getTile()->getNetwork()->netSend (Sim()->getConfig()->getMainThreadCoreId(), SYSTEM_INITIALIZATION_ACK, NULL, 0);
       core->getTile()->getNetwork()->netRecv (Sim()->getConfig()->getMainThreadCoreId(), core->getId(), SYSTEM_INITIALIZATION_FINI);
 
-      int res;
-      ADDRINT reg_eip = PIN_GetContextReg (ctxt, REG_INST_PTR);
-
-      PIN_LockClient();
-
-      AFUNPTR thread_spawner;
-      IMG img = IMG_FindByAddress(reg_eip);
-      RTN rtn = RTN_FindByName(img, "CarbonThreadSpawner");
-      thread_spawner = RTN_Funptr(rtn);
-
-      PIN_UnlockClient();
-      
-      PIN_CallApplicationFunction (ctxt,
-            PIN_ThreadId(),
-            CALLINGSTD_DEFAULT,
-            thread_spawner,
-            PIN_PARG(int), &res,
-            PIN_PARG(void*), NULL,
-            PIN_PARG_END());
+      callThreadSpawner(ctxt);
 
       Sim()->getThreadManager()->onThreadExit();
 
@@ -228,6 +201,22 @@ void replacementMain (CONTEXT *ctxt)
 
       exit(0);
    }
+}
+
+void disableSimulatorModels(const CONTEXT* ctxt)
+{
+   assert(Sim()->getConfig()->getCurrentProcessNum() == 0);
+   
+   LOG_PRINT("disableSimulatorModels");
+   
+   static bool _disable_complete = false;
+   if (_disable_complete)
+      return;
+   _disable_complete = true;
+   
+   // Disable the models (if configured)
+   __CarbonDisableModels();
+   PIN_ExecuteAt(ctxt);
 }
 
 void replacementGetThreadToSpawn (CONTEXT *ctxt)
@@ -1023,12 +1012,10 @@ void replacementCarbonGetTileEnergy(CONTEXT *ctxt)
 
    Core* core = Sim()->getTileManager()->getCurrentCore();
 
-   // read energy
    core->accessMemory(Core::NONE, Core::READ, (IntPtr) energy, (char*) &energy_buf, sizeof(energy_buf));
 
    ADDRINT ret_val = CarbonGetTileEnergy(tile_id, &energy_buf);
 
-   // write voltage
    core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) energy, (char*) &energy_buf, sizeof(energy_buf));
 
    retFromReplacedRtn(ctxt, ret_val);
@@ -1094,38 +1081,3 @@ void retFromReplacedRtn (CONTEXT *ctxt, ADDRINT ret_val)
 
    PIN_ExecuteAt (ctxt);
 }
-
-void setupCarbonSpawnThreadSpawnerStack (CONTEXT *ctx)
-{
-   // FIXME: 
-   // This will clearly need to change somewhat in the multi-process case
-   // We can go back to our original scheme of having the "main" thread 
-   // on processes other than 0 execute the thread spawner, in which case
-   // this will probably just work as is
-
-   ADDRINT esp = PIN_GetContextReg (ctx, REG_STACK_PTR);
-   ADDRINT ret_ip = * (ADDRINT*) esp;
-
-   Core *core = Sim()->getTileManager()->getCurrentCore();
-   assert (core);
-
-   core->accessMemory(Core::NONE, Core::WRITE, (IntPtr) esp, (char*) &ret_ip, sizeof (ADDRINT));
-}
-
-void setupCarbonThreadSpawnerStack (CONTEXT *ctx)
-{
-   if (Sim()->getConfig()->getCurrentProcessNum() == 0)
-      return;
-
-   ADDRINT esp = PIN_GetContextReg (ctx, REG_STACK_PTR);
-   ADDRINT ret_ip = * (ADDRINT*) esp;
-   ADDRINT p = * (ADDRINT*) (esp + sizeof (ADDRINT));
-
-   Core *core = Sim()->getTileManager()->getCurrentCore();
-   assert (core);
-
-   core->accessMemory (Core::NONE, Core::WRITE, (IntPtr) esp, (char*) &ret_ip, sizeof (ADDRINT));
-   core->accessMemory (Core::NONE, Core::WRITE, (IntPtr) (esp + sizeof (ADDRINT)), (char*) &p, sizeof (ADDRINT));
-}
-
-

@@ -21,12 +21,13 @@
 #include <set>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <typeinfo>
 
 #include "pin.H"
-#include "log.h"
-#include "routine_replace.h"
 
 // FIXME: This list could probably be trimmed down a lot.
+#include "log.h"
+#include "routine_replace.h"
 #include "simulator.h"
 #include "tile_manager.h"
 #include "config.h"
@@ -47,8 +48,8 @@
 #include "runtime_energy_monitoring.h"
 #include "redirect_memory.h"
 #include "handle_syscalls.h"
+#include "thread_spawner.h"
 #include "hash_map.h"
-#include <typeinfo>
 
 // lite directories
 #include "lite/routine_replace.h"
@@ -145,7 +146,7 @@ void routineCallback(RTN rtn, void *v)
 
       RTN_InsertCall (rtn, IPOINT_BEFORE,
             AFUNPTR (setupCarbonSpawnThreadSpawnerStack),
-            IARG_CONTEXT,
+            IARG_CONST_CONTEXT,
             IARG_END);
 
       RTN_Close (rtn);
@@ -157,7 +158,7 @@ void routineCallback(RTN rtn, void *v)
 
       RTN_InsertCall (rtn, IPOINT_BEFORE,
             AFUNPTR (setupCarbonThreadSpawnerStack),
-            IARG_CONTEXT,
+            IARG_CONST_CONTEXT,
             IARG_END);
 
       RTN_Close(rtn);
@@ -266,7 +267,7 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
          Sim()->getTileManager()->initializeThread(Tile::getMainCoreId(0));
       }
       else // Sim()->getConfig()->getSimulationMode() == Config::FULL
-      { 
+      {
          ADDRINT reg_esp = PIN_GetContextReg(ctxt, REG_STACK_PTR);
          allocateStackSpace();
          
