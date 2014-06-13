@@ -326,9 +326,11 @@ void CoreModel::pushDynamicMemoryInfo(const DynamicMemoryInfo& info)
 
 void CoreModel::popDynamicMemoryInfo()
 {
-   LOG_PRINT("popDynamicMemoryInfo()");
    assert(_enabled);
    assert(!_dynamic_memory_info_queue.empty());
+   __attribute__((unused)) const DynamicMemoryInfo& info = _dynamic_memory_info_queue.front();
+   LOG_PRINT("popDynamicMemoryInfo[%s Address(%#lx), Latency(%llu ns)]",
+             info._read ? "READ" : "WRITE", info._address, info._latency.toNanosec());
    _dynamic_memory_info_queue.pop_front();
 }
 
@@ -341,16 +343,19 @@ void CoreModel::pushDynamicBranchInfo(const DynamicBranchInfo& info)
 {
    if (_instruction_queue.empty() || !_enabled)
       return;
-   LOG_PRINT("pushDynamicBranchInfo()");
+   LOG_PRINT("pushDynamicBranchInfo[%s Target(%lx)]",
+             info._taken ? "TAKEN" : "NOT-TAKEN", info._target);
    assert(!_dynamic_branch_info_queue.full());
    _dynamic_branch_info_queue.push_back(info);
 }
 
 void CoreModel::popDynamicBranchInfo()
 {
-   LOG_PRINT("popDynamicBranchInfo()");
    assert(_enabled);
    assert(!_dynamic_branch_info_queue.empty());
+   __attribute__((unused)) const DynamicBranchInfo& info = _dynamic_branch_info_queue.front();
+   LOG_PRINT("popDynamicBranchInfo[%s Target(%lx)]",
+             info._taken ? "TAKEN" : "NOT-TAKEN", info._target);
    _dynamic_branch_info_queue.pop_front();
 }
 
