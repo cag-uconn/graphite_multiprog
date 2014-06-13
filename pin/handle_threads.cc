@@ -24,6 +24,7 @@ void handleYield(THREADID thread_id)
       return;
    }
 
+   LOG_PRINT("handleYield[Core(%i)]", core->getTile()->getId());
    ThreadScheduler * thread_scheduler = Sim()->getThreadScheduler();
    assert(thread_scheduler);
    thread_scheduler->yieldThread();

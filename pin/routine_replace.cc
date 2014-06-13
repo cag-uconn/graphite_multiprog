@@ -1042,30 +1042,30 @@ void initialize_replacement_args (CONTEXT *ctxt, ...)
      
       switch (type)
       {
-         case IARG_ADDRINT:
-            ptr = va_arg (vl, ADDRINT);
-            * ((ADDRINT*) ptr) = val;
-            count++;
-            break;
+      case IARG_ADDRINT:
+         ptr = va_arg (vl, ADDRINT);
+         * ((ADDRINT*) ptr) = val;
+         count++;
+         break;
 
-         case IARG_PTR:
-            ptr = va_arg (vl, ADDRINT);
-            * ((ADDRINT*) ptr) = val;
-            count++;
-            break;
+      case IARG_PTR:
+         ptr = va_arg (vl, ADDRINT);
+         * ((ADDRINT*) ptr) = val;
+         count++;
+         break;
 
-         case IARG_UINT32:
-            ptr = va_arg (vl, ADDRINT);
-            * ((UInt32*) ptr) = (UInt32) val;
-            count++;
-            break;
+      case IARG_UINT32:
+         ptr = va_arg (vl, ADDRINT);
+         * ((UInt32*) ptr) = (UInt32) val;
+         count++;
+         break;
 
-         case CARBON_IARG_END:
-            break;
+      case CARBON_IARG_END:
+         break;
 
-         default:
-            assert (false);
-            break;
+      default:
+         assert (false);
+         break;
       }
    } while (type != CARBON_IARG_END);
 }

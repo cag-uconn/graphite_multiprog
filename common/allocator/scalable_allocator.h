@@ -66,29 +66,25 @@ void* ScalableAllocator<T>::operator new(size_t sz, heap_id_t heap_id)
    
    HeapAllocator& heap_allocator = _heap_allocator_vec[heap_id];
    char* mem = heap_allocator.allocate(sz + metadata_sz);
-   LOG_PRINT("new: mem(%p)", mem);
    
    // initialize the memory with heap_id && sz
    *reinterpret_cast<heap_id_t*> (mem) = heap_id;
    *reinterpret_cast<size_t*> (mem + sizeof(heap_id_t)) = sz;
-   LOG_PRINT("new: ptr(%p)", mem + metadata_sz);
    return (void*) (mem + metadata_sz);
 }
 
 template <typename T>
 void ScalableAllocator<T>::operator delete(void* ptr)
 {
-   LOG_PRINT("delete: ptr(%p)", ptr);
    assert(_initialized);
 
    size_t metadata_sz = sizeof(heap_id_t) + sizeof(size_t);
    char* mem = (char*) ptr - metadata_sz;
 
-   LOG_PRINT("delete: mem(%p)", mem);
    heap_id_t heap_id = *reinterpret_cast<heap_id_t*> (mem);
    size_t sz = *reinterpret_cast<size_t*> (mem + sizeof(heap_id_t));
 
-   LOG_PRINT("delete: sz(%u), heap_id(%i)", sz, heap_id);
+   LOG_PRINT("delete: ptr(%p), sz(%u), heap_id(%i)", ptr, sz, heap_id);
    assert(heap_id < NUM_HEAPS);
 
    HeapAllocator& heap_allocator = _heap_allocator_vec[heap_id];

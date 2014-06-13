@@ -24,6 +24,7 @@ void handlePeriodicSync(THREADID thread_id)
       return;
    }
 
+   LOG_PRINT("handlePeriodicSync[Core(%i)]", core->getTile()->getId());
    ClockSkewManagementClient *client = core->getClockSkewManagementClient();
    if (client)
       client->synchronize();

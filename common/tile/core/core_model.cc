@@ -308,6 +308,7 @@ void CoreModel::iterate()
 
 void CoreModel::__handleInstruction(Instruction* instruction)
 {
+   LOG_PRINT("__handleInstruction[Address(%#lx)]", instruction->getAddress());
    // Update number of instructions processed
    _instruction_count ++;
    handleInstruction(instruction);
@@ -317,12 +318,15 @@ void CoreModel::pushDynamicMemoryInfo(const DynamicMemoryInfo& info)
 {
    if (_instruction_queue.empty() || !_enabled)
       return;
+   LOG_PRINT("pushDynamicMemoryInfo[%s Address(%#lx), Latency(%llu ns)]",
+             info._read ? "READ" : "WRITE", info._address, info._latency.toNanosec());
    assert(!_dynamic_memory_info_queue.full());
    _dynamic_memory_info_queue.push_back(info);
 }
 
 void CoreModel::popDynamicMemoryInfo()
 {
+   LOG_PRINT("popDynamicMemoryInfo()");
    assert(_enabled);
    assert(!_dynamic_memory_info_queue.empty());
    _dynamic_memory_info_queue.pop_front();
@@ -337,12 +341,14 @@ void CoreModel::pushDynamicBranchInfo(const DynamicBranchInfo& info)
 {
    if (_instruction_queue.empty() || !_enabled)
       return;
+   LOG_PRINT("pushDynamicBranchInfo()");
    assert(!_dynamic_branch_info_queue.full());
    _dynamic_branch_info_queue.push_back(info);
 }
 
 void CoreModel::popDynamicBranchInfo()
 {
+   LOG_PRINT("popDynamicBranchInfo()");
    assert(_enabled);
    assert(!_dynamic_branch_info_queue.empty());
    _dynamic_branch_info_queue.pop_front();

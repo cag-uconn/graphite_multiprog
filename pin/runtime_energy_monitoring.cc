@@ -28,6 +28,7 @@ void handleRuntimeEnergyMonitoring(THREADID thread_id)
       return;
    }
 
+   LOG_PRINT("handleRuntimeEnergyMonitoring[Core(%i)]", core->getTile()->getId());
    TileEnergyMonitor* energy_monitor = tile->getTileEnergyMonitor();
    assert(energy_monitor);
 
