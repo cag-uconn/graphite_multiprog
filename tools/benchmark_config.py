@@ -1,33 +1,33 @@
 #!/usr/bin/env python
 
 splash2_list = [
+      "radiosity",
+      "fmm",
       "fft",
       "radix",
       "lu_contiguous",
       "lu_non_contiguous",
       "cholesky",
       "barnes",
-      "fmm",
       "ocean_contiguous",
       "ocean_non_contiguous",
       "water-nsquared",
       "water-spatial",
       "raytrace",
       "volrend",
-      "radiosity",
       ]
 
 parsec_list = [
-      "blackscholes",
-      "swaptions",
       "canneal",
-      "fluidanimate",
-      "streamcluster",
       "facesim",
+      "streamcluster",
+      "swaptions",
+      "fluidanimate",
+      "blackscholes",
       "freqmine",
+      "bodytrack",
       "dedup",
       "ferret",
-      "bodytrack",
       ]
 
 lite_mode_list = [
