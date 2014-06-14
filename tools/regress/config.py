@@ -24,7 +24,7 @@ machines = [
     "draco6",
     ]
 
-#benchmark_list = splash2_list + parsec_list
+#benchmark_list = parsec_list + splash2_list
 benchmark_list = splash2_list
 
 num_machines_list = [1,2]
