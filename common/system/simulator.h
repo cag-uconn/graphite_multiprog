@@ -67,7 +67,9 @@ private:
    void initializeGraphiteHome();
 
    void initializePowerModelingTools();
-   void deInitializePowerModelingTools();
+   void shutdownPowerModelingTools();
+   void initializePowerModelsDatabase();
+   void shutdownPowerModelsDatabase();
 
    void enableFrontEnd();
    void disableFrontEnd();

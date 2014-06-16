@@ -64,6 +64,12 @@ void initializeDatabase(string mcpat_path)
    string mcpat_libname = mcpat_path + "/libmcpat.a";
    DBUtils::initialize(_database, "mcpat", mcpat_libname);
 }
+
+void shutdownDatabase()
+{
+   DBUtils::shutdown(_database);
+}
+
 #endif
 
 InputParameter::InputParameter()

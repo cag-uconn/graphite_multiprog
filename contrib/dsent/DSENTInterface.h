@@ -40,6 +40,10 @@ namespace dsent_contrib
             static void release();
             static DSENTInterface* getSingleton();
 
+            // Database
+            void initializeDatabase(const String& dsent_path_);
+            void shutdownDatabase();
+
             // Get the file name of the config files used for various models
             inline const String& get_el_link_cfg_file_path() const { return m_el_link_cfg_file_path_; }
             inline const String& get_op_link_cfg_file_path() const { return m_op_link_cfg_file_path_; }

@@ -36,6 +36,7 @@ namespace dsent_contrib
    {
       assert(m_singleton);
       delete m_singleton;
+      m_singleton = NULL;
    }
 
    DSENTInterface* DSENTInterface::getSingleton()
@@ -62,10 +63,6 @@ namespace dsent_contrib
 
       // Create global tech overwrites
       m_overwrites_tech_ = new vector<Overwrite>();
-
-      // Get the database filename & library name
-      string dsent_libname = dsent_path_ + "/libdsent_contrib.a";
-      DBUtils::initialize(m_database, "dsent", dsent_libname);
    }
 
    DSENTInterface::~DSENTInterface()
@@ -76,6 +73,18 @@ namespace dsent_contrib
    void DSENTInterface::add_global_tech_overwrite(const String& var_, const String& val_)
    {
       m_overwrites_tech_->push_back(Overwrite(var_, val_)); 
+   }
+
+   void DSENTInterface::initializeDatabase(const String& dsent_path_)
+   {
+      // Get the database filename & library name
+      string dsent_libname = dsent_path_ + "/libdsent_contrib.a";
+      DBUtils::initialize(m_database, "dsent", dsent_libname);
+   }
+
+   void DSENTInterface::shutdownDatabase()
+   {
+      DBUtils::shutdown(m_database);
    }
 
    vector<String> DSENTInterface::run_dsent(const String& cfg_file_path_, const vector<String>& evals_,

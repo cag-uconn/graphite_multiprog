@@ -108,6 +108,8 @@ void Simulator::start()
       _mcp->spawnThread();
    if (_statistics_manager)
       _statistics_manager->spawnThread();   
+
+   shutdownPowerModelingTools();
 }
 
 Simulator::~Simulator()
@@ -144,8 +146,6 @@ Simulator::~Simulator()
    delete _tile_manager;
    _tile_manager = NULL;
    delete _transport;
-
-   deInitializePowerModelingTools();
 }
 
 void Simulator::printSimulationSummary()
@@ -240,23 +240,49 @@ void Simulator::initializePowerModelingTools()
 {
    if (!Config::getSingleton()->getEnablePowerModeling())
       return;
-  
-   // Initialize DSENT for network power modeling - create config object
+ 
+   // Initialize DSENT (network power modeling) - create config object
    string dsent_path = _graphite_home + "/contrib/dsent";
    dsent_contrib::DSENTInterface::allocate(dsent_path, getCfg()->getInt("general/technology_node"));
    dsent_contrib::DSENTInterface::getSingleton()->add_global_tech_overwrite("Temperature",
       getCfg()->getFloat("general/temperature"));
-      
-   // Initialize McPAT for core + cache power modeling
+
+   // Initialize power models database
+   initializePowerModelsDatabase();
+}
+
+void Simulator::initializePowerModelsDatabase()
+{
+   // Initialize database environment
+   DBUtils::initializeEnv();
+   // Initialize DSENT database (network power modeling)
+   string dsent_path = _graphite_home + "/contrib/dsent";
+   dsent_contrib::DSENTInterface::getSingleton()->initializeDatabase(dsent_path);
+   // Initialize McPAT database (core + cache power modeling)
    string mcpat_path = _graphite_home + "/contrib/mcpat";
    McPAT::initializeDatabase(mcpat_path);
 }
 
-void Simulator::deInitializePowerModelingTools()
+void Simulator::shutdownPowerModelingTools()
 {
+   if (!Config::getSingleton()->getEnablePowerModeling())
+      return;
+
+   // Shutdown power models database
+   shutdownPowerModelsDatabase();
+   
    // Release DSENT interface object
-   if (Config::getSingleton()->getEnablePowerModeling())
-      dsent_contrib::DSENTInterface::release();
+   dsent_contrib::DSENTInterface::release();
+}
+
+void Simulator::shutdownPowerModelsDatabase()
+{
+   // Shutdown DSENT database
+   dsent_contrib::DSENTInterface::getSingleton()->shutdownDatabase();
+   // Shutdown McPAT database
+   McPAT::shutdownDatabase();
+   // Shutdown database environment
+   DBUtils::shutdownEnv();
 }
 
 Network& Simulator::getMCPNetwork()
