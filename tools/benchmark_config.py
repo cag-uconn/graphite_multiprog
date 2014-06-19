@@ -3,18 +3,18 @@
 splash2_list = [
       "radiosity",
       "fmm",
+      "barnes",
+      "cholesky",
+      "raytrace",
+      "volrend",
+      "ocean_contiguous",
+      "ocean_non_contiguous",
       "fft",
       "radix",
       "lu_contiguous",
       "lu_non_contiguous",
-      "cholesky",
-      "barnes",
-      "ocean_contiguous",
-      "ocean_non_contiguous",
       "water-nsquared",
       "water-spatial",
-      "raytrace",
-      "volrend",
       ]
 
 parsec_list = [
