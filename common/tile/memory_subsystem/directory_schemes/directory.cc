@@ -1,10 +1,10 @@
 #include "simulator.h"
 #include "directory.h"
 #include "directory_entry.h"
+#include "tile.h"
 #include "log.h"
 
-Directory::Directory(CachingProtocol::Type caching_protocol_type, UInt32 directory_type,
-                     SInt32 total_entries, SInt32 max_hw_sharers, SInt32 max_num_sharers)
+Directory::Directory(DirectoryEntryFactory* factory, UInt32 directory_type, SInt32 total_entries)
    : _total_entries(total_entries)
    , _directory_type(directory_type)
 {
@@ -12,23 +12,16 @@ Directory::Directory(CachingProtocol::Type caching_protocol_type, UInt32 directo
    _directory_entry_list.resize(_total_entries);
   
    for (SInt32 i = 0; i < _total_entries; i++)
-   {
-      _directory_entry_list[i] = DirectoryEntry::create(_directory_type, max_hw_sharers, max_num_sharers);
-   }
+      _directory_entry_list[i] = factory->create();
 
    if (_directory_type == FULL_MAP)
-   {
-      // Sharer Stats
       initializeSharerStats();
-   }
 }
 
 Directory::~Directory()
 {
    for (SInt32 i = 0; i < _total_entries; i++)
-   {
       delete _directory_entry_list[i];
-   }
 }
 
 DirectoryEntry*
@@ -66,9 +59,7 @@ Directory::updateSharerStats(SInt32 old_sharer_count, SInt32 new_sharer_count)
       _sharer_count_vec[old_sharer_count] --;
    }
    if (new_sharer_count > 0)
-   {
       _sharer_count_vec[new_sharer_count] ++;
-   }
 }
 
 void

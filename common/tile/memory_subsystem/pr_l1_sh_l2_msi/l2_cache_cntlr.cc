@@ -2,7 +2,6 @@
 #include "memory_manager.h"
 #include "directory_type.h"
 #include "l2_directory_cfg.h"
-#include "directory_entry.h"
 #include "l2_cache_replacement_policy.h"
 #include "l2_cache_hash_fn.h"
 #include "config.h"
@@ -48,6 +47,11 @@ L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
          L2_cache_tags_access_cycles,
          L2_cache_perf_model_type,
          L2_cache_track_miss_types);
+   
+   _directory_entry_factory = new DirectoryEntryFactory(getTileID(),
+                                                        L2DirectoryCfg::getDirectoryType(),
+                                                        L2DirectoryCfg::getMaxHWSharers(),
+                                                        L2DirectoryCfg::getMaxNumSharers());
 }
 
 L2CacheCntlr::~L2CacheCntlr()
@@ -127,9 +131,8 @@ void
 L2CacheCntlr::allocateCacheLine(IntPtr address, ShL2CacheLineInfo* L2_cache_line_info)
 {
    // Create the new directory entry
-   DirectoryEntry* directory_entry = DirectoryEntry::create(L2DirectoryCfg::getDirectoryType(),
-                                                            L2DirectoryCfg::getMaxHWSharers(),
-                                                            L2DirectoryCfg::getMaxNumSharers());
+   DirectoryEntry* directory_entry = _directory_entry_factory->create();
+   
    // Construct meta-data info about L2 cache line
    *L2_cache_line_info = ShL2CacheLineInfo(_L2_cache->getTag(address), directory_entry);
    // Transition to a new cache state
