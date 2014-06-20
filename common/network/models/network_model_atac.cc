@@ -51,7 +51,7 @@ NetworkModelAtac::NetworkModelAtac(Network *net, SInt32 network_id)
    }
    catch (...)
    {
-      LOG_PRINT_ERROR("Could not read ATAC frequency and flit_width parameters from cfg file");
+      LOG_PRINT_ERROR("Could not read ATAC flit_width parameter from cfg file");
    }
 
    // Has Broadcast Capability
