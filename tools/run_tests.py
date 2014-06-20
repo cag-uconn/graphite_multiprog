@@ -61,5 +61,11 @@ for benchmark in benchmark_list:
    # Append to jobs list
    jobs.append(SimJob(command, 1, config_filename, results_dir, sub_dir, sim_flags, app_flags, "pin", scheduler))
 
+try:
+   # Create results directory
+   os.makedirs(results_dir)
+except OSError:
+   pass
+   
 # Go!
 simulate(scheduler, jobs, machines, results_dir, config_filename)
