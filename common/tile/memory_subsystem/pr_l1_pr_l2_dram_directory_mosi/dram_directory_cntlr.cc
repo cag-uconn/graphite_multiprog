@@ -33,8 +33,7 @@ DramDirectoryCntlr::DramDirectoryCntlr(MemoryManager* memory_manager,
                                               dram_directory_max_hw_sharers,
                                               dram_directory_max_num_sharers,
                                               num_dram_cntlrs,
-                                              dram_directory_access_cycles_str,
-                                              getShmemPerfModel());
+                                              dram_directory_access_cycles_str);
 
    _directory_type = DirectoryEntry::parseDirectoryType(dram_directory_type_str);
 

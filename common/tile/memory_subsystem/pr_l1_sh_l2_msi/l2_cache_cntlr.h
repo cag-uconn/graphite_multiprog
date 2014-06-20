@@ -21,6 +21,7 @@ using std::map;
 #include "shmem_perf_model.h"
 #include "cache_replacement_policy.h"
 #include "cache_hash_fn.h"
+#include "directory_entry.h"
 
 namespace PrL1ShL2MSI
 {
@@ -59,6 +60,8 @@ namespace PrL1ShL2MSI
       CacheReplacementPolicy* _L2_cache_replacement_policy_obj;
       CacheHashFn* _L2_cache_hash_fn_obj;
       AddressHomeLookup* _dram_home_lookup;
+
+      DirectoryEntryFactory* _directory_entry_factory;
 
       // Is enabled?
       bool _enabled;

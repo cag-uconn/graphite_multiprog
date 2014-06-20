@@ -29,11 +29,10 @@ public:
                   UInt32 max_hw_sharers,
                   UInt32 max_num_sharers,
                   UInt32 num_directory_slices,
-                  string directory_access_time_str,
-                  ShmemPerfModel* shmem_perf_model);
+                  string directory_access_time_str);
    ~DirectoryCache();
 
-   Directory* getDirectory() { return _directory; }
+   Directory* getDirectory() const { return _directory; }
    DirectoryEntry* getDirectoryEntry(IntPtr address);
    DirectoryEntry* replaceDirectoryEntry(IntPtr replaced_address, IntPtr address);
    void invalidateDirectoryEntry(IntPtr address);
@@ -42,7 +41,7 @@ public:
    void outputSummary(ostream& os);
    static void dummyOutputSummary(ostream& os, tile_id_t tile_id);
 
-   void enable() { _enabled = true; }
+   void enable()  { _enabled = true;  }
    void disable() { _enabled = false; }
 
    int getDVFS(double &frequency, double &voltage);
@@ -52,13 +51,9 @@ public:
 private:
    Tile* _tile;
    Directory* _directory;
+   DirectoryEntryFactory* _directory_entry_factory;
    vector<DirectoryEntry*> _replaced_directory_entry_list;
    
-   map<IntPtr,UInt64> _address_map;
-   vector<map<IntPtr,UInt64> > _set_specific_address_map;
-   map<IntPtr,UInt64> _replaced_address_map;
-   vector<UInt64> _set_replacement_histogram;
-
    CachingProtocol::Type _caching_protocol_type;
    UInt32 _directory_type;
    UInt32 _max_hw_sharers;
@@ -116,5 +111,4 @@ private:
    double _voltage;
    module_t _module;
    DVFSManager::AsynchronousMap _asynchronous_map;
-   ShmemPerfModel* _shmem_perf_model;
 };

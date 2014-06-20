@@ -7,6 +7,7 @@ using std::vector;
 
 // Forward Decls
 class DirectoryEntry;
+class DirectoryEntryFactory;
 
 #include "fixed_types.h"
 #include "directory_type.h"
@@ -15,8 +16,7 @@ class DirectoryEntry;
 class Directory
 {
 public:
-   Directory(CachingProtocol::Type caching_protocol_type, UInt32 directory_type,
-             SInt32 total_entries, SInt32 max_hw_sharers, SInt32 max_num_sharers);
+   Directory(DirectoryEntryFactory* factory, UInt32 directory_type, SInt32 total_entries);
    ~Directory();
 
    DirectoryEntry* getDirectoryEntry(SInt32 entry_num);

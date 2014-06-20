@@ -9,14 +9,14 @@ using std::string;
 #include "directory_state.h"
 #include "directory_type.h"
 #include "caching_protocol.h"
+#include "scalable_allocator.h"
 
-class DirectoryEntry
+class DirectoryEntry : public ScalableAllocator<DirectoryEntry>
 {
 public:
    DirectoryEntry(SInt32 max_hw_sharers);
    virtual ~DirectoryEntry();
 
-   static DirectoryEntry* create(UInt32 directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers);
    static UInt32 getSize(UInt32 directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers);
    static UInt32 parseDirectoryType(string directory_type);
 
@@ -53,4 +53,21 @@ protected:
    DirectoryState::Type _dstate;
    tile_id_t _owner_id;
    SInt32 _max_hw_sharers;
+};
+
+class DirectoryEntryFactory
+{
+public:
+   DirectoryEntryFactory(tile_id_t tile_id, UInt32 directory_type,
+                         SInt32 max_hw_sharers, SInt32 max_num_sharers);
+   ~DirectoryEntryFactory();
+
+   DirectoryEntry* create();
+   void destroy(DirectoryEntry* entry);
+
+private:
+   tile_id_t _tile_id;
+   UInt32 _directory_type;
+   SInt32 _max_hw_sharers;
+   SInt32 _max_num_sharers;
 };

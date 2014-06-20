@@ -33,29 +33,6 @@ DirectoryEntry::parseDirectoryType(string directory_type)
    return UINT32_MAX_;
 }
 
-DirectoryEntry*
-DirectoryEntry::create(UInt32 directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers)
-{
-   switch (directory_type)
-   {
-   case FULL_MAP:
-      return new DirectoryEntryFullMap(max_num_sharers);
-
-   case LIMITED_NO_BROADCAST:
-      return new DirectoryEntryLimitedNoBroadcast(max_hw_sharers);
-
-   case ACKWISE:
-      return new DirectoryEntryAckwise(max_hw_sharers);
-
-   case LIMITLESS:
-      return new DirectoryEntryLimitless(max_hw_sharers, max_num_sharers);
-
-   default:
-      LOG_PRINT_ERROR("Unrecognized Directory Type: %u", directory_type);
-      return NULL;
-   }
-}
-
 UInt32
 DirectoryEntry::getSize(UInt32 directory_type, SInt32 max_hw_sharers, SInt32 max_num_sharers)
 {
@@ -79,6 +56,48 @@ void
 DirectoryEntry::setOwner(tile_id_t owner_id)
 {
    if (owner_id != INVALID_TILE_ID)
-      LOG_ASSERT_ERROR(isTrackedSharer(owner_id), "Owner Id(%i) not a sharer, State(%s)", owner_id, SPELL_DSTATE(_dstate));
+      LOG_ASSERT_ERROR(isTrackedSharer(owner_id), "Owner Id(%i) not a sharer, State(%s)",
+                       owner_id, SPELL_DSTATE(_dstate));
    _owner_id = owner_id;
+}
+
+// DirectoryEntry Factory
+DirectoryEntryFactory::DirectoryEntryFactory(tile_id_t tile_id, UInt32 directory_type,
+                                             SInt32 max_hw_sharers, SInt32 max_num_sharers)
+   : _tile_id(tile_id)
+   , _directory_type(directory_type)
+   , _max_hw_sharers(max_hw_sharers)
+   , _max_num_sharers(max_num_sharers)
+{}
+
+DirectoryEntryFactory::~DirectoryEntryFactory()
+{}
+
+DirectoryEntry*
+DirectoryEntryFactory::create()
+{
+   switch (_directory_type)
+   {
+   case FULL_MAP:
+      return new(_tile_id) DirectoryEntryFullMap(_max_num_sharers);
+
+   case LIMITED_NO_BROADCAST:
+      return new(_tile_id) DirectoryEntryLimitedNoBroadcast(_max_hw_sharers);
+
+   case ACKWISE:
+      return new(_tile_id) DirectoryEntryAckwise(_max_hw_sharers);
+
+   case LIMITLESS:
+      return new(_tile_id) DirectoryEntryLimitless(_max_hw_sharers, _max_num_sharers);
+
+   default:
+      LOG_PRINT_ERROR("Unrecognized Directory Type: %u", _directory_type);
+      return NULL;
+   }
+}
+
+void
+DirectoryEntryFactory::destroy(DirectoryEntry* entry)
+{
+   delete entry;
 }

@@ -16,8 +16,7 @@ DirectoryCache::DirectoryCache(Tile* tile,
                                UInt32 max_hw_sharers,
                                UInt32 max_num_sharers,
                                UInt32 num_directory_slices,
-                               string directory_access_cycles_str,
-                               ShmemPerfModel* shmem_perf_model)
+                               string directory_access_cycles_str)
    : _tile(tile)
    , _caching_protocol_type(caching_protocol_type)
    , _max_hw_sharers(max_hw_sharers)
@@ -30,7 +29,6 @@ DirectoryCache::DirectoryCache(Tile* tile,
    , _mcpat_cache_interface(NULL)
    , _enabled(false)
    , _module(DIRECTORY)
-   , _shmem_perf_model(shmem_perf_model)
 {
    LOG_PRINT("Directory Cache ctor enter");
 
@@ -41,8 +39,12 @@ DirectoryCache::DirectoryCache(Tile* tile,
    _total_entries = computeDirectoryTotalEntries();
    _num_sets = _total_entries / _associativity;
 
+   // Create directory entry factory
+   _directory_entry_factory = new DirectoryEntryFactory(_tile->getId(), _directory_type,
+                                                        _max_hw_sharers, _max_num_sharers);
+   
    // Instantiate the directory
-   _directory = new Directory(caching_protocol_type, _directory_type, _total_entries, max_hw_sharers, max_num_sharers);
+   _directory = new Directory(_directory_entry_factory, _directory_type, _total_entries);
 
    // Size of each directory entry (in bytes)
    UInt32 max_application_sharers = Config::getSingleton()->getApplicationTiles();
@@ -178,7 +180,7 @@ DirectoryCache::replaceDirectoryEntry(IntPtr replaced_address, IntPtr address)
    splitAddress(replaced_address, tag, set_index);
 
    DirectoryEntry* replaced_directory_entry = NULL;
-   DirectoryEntry* new_directory_entry = DirectoryEntry::create(_directory_type, _max_hw_sharers, _max_num_sharers);
+   DirectoryEntry* new_directory_entry = _directory_entry_factory->create();
    new_directory_entry->setAddress(address);
 
    for (UInt32 i = 0; i < _associativity; i++)
