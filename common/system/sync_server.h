@@ -15,8 +15,6 @@
 class SimMutex
 {
    public:
-      //static const core_id_t NO_OWNER = (core_id_t) {UINT_MAX, UINT_MAX};
-
       SimMutex();
       ~SimMutex();
 
