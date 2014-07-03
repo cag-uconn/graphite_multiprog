@@ -48,7 +48,8 @@ namespace config
         if(!m_case_sensitive)
             boost::to_lower(iname);
 
-        m_subSections.insert(std::make_pair(iname, new Section(*this, name_, m_case_sensitive)));
+        boost::shared_ptr<Section> p (new Section(*this, name_, m_case_sensitive));
+        m_subSections.insert(std::make_pair(iname, p));
         return *(m_subSections[iname].get());
     }
 
@@ -65,7 +66,8 @@ namespace config
         if(found != m_keys.end())
             m_keys.erase(iname);
 
-        m_keys.insert(std::make_pair(iname, new Key(this->getFullPath(),name_,value)));
+        boost::shared_ptr<Key> p (new Key(this->getFullPath(), name_, value));
+        m_keys.insert(std::make_pair(iname, p));
         return *(m_keys[iname].get());
     }
 
@@ -81,7 +83,8 @@ namespace config
         if(found != m_keys.end())
             m_keys.erase(iname);
 
-        m_keys.insert(std::make_pair(iname, new Key(this->getFullPath(),name_,value)));
+        boost::shared_ptr<Key> p (new Key(this->getFullPath(), name_, value));
+        m_keys.insert(std::make_pair(iname, p));
         return *(m_keys[iname].get());
     }
 
@@ -97,7 +100,8 @@ namespace config
         if(found != m_keys.end())
             m_keys.erase(iname);
 
-        m_keys.insert(std::make_pair(iname, new Key(this->getFullPath(),name_,value)));
+        boost::shared_ptr<Key> p (new Key(this->getFullPath(), name_, value));
+        m_keys.insert(std::make_pair(iname, p));
         return *(m_keys[iname].get());
     }
 

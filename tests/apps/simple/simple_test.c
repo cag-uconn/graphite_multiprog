@@ -26,8 +26,7 @@ int main(int argc, char* argv[])  // main begins
    // Declare threads and related variables
    carbon_thread_t threads[numThreads];
 
-   CAPI_return_t rtnVal;
-   rtnVal = CAPI_Initialize(0);
+   CAPI_Initialize(0);
 
    fprintf(stderr, "Spawning...\n");
 
@@ -46,7 +45,8 @@ int main(int argc, char* argv[])  // main begins
 
 void* thread_func(void *threadid)
 {
-   CAPI_return_t rtnVal = CAPI_Initialize((int)threadid);
+   CAPI_Initialize((int) threadid);
    fprintf(stderr, "In Spawned Thread..\n");
+   return NULL;
 }
 

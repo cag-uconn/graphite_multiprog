@@ -115,8 +115,8 @@ private:
    void masterSpawnThreadReply(ThreadSpawnRequest*);
 
 
-   void masterOnThreadStart(tile_id_t tile_id, UInt32 core_type, SInt32 thread_idx);
-   void masterOnThreadExit(tile_id_t tile_id, UInt32 core_type, SInt32 thread_idx, UInt64 time);
+   void masterOnThreadStart(tile_id_t tile_id, SInt32 core_type, SInt32 thread_idx);
+   void masterOnThreadExit(tile_id_t tile_id, SInt32 core_type, SInt32 thread_idx, UInt64 time);
 
    void slaveTerminateThreadSpawnerAck (tile_id_t);
    void slaveTerminateThreadSpawner ();
@@ -132,7 +132,7 @@ private:
    void setThreadIndex(thread_id_t thread_id, core_id_t core_id, thread_id_t thread_idx);
    UInt32 getNumScheduledThreads(core_id_t core_id);
    thread_id_t getIdleThread(core_id_t core_id);
-   void masterQueryThreadIndex(tile_id_t req_tile_id, UInt32 req_core_type, thread_id_t thread_id);
+   void masterQueryThreadIndex(tile_id_t req_tile_id, SInt32 req_core_type, thread_id_t thread_id);
 
 
    thread_id_t m_tid_counter;

@@ -5,7 +5,6 @@
 #include <bitset>
 #include <queue>
 #include <map>
-//#include <sched.h>
 
 #include "cond.h"
 #include "core.h"
@@ -24,7 +23,7 @@ protected:
    ThreadScheduler(ThreadManager*, TileManager*);
 
 public:
-   ~ThreadScheduler();
+   virtual ~ThreadScheduler();
    static ThreadScheduler* create(ThreadManager*, TileManager*);
 
    void masterScheduleThread(ThreadSpawnRequest *req);
@@ -37,7 +36,7 @@ public:
    void enablePreemptiveScheduling(){m_thread_preemption_enabled = true; m_thread_migration_enabled = true;}
 
    void migrateThread(thread_id_t thread_id, tile_id_t tile_id);
-   void masterMigrateThread(thread_id_t src_thread_id, tile_id_t dst_tile_id, UInt32 dst_core_type);
+   void masterMigrateThread(thread_id_t src_thread_id, tile_id_t dst_tile_id, SInt32 dst_core_type);
    void masterMigrateThread(thread_id_t src_thread_idx, core_id_t src_core_id, thread_id_t dst_thread_idx, core_id_t dst_core_id);
 
    bool schedSetAffinity(thread_id_t tid, unsigned int cpusetsize, cpu_set_t* set);

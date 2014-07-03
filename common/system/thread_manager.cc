@@ -136,7 +136,7 @@ void ThreadManager::onThreadStart(ThreadSpawnRequest *req)
    }
 }
 
-void ThreadManager::masterOnThreadStart(tile_id_t tile_id, UInt32 core_type, SInt32 thread_idx)
+void ThreadManager::masterOnThreadStart(tile_id_t tile_id, SInt32 core_type, SInt32 thread_idx)
 {
    // Set the CoreState to 'RUNNING'
    LOG_ASSERT_ERROR(m_thread_state[tile_id][thread_idx].status == Core::INITIALIZING,
@@ -189,7 +189,7 @@ void ThreadManager::onThreadExit()
    LOG_PRINT("Finished onThreadExit: thread on core ID(%d,%d), IDX(%d)", core->getId().tile_id, core->getId().core_type, thread_idx);
 }
 
-void ThreadManager::masterOnThreadExit(tile_id_t tile_id, UInt32 core_type, SInt32 thread_idx, UInt64 time)
+void ThreadManager::masterOnThreadExit(tile_id_t tile_id, SInt32 core_type, SInt32 thread_idx, UInt64 time)
 {
    LOG_ASSERT_ERROR(m_master, "masterOnThreadExit should only be called on master.");
    core_id_t core_id = (core_id_t) {tile_id, core_type};
@@ -672,7 +672,7 @@ void ThreadManager::queryThreadIndex(thread_id_t thread_id, core_id_t &core_id, 
    m_tid_map_lock.release();
 }
 
-void ThreadManager::masterQueryThreadIndex(tile_id_t req_tile_id, UInt32 req_core_type, thread_id_t thread_id)
+void ThreadManager::masterQueryThreadIndex(tile_id_t req_tile_id, SInt32 req_core_type, thread_id_t thread_id)
 {
    LOG_PRINT("ThreadManager::masterQueryThreadIndex called for tid %i", thread_id);
    core_id_t requester = (core_id_t) {req_tile_id, req_core_type};

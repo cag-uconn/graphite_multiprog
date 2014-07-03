@@ -22,7 +22,7 @@ typedef enum { MAIN_CORE_TYPE = 0 } core_type_t;
 typedef struct
 {
    SInt32 tile_id;
-   UInt32 core_type;
+   SInt32 core_type;
 } core_id_t;
 
 typedef SInt32 thread_id_t;

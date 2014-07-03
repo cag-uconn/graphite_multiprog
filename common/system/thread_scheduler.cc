@@ -260,10 +260,10 @@ void ThreadScheduler::migrateThread(thread_id_t thread_id, tile_id_t tile_id)
    net->netSend(Config::getSingleton()->getMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 msg,
-                sizeof(SInt32) + sizeof(thread_id_t) + sizeof(tile_id_t) + sizeof(UInt32));
+                sizeof(SInt32) + sizeof(thread_id_t) + sizeof(tile_id_t) + sizeof(SInt32));
 }
 
-void ThreadScheduler::masterMigrateThread(thread_id_t src_thread_id, tile_id_t dst_tile_id, UInt32 dst_core_type)
+void ThreadScheduler::masterMigrateThread(thread_id_t src_thread_id, tile_id_t dst_tile_id, SInt32 dst_core_type)
 {
    thread_id_t src_thread_idx = INVALID_THREAD_ID;
    core_id_t   src_core_id    = INVALID_CORE_ID;

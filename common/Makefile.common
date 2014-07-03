@@ -56,7 +56,9 @@ LD_LIBS += -lrt
 
 # Include paths
 INCLUDE_PATH = $(foreach dir,$(INCLUDE_DIRECTORIES),-I$(dir))
-CXXFLAGS += -std=c++0x $(INCLUDE_PATH) \
+
+CXXFLAGS += -std=c++0x
+CXXFLAGS += $(INCLUDE_PATH) \
             -Wall -Werror -Wno-deprecated-declarations -Wno-unknown-pragmas \
 			   $(DBG_FLAGS) $(OPT_FLAGS) -fPIC -DKERNEL_$(KERNEL)
 

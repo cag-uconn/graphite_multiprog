@@ -33,7 +33,7 @@ protected:
    ClockSkewManagementClient() {}
 
 public:
-   ~ClockSkewManagementClient() {}
+   virtual ~ClockSkewManagementClient() {}
    static ClockSkewManagementClient* create(std::string scheme_str, Core* core);
 
    virtual void enable() = 0;
@@ -48,7 +48,7 @@ protected:
    ClockSkewManagementManager() {}
 
 public:
-   ~ClockSkewManagementManager() {}
+   virtual ~ClockSkewManagementManager() {}
    static ClockSkewManagementManager* create(std::string scheme_str);
 
    virtual void processSyncMsg(Byte* msg) = 0;
@@ -60,7 +60,7 @@ protected:
    ClockSkewManagementServer() {}
 
 public:
-   ~ClockSkewManagementServer() {}
+   virtual ~ClockSkewManagementServer() {}
    static ClockSkewManagementServer* create(std::string scheme_str, Network& network, UnstructuredBuffer& recv_buff);
 
    virtual void processSyncMsg(core_id_t core_id) = 0;
