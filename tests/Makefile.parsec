@@ -1,0 +1,47 @@
+PARSEC_HOME=/afs/csail/group/carbon/benchmarks/parsec/parsec-3.0-graphite
+PARSEC_LOCAL=$(SIM_ROOT)/tests/parsec/parsec-3.0
+
+APPS = blackscholes bodytrack facesim ferret fluidanimate freqmine raytrace swaptions vips x264
+KERNELS = canneal dedup streamcluster
+
+## APPS
+
+blackscholes_flags ?= 64 in_64K.txt prices.txt									# simlarge
+# Bodytrack uses a PARSEC thread count of 62 to fit within 64 cores (n+2)
+bodytrack_flags ?= sequenceB_4 4 4 4000 5 0 62									# simlarge
+facesim_flags ?= -timing -threads 64												# (simsmall, simmedium, simlarge)
+ferret_flags ?= corel lsh queries 10 20 15 output.txt							# simmedium
+fluidanimate_flags ?=  64 5 in_300K.fluid out.fluid							# simlarge
+freqmine_flags ?= 64 kosarak_990k.dat 790											# simlarge
+raytrace_flags ?=
+swaptions_flags ?= -ns 64 -sm 40000 -nt 64               					# simlarge                                             
+vips_flags ?= im_benchmark barbados_256x288.v output.v						# simmedium
+x264_flags ?= --quiet --qp 20 --partitions b8x8,i4x4 --ref 5 --direct auto --b-pyramid --weightb --mixed-refs --no-fast-pskip --me umh --subme 7 --analyse b8x8,i4x4 --threads 32 -o eledream.264 eledream_640x360_32.y4m
+
+# KERNELS
+
+canneal_flags ?= 64 15000 2000 400000.nets 128									# simlarge
+dedup_flags ?= -c -p -v -t 20 -i media.dat -o output.dat.ddp				# simmedium
+streamcluster_flags ?= 10 20 128 16384 16384 1000 none output.txt 64		# simlarge
+
+BENCHMARK = $(patsubst %_parsec,%,$@)
+TYPE = $(if $(findstring $(BENCHMARK),$(APPS)),apps,kernels)
+DIRECTORY = $(PARSEC_LOCAL)/pkgs/$(TYPE)/$(BENCHMARK)
+APP_FLAGS ?= $($(BENCHMARK)_flags)
+EXEC ?= $(DIRECTORY)/inst/amd64-linux.graphite/bin/$(BENCHMARK) $(APP_FLAGS)
+
+include tests/Makefile.tests
+
+BUILD_COMMAND = export GRAPHITE_HOME=$(SIM_ROOT); $(PARSEC_LOCAL)/bin/parsecmgmt -a build -p $(BENCHMARK) -c graphite
+RUN_COMMAND = export GRAPHITE_HOME=$(SIM_ROOT); mkdir -p $(DIRECTORY)/run; cd $(DIRECTORY)/run; $(RUN)
+
+vips_parsec:
+	$(BUILD_COMMAND)
+	export IM_CONCURRENCY=64; $(RUN_COMMAND)
+
+%_parsec:
+	$(BUILD_COMMAND)
+	$(RUN_COMMAND)
+
+setup_parsec:
+	cd $(PARSEC_HOME); find -type d  -name .git -prune -o -type d   -printf "mkdir -vp '$(PARSEC_LOCAL)/%p'\n" -o -type f -printf "ln -s '$(PARSEC_HOME)/%p' '$(PARSEC_LOCAL)/%p'\n" | sh
