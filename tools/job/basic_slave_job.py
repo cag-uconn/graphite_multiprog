@@ -11,7 +11,6 @@ import time
 import subprocess
 
 from slave_job import SlaveJob
-from slave_job import getGraphiteHome
 
 # BasicSlaveJob:
 #  a job built around the Graphite scheduler
@@ -72,7 +71,7 @@ if __name__=="__main__":
    proc_num = int(sys.argv[2])
    command = " ".join(sys.argv[3:])
    working_dir = sys.argv[1]
-   graphite_home = getGraphiteHome(sys.argv[0])
+   graphite_home = SlaveJob.getGraphiteHome(sys.argv[0])
 
    job = BasicSlaveJob(proc_num, command, working_dir, graphite_home)
    job.spawn()
