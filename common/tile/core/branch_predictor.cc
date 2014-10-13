@@ -1,6 +1,7 @@
 #include "simulator.h"
 #include "branch_predictor.h"
-#include "one_bit_branch_predictor.h"
+#include "branch_predictors/one_bit.h"
+#include "branch_predictors/two_level.h"
 
 BranchPredictor::BranchPredictor()
 {
@@ -16,21 +17,11 @@ BranchPredictor* BranchPredictor::create()
 {
    try
    {
-      config::Config *cfg = Sim()->getCfg();
-      assert(cfg);
-
-      m_mispredict_penalty = cfg->getInt("branch_predictor/mispredict_penalty",0);
-
-      string type = cfg->getString("branch_predictor/type","none");
-      if (type == "none")
-      {
-         return 0;
-      }
-      else if (type == "one_bit")
-      {
-         UInt32 size = cfg->getInt("branch_predictor/size");
-         return new OneBitBranchPredictor(size);
-      }
+      string type = cfg->getString("branch_predictor/type");
+      if (type == "one_bit")
+         return new OneBitBranchPredictor(core_model);
+      else if (type == "two_level")
+         return new TwoLevelBranchPredictor(core_model);
       else
       {
          LOG_PRINT_ERROR("Invalid branch predictor type.");
@@ -66,6 +57,7 @@ void BranchPredictor::initializeCounters()
 void BranchPredictor::outputSummary(std::ostream &os)
 {
    os << "    Branch Predictor Statistics:" << endl
-      << "      Num Correct: " << m_correct_predictions << endl
-      << "      Num Incorrect: " << m_incorrect_predictions << endl;
+      << "      Num Correct: " << _correct_predictions << endl
+      << "      Num Incorrect: " << _incorrect_predictions << endl
+      << "      Accuracy (%): " << 100.0 * _correct_predictions / (_correct_predictions + _incorrect_predictions) << endl;
 }
