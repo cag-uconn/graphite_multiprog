@@ -1,6 +1,6 @@
 #include "simulator.h"
 #include "config.h"
-#include "queue_model_basic.h"
+#include "basic.h"
 #include "utils.h"
 #include "log.h"
 

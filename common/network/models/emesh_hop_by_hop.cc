@@ -1,7 +1,7 @@
 #include <math.h>
 using namespace std;
 
-#include "network_model_emesh_hop_by_hop.h"
+#include "emesh_hop_by_hop.h"
 #include "tile.h"
 #include "simulator.h"
 #include "config.h"

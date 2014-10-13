@@ -1,5 +1,5 @@
 #include "network.h"
-#include "network_model_magic.h"
+#include "magic.h"
 #include "log.h"
 
 NetworkModelMagic::NetworkModelMagic(Network *net, SInt32 network_id)

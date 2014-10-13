@@ -2,8 +2,8 @@
 #include "network_model.h"
 #include "network.h"
 #include "utils.h"
-#include "queue_model_history_list.h"
-#include "queue_model_history_tree.h"
+#include "queue_models/history_list.h"
+#include "queue_models/history_tree.h"
 #include "log.h"
 #include "time_types.h"
 
