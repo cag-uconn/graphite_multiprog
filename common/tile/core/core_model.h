@@ -13,8 +13,10 @@ class McPATCoreInterface;
 #include "instruction.h"
 #include "basic_block.h"
 #include "fixed_types.h"
+#include "dynamic_memory_request.h"
 #include "dynamic_memory_info.h"
 #include "dynamic_branch_info.h"
+#include "page_attributes.h"
 
 #define ONE_CYCLE    (_core_model->get_ONE_CYCLE())
 
@@ -24,8 +26,8 @@ public:
    CoreModel(Core* core);
    virtual ~CoreModel();
 
-   void processDynamicInstruction(DynamicInstruction* i);
-   void queueInstruction(Instruction* instruction);
+   void processDynamicInstruction(DynamicInstruction* ins);
+   void queueInstruction(Instruction* ins);
    void iterate();
 
    void setDVFS(double old_frequency, double new_voltage, double new_frequency, const Time& curr_time);
@@ -34,17 +36,15 @@ public:
    Time getCurrTime() const { return _curr_time; }
    void setCurrTime(Time time);
 
-   void pushDynamicMemoryInfo(const DynamicMemoryInfo &info);
-   void popDynamicMemoryInfo();
-   const DynamicMemoryInfo& getDynamicMemoryInfo();
+   void pushDynamicMemoryRequest(const DynamicMemoryRequest &request);
+   void popDynamicMemoryRequest();
+   const DynamicMemoryRequest& getDynamicMemoryRequest();
 
    void pushDynamicBranchInfo(const DynamicBranchInfo &info);
    void popDynamicBranchInfo();
    const DynamicBranchInfo& getDynamicBranchInfo();
 
    static CoreModel* create(Core* core);
-
-   BranchPredictor *getBranchPredictor() { return _bp; }
 
    void enable();
    void disable();
@@ -56,54 +56,38 @@ public:
    double getDynamicEnergy();
    double getLeakageEnergy();
 
-   class AbortInstructionException {};
-
-   const Time& getCost(InstructionType type) const;
-
    Core* getCore() { return _core; };
 
-   // Model L1-Instruction Cache
-   Time modelICache(const Instruction* instruction);
+   // Model instruction fetch
+   Time issueInstructionFetch(const Time& issue_time, uintptr_t address, uint32_t size);
+   // Model memory access (loads/stores)
+   DynamicMemoryInfo issueLoad(const Time& issue_time, const DynamicMemoryRequest& request);
+   DynamicMemoryInfo issueStore(const Time& issue_time, const DynamicMemoryRequest& request);
 
-   const Time& get_ONE_CYCLE() { return _ONE_CYCLE; }
+   Time getLatency(uint16_t lat) const;
+   const Time& get_ONE_CYCLE() const   { return _ONE_CYCLE; }
 
 protected:
-   enum RegType
-   {
-      INTEGER = 0,
-      FLOATING_POINT
-   };
-   enum AccessType
-   {
-      READ = 0,
-      WRITE
-   };
-   enum ExecutionUnitType
-   {
-   };
-
-   friend class SpawnInstruction;
-
-   typedef boost::circular_buffer<DynamicMemoryInfo> DynamicMemoryInfoQueue;
-   typedef boost::circular_buffer<DynamicBranchInfo> DynamicBranchInfoQueue;
-   typedef boost::circular_buffer<Instruction*> InstructionQueue;
-
+   static const UInt32 _NUM_REGISTERS = 512;
+   
    Core* _core;
+   BranchPredictor* _branch_predictor;
 
    Time _curr_time;
    
-   // 1 Cycle
-   Time _ONE_CYCLE;
-
-   void updateMemoryFenceCounters(const Instruction* instruction);
-   void updateDynamicInstructionCounters(const Instruction* instruction, const Time& cost);
+   void updateMemoryFenceCounters();
+   void updateDynamicInstructionStallCounters(const DynamicInstruction* ins);
    void updatePipelineStallCounters(const Time& instruction_fetch__stall_time,
                                     const Time& memory_access__stall_time,
-                                    const Time& execution_unit__stall_time);
+                                    const Time& load_queue__stall_time,
+                                    const Time& store_queue__stall_time,
+                                    const Time& execution_unit__stall_time,
+                                    const Time& branch_speculation__violation_stall_time,
+                                    const Time& load_speculation__violation_stall_time);
 
    // Power/Area modeling
    void initializeMcPATInterface(UInt32 num_load_buffer_entries, UInt32 num_store_buffer_entries);
-   void updateMcPATCounters(Instruction* instruction);
+   void updateMcPATCounters(Instruction* ins);
 
 private:
    UInt64 _instruction_count;
@@ -112,49 +96,48 @@ private:
    Time _checkpointed_time;
    UInt64 _total_cycles;
 
-   BranchPredictor *_bp;
+   typedef boost::circular_buffer<DynamicMemoryRequest> DynamicMemoryRequestQueue;
+   typedef boost::circular_buffer<DynamicBranchInfo> DynamicBranchInfoQueue;
+   typedef boost::circular_buffer<Instruction*> InstructionQueue;
 
    InstructionQueue _instruction_queue;
-   DynamicMemoryInfoQueue _dynamic_memory_info_queue;
+   DynamicMemoryRequestQueue _dynamic_memory_request_queue;
    DynamicBranchInfoQueue _dynamic_branch_info_queue;
 
    bool _enabled;
 
-   // Instruction costs
-   typedef vector<Time> InstructionCosts;
-   typedef vector<UInt32> StaticInstructionCosts;
-   InstructionCosts _instruction_costs;
-   StaticInstructionCosts _static_instruction_costs;
+   // Latency table
+   Time _latency_table[16];
+   Time _ONE_CYCLE;
 
    // Memory fence counters
-   UInt64 _total_lfence_instructions;
-   UInt64 _total_sfence_instructions;
-   UInt64 _total_explicit_mfence_instructions;
-   UInt64 _total_implicit_mfence_instructions;
-   // Dynamic instruction counters
-   UInt64 _total_recv_instructions;
-   UInt64 _total_sync_instructions;
-   Time _total_recv_instruction__stall_time;
-   Time _total_sync_instruction__stall_time;
+   UInt64 _total_fence_instructions;
    // Pipeline stall counters
    Time _total_instruction_fetch__stall_time;
    Time _total_memory_access__stall_time;
+   Time _total_load_queue__stall_time;
+   Time _total_store_queue__stall_time;
    Time _total_execution_unit__stall_time;
+   // Branch/load speculation
+   Time _total_branch_speculation_violation__stall_time;
+   Time _total_load_speculation_violation__stall_time;
+   // Dynamic instruction stall counters
+   Time _total_netrecv__stall_time;
+   Time _total_sync__stall_time;
+   Time _total__idle_time;
 
    // Power/Area modeling
    McPATCoreInterface* _mcpat_core_interface;
   
    // Main instruction handling function
-   virtual void handleInstruction(Instruction* instruction) = 0;
-
-   void __handleInstruction(Instruction* instruction); 
+   virtual void handleInstruction(Instruction* ins) = 0;
+   virtual void handleDynamicInstruction(DynamicInstruction* ins) = 0;
    
-   // Instruction costs
-   void initializeInstructionCosts(double frequency);
-   void updateInstructionCosts(double frequency);
+   // Instruction latency table
+   void initializeLatencyTable(double frequency);
+   void updateLatencyTable(double frequency);
 
    // Memory fence / Dynamic instruction / Pipeline stall counters
    void initializeMemoryFenceCounters();
-   void initializeDynamicInstructionCounters();
-   void initializePipelineStallCounters();
+   void initializeStallCounters();
 };

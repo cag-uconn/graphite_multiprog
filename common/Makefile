@@ -4,6 +4,7 @@ CLEAN=$(findstring clean,$(MAKECMDGOALS))
 include $(SIM_ROOT)/common/Makefile.common
 
 SRC_DIRECTORIES = $(COMMON_DIRECTORIES) \
+			 $(SIM_ROOT)/common/tile/core/models/																\
 			 $(SIM_ROOT)/common/tile/memory_subsystem/pr_l1_pr_l2_dram_directory_msi/				\
 			 $(SIM_ROOT)/common/tile/memory_subsystem/pr_l1_pr_l2_dram_directory_mosi/ 			\
 			 $(SIM_ROOT)/common/tile/memory_subsystem/pr_l1_sh_l2_msi/

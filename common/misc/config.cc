@@ -372,7 +372,7 @@ void Config::parseTileParameters()
    // 5) L2 Cache Type -> T1
 
    const UInt32 DEFAULT_NUM_TILES = getApplicationTiles();
-   const string DEFAULT_CORE_TYPE = "simple";
+   const string DEFAULT_CORE_TYPE = "in_order";
    const string DEFAULT_CACHE_TYPE = "T1";
 
    string tile_parameter_tuple_str;
