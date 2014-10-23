@@ -1,36 +1,35 @@
-#ifndef BRANCH_PREDICTOR_H
-#define BRANCH_PREDICTOR_H
+#pragma once
 
 #include <iostream>
 
+class CoreModel;
+
 #include "fixed_types.h"
+#include "time_types.h"
 
 class BranchPredictor
 {
 public:
-   BranchPredictor();
+   BranchPredictor(CoreModel* core_model);
    virtual ~BranchPredictor();
 
-   virtual bool predict(IntPtr ip, IntPtr target) = 0;
-   virtual void update(bool predicted, bool actual, IntPtr ip, IntPtr target) = 0;
-
-   UInt64 getMispredictPenalty();
-   static BranchPredictor* create();
-
+   static BranchPredictor* create(CoreModel* core_model);
    virtual void outputSummary(std::ostream &os);
-   UInt64 getNumCorrectPredictions() { return m_correct_predictions; }
-   UInt64 getNumIncorrectPredictions() { return m_incorrect_predictions; }
 
-protected:
-   void updateCounters(bool predicted, bool actual);
+   uint16_t getMispredictPenalty() { return _mispredict_penalty; }
+   bool handle(uintptr_t address);
+
+   uint64_t getNumCorrectPredictions()    { return _correct_predictions; }
+   uint64_t getNumIncorrectPredictions()  { return _incorrect_predictions; }
 
 private:
-   UInt64 m_correct_predictions;
-   UInt64 m_incorrect_predictions;
-
-   static UInt64 m_mispredict_penalty;
-
+   virtual bool predict(IntPtr ip, IntPtr target) = 0;
+   virtual void update(bool prediction, bool actual, IntPtr ip, IntPtr target) = 0;
    void initializeCounters();
-};
+   void updateCounters(bool prediction, bool actual);
 
-#endif
+   CoreModel* _core_model;
+   uint16_t _mispredict_penalty;
+   uint64_t _correct_predictions;
+   uint64_t _incorrect_predictions;
+};

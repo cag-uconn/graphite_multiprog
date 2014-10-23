@@ -1,5 +1,4 @@
-#ifndef ONE_BIT_BRANCH_PREDICTOR_H
-#define ONE_BIT_BRANCH_PREDICTOR_H
+#pragma once
 
 #include "branch_predictor.h"
 
@@ -8,14 +7,12 @@
 class OneBitBranchPredictor : public BranchPredictor
 {
 public:
-   OneBitBranchPredictor(UInt32 size);
+   OneBitBranchPredictor(CoreModel* core_model);
    ~OneBitBranchPredictor();
 
    bool predict(IntPtr ip, IntPtr target);
-   void update(bool predicted, bool actual, IntPtr ip, IntPtr target);
+   void update(bool prediction, bool actual, IntPtr ip, IntPtr target);
 
 private:
-   std::vector<bool> m_bits;
+   std::vector<bool> _bits;
 };
-
-#endif

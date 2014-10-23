@@ -1,8 +1,8 @@
 #include "simulator.h"
 #include "one_bit.h"
 
-OneBitBranchPredictor::OneBitBranchPredictor(UInt32 size)
-   : m_bits(size)
+OneBitBranchPredictor::OneBitBranchPredictor(CoreModel* core_model)
+   : BranchPredictor(core_model)
 {
    config::Config *cfg = Sim()->getCfg();
    uint32_t log_branch_history_table_size = 0;
@@ -21,15 +21,16 @@ OneBitBranchPredictor::~OneBitBranchPredictor()
 {
 }
 
-bool OneBitBranchPredictor::predict(IntPtr ip, IntPtr target)
+bool
+OneBitBranchPredictor::predict(IntPtr ip, IntPtr target)
 {
-   UInt32 index = ip % m_bits.size();
-   return m_bits[index];
+   UInt32 index = ip % _bits.size();
+   return _bits[index];
 }
 
-void OneBitBranchPredictor::update(bool predicted, bool actual, IntPtr ip, IntPtr target)
+void
+OneBitBranchPredictor::update(bool prediction, bool actual, IntPtr ip, IntPtr target)
 {
-   updateCounters(predicted, actual);
-   UInt32 index = ip % m_bits.size();
-   m_bits[index] = actual;
+   UInt32 index = ip % _bits.size();
+   _bits[index] = actual;
 }
