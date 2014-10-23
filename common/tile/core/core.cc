@@ -140,7 +140,7 @@ Core::initiateMemoryAccess(MemComponent::Type mem_component, lock_signal_t lock_
                            bool push_info, Time time_arg)
 {
    LOG_ASSERT_ERROR(Config::getSingleton()->isSimulatingSharedMemory(), "Shared Memory Disabled");
-   DynamicMemoryInfo dynamic_memory_info(address, mem_op_type != WRITE);
+   DynamicMemoryInfo dynamic_memory_info(address, data_size, mem_op_type, lock_signal);
 
    if (data_size == 0)
    {

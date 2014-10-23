@@ -31,7 +31,7 @@ public:
       const Time& getTimeStamp() const { return _timestamp; }
       const Time& getStallTime() const { return _total_stall_time; }
       void outputSummary(ostream& os);
-   
+
    private:
       CoreModel* _core_model;
       Time _timestamp;
@@ -123,8 +123,6 @@ public:
       UInt32 _allocate_idx;
       // Multiple outstanding stores?
       bool _multiple_outstanding_stores_enabled;
-      // Ordering point for stores
-      Time _ordering_point;
       // Stall time
       Time _total_stall_time;
       

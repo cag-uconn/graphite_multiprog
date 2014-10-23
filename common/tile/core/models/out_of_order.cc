@@ -389,9 +389,12 @@ OutOfOrderCoreModel::LoadQueue::handle(Time& dispatch_time, Time& commit_time,
                                        const StoreQueue* store_queue)
 {
    // Note: There is no throughput restriction on the load queue
-   // Get the dynamic memory request
-   const DynamicMemoryRequest& request = _core_model->getDynamicMemoryRequest();
-   assert(request._mem_op_type == Core::READ || request._mem_op_type == Core::READ_EX);
+   // Get the dynamic memory info
+   const DynamicMemoryRequest& info = _core_model->getDynamicMemoryRequest();
+   assert(info._mem_op_type == Core::READ || info._mem_op_type == Core::READ_EX);
+
+   LOG_PRINT("Load-Queue: handle[Address(%#lx), Size(%u), Mem-Op-Type(%s), Lock-Signal(%s)]",
+             address, info._size, SPELL_MEMOP(info._mem_op_type), SPELL_LOCK_SIGNAL(info._lock_signal));
 
    // Load queue allocation
    Time allocate_time = getMax<Time>(dispatch_time, _scoreboard[_allocate_idx]);
@@ -417,15 +420,8 @@ OutOfOrderCoreModel::LoadQueue::handle(Time& dispatch_time, Time& commit_time,
       break;
    }
 
-   DynamicMemoryInfo info = _core_model->issueLoad(issue_time, request);
-   LOG_ASSERT_ERROR(info._load_time > issue_time, "Load-Time(%llu ns), Issue-Time(%llu ns)",
-                    info._load_time.toNanosec(), issue_time.toNanosec());
-
-   // Remove the dynamic memory request from the queue
-   _core_model->popDynamicMemoryRequest();
-
-   Time latency = ( store_queue->isAddressAvailable(issue_time, request._address)
-                     && (request._lock_signal == Core::NONE) )
+   Time latency = ( store_queue->isAddressAvailable(issue_time, info._address)
+                     && (info._lock_signal == Core::NONE) )
                    ? ONE_CYCLE : info._latency;
    Time completion_time = issue_time + latency;   
    if (scheme == SERIALIZE)
@@ -439,6 +435,10 @@ OutOfOrderCoreModel::LoadQueue::handle(Time& dispatch_time, Time& commit_time,
 
    _scoreboard[_allocate_idx] = commit_time;
    _allocate_idx = (_allocate_idx + 1) % (_num_entries);
+   
+   // Remove the dynamic memory info from the queue
+   _core_model->popDynamicMemoryInfo();
+
    return completion_time;
 }
 
@@ -479,7 +479,6 @@ OutOfOrderCoreModel::LoadQueue::outputSummaryLoadSpeculation(ostream& os)
 
 OutOfOrderCoreModel::StoreQueue::StoreQueue(CoreModel* core_model)
    : _core_model(core_model)
-   , _ordering_point(0)
    , _total_stall_time(0)
 {
    // The assumption is the store queue is reused as a store buffer
@@ -510,18 +509,18 @@ void
 OutOfOrderCoreModel::StoreQueue::handle(Time& dispatch_time, Time& commit_time,
                                         const Time& address_ready, const Time& data_ready)
 {
-   // Get the dynamic memory request
-   const DynamicMemoryRequest& request = _core_model->getDynamicMemoryRequest();
-   assert(request._mem_op_type == Core::WRITE);
+   // Get the dynamic memory info
+   const DynamicMemoryInfo& info = _core_model->getDynamicMemoryInfo();
+   assert(info._mem_op_type == Core::WRITE);
   
    // We can't do store buffer coalescing. It violates x86 TSO memory consistency model.
    // A store fence (SFENCE) does not do anything since all memory accesses obey TSO.
  
-   const IntPtr& address = request._address;
+   const IntPtr& address = info._address;
    Time operands_ready = getMax<Time>(address_ready, data_ready);
 
    LOG_PRINT("Store-Queue: handle[Address(%#lx), Size(%u), Mem-Op-Type(%s), Lock-Signal(%s)]",
-             address, request._size, SPELL_MEMOP(request._mem_op_type), SPELL_LOCK_SIGNAL(request._lock_signal));
+             address, info._size, SPELL_MEMOP(info._mem_op_type), SPELL_LOCK_SIGNAL(info._lock_signal));
 
    // Store queue allocation
    Time allocate_time = getMax<Time>(dispatch_time, _scoreboard[_allocate_idx]);
@@ -534,69 +533,36 @@ OutOfOrderCoreModel::StoreQueue::handle(Time& dispatch_time, Time& commit_time,
 
    Scheme scheme = getScheme();
 
-   if (scheme == TWO_PHASES && request._lock_signal == Core::UNLOCK)
-      scheme = ONE_PHASE;
-   
    switch (scheme)
    {
    case TWO_PHASES:
       {
          // 1st Phase: Exclusive store prefetch (RFO)
          // 2nd Phase: Actual store takes place
-         Time phase_one_issue_time = getMax<Time>(allocate_time, address_ready);
-         LOG_PRINT("TWO_PHASES: Phase1-Issue-Time(%llu ns)", phase_one_issue_time.toNanosec());
-         DynamicMemoryInfo info = _core_model->issueStore(phase_one_issue_time, request);
+         Time phase_one_latency = (info._lock_signal == Core::NONE) ? info._latency : Time(0);
+         // Phase-2 latency is usually the access time of the L1-D cache (assuming a hit)
+         Time phase_two_latency = _L1_D_cache_latency;
 
-         Time phase_two_latency = info._phase_two_store_latency;
-         assert(info._latency >= phase_two_latency);
-         Time phase_one_latency = info._latency - phase_two_latency;
-
+         Time phase_one_issue_time = dispatch_time;
          Time phase_one_completion_time = phase_one_issue_time + phase_one_latency;
-         LOG_PRINT("TWO_PHASES: Phase1-Latency(%llu ns), Phase1-Completion-Time(%llu ns)",
-                   phase_one_latency.toNanosec(), phase_one_completion_time.toNanosec());
+         Time phase_two_issue_time = getMax<Time>(phase_one_completion_time, commit_time, last_deallocate_time);
+         Time completion_time = phase_two_issue_time + phase_two_latency;
          
-         Time phase_two_issue_time = getMax<Time>(phase_one_completion_time, commit_time, _ordering_point);
-         LOG_PRINT("TWO_PHASES: Phase2-Issue-Time(%llu ns)", phase_two_issue_time.toNanosec());
-
-         Time phase_two_completion_time = phase_two_issue_time + phase_two_latency;
-         LOG_PRINT("TWO_PHASES: Phase2-Latency(%llu ns), Phase2-Completion-Time(%llu ns)",
-                   phase_two_latency.toNanosec(), phase_two_completion_time.toNanosec());
-         
-         // Ordering point
-         _ordering_point = phase_two_completion_time;
-         deallocate_time = getMax<Time>(phase_two_completion_time, last_deallocate_time) + ONE_CYCLE;
-         LOG_PRINT("TWO_PHASES: Ordering-Point(%llu ns), Deallocate-Time(%llu ns)",
-                   _ordering_point.toNanosec(), deallocate_time.toNanosec());
-      }
-      break;
-
-   case ONE_PHASE:
-      {
-         Time issue_time = getMax<Time>(commit_time, _ordering_point);
-         LOG_PRINT("ONE_PHASE: Issue-Time(%llu ns)", issue_time.toNanosec());
-         
-         DynamicMemoryInfo info = _core_model->issueStore(issue_time, request);
-         // assert(info._phase_two_store_latency == Time(0));
-         Time completion_time = issue_time + info._latency;
-         LOG_PRINT("ONE_PHASE: Latency(%llu ns), Completion-Time(%llu ns)",
-                   info._latency.toNanosec(), issue_time.toNanosec());
-         
-         deallocate_time = max(completion_time, last_deallocate_time) + ONE_CYCLE;
-         _ordering_point = (info._cacheable) ? completion_time : issue_time;
-         LOG_PRINT("ONE_PHASE: Ordering-Point(%llu ns), Deallocate-Time(%llu ns)",
-                   _ordering_point.toNanosec(), deallocate_time.toNanosec());
+         LOG_PRINT("TWO_PHASES: Phase1: Issue-Time(%llu ns), Latency(%llu ns), Completion-Time(%llu ns)",
+                   phase_one_issue_time.toNanosec(), phase_one_latency.toNanosec(), phase_one_completion_time.toNanosec());
+         LOG_PRINT("TWO_PHASES: Phase2: Issue-Time(%llu ns), Latency(%llu ns), Completion-Time(%llu ns)",
+                   phase_two_issue_time.toNanosec(), phase_two_latency.toNanosec(), phase_two_completion_time.toNanosec());
+         LOG_PRINT("TWO_PHASES: Deallocate-Time(%llu ns)",
+                   deallocate_time.toNanosec());
       }
       break;
 
    case SERIALIZE:
       {
          Time issue_time = getMax<Time>(commit_time, last_deallocate_time);
-         
-         DynamicMemoryInfo info = _core_model->issueStore(issue_time, request);
-         // assert(info._phase_two_store_latency == Time(0));
          Time completion_time = issue_time + info._latency;
-         
-         deallocate_time = completion_time + ONE_CYCLE;
+         LOG_PRINT("SERIALIZE: Issue-Time(%llu ns), Latency(%llu ns), Completion-Time(%llu ns)",
+                   issue_time.toNanosec(), info._latency.toNanosec(), completion_time.toNanosec());
       }
       break;
 
@@ -605,8 +571,7 @@ OutOfOrderCoreModel::StoreQueue::handle(Time& dispatch_time, Time& commit_time,
       break;
    }
 
-   // Remove the dynamic memory request
-   _core_model->popDynamicMemoryRequest();
+   Time deallocate_time = completion_time + ONE_CYCLE;
 
    // The store queue should be de-allocated in order for memory consistency purposes
    _operands_scoreboard[_allocate_idx] = operands_ready;
@@ -614,6 +579,9 @@ OutOfOrderCoreModel::StoreQueue::handle(Time& dispatch_time, Time& commit_time,
    assert(operands_ready < deallocate_time);
    _addresses[_allocate_idx] = address;
    _allocate_idx = (_allocate_idx + 1) % (_num_entries);
+   
+   // Remove the dynamic memory info
+   _core_model->popDynamicMemoryInfo();
 }
 
 void
@@ -638,10 +606,9 @@ OutOfOrderCoreModel::StoreQueue::getScheme(bool shared_read_write_page) const
    //    -> [[ CASE 1 ]] : assert(info._cacheable)
    //    -> phase_one_issue_time = max(allocate_time, operands_ready)
    //    -> phase_one_completion_time = phase_one_issue_time + phase_one_latency
-   //    -> phase_two_issue_time = max(phase_one_completion_time, commit_time, ordering_point)
+   //    -> phase_two_issue_time = max(phase_one_completion_time, commit_time, last_deallocate_time)
    //    -> phase_two_completion_time = phase_two_issue_time + phase_two_latency
-   //    -> ordering_point = (info._cacheable) ? phase_two_completion_time : phase_two_issue_time
-   //    -> deallocate_time = max(phase_two_completion_time, last_deallocate_time) + ONE_CYCLE
+   //    -> deallocate_time = phase_two_completion_time + ONE_CYCLE
    // -> multiple_outstanding_stores_enabled = false
    //    -> [[ CASE 2 ]]
    //    -> issue_time = max(allocate_time, operands_ready, last_deallocate_time)

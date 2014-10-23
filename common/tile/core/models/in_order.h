@@ -81,8 +81,6 @@ public:
       void handleFence(Time& commit_time);
       bool isAddressAvailable(const Time& issue_time, IntPtr address) const;
 
-      void outputSummaryStallTime(ostream& os);
-
    private:
       CoreModel* _core_model;
       // Store queue structures
@@ -93,8 +91,6 @@ public:
       UInt32 _allocate_idx;
       // Multiple outstanding stores?
       bool _multiple_outstanding_stores_enabled;
-      // Ordering point for stores
-      Time _ordering_point;
       // Stall time
       Time _total_stall_time;
       
@@ -137,11 +133,8 @@ public:
       Time _ordering_point;
       // Stall time
       Time _total_stall_time;
-      // Counters
-      UInt64 _total_loads[MemoryRegion::NUM_TYPES];
 
-      void initializeCounters();
-      Scheme getScheme(bool shared_read_write_page) const;
+      Scheme getScheme() const;
    };
 
 private:
