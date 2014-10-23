@@ -8,7 +8,7 @@
 using std::map;
 #include "fixed_types.h"
 #include "instruction.h"
-#include "mcpat_instruction.h"
+#include "mcpat_info.h"
 #include "contrib/mcpat/mcpat.h"
 
 class CoreModel;
@@ -93,7 +93,7 @@ public:
    void setDVFS(double old_frequency, double new_voltage, double new_frequency, const Time& curr_time);
 
    // Update Event Counters
-   void updateEventCounters(const McPATInstruction* instruction, UInt64 cycle_count,
+   void updateEventCounters(const McPATInfo* instruction, UInt64 cycle_count,
                             UInt64 total_branch_misprediction_count);
    // Compute Energy from McPat
    void computeEnergy(const Time& curr_time, double frequency);
@@ -241,9 +241,9 @@ private:
    bool _enable_area_or_power_modeling;
 
    // Update Event Counters
-   void updateInstructionCounters(const McPATInstruction* instruction);
-   void updateRegFileAccessCounters(const McPATInstruction* instruction);
-   void updateExecutionUnitCounters(const McPATInstruction* instruction);
+   void updateInstructionCounters(const McPATInfo* instruction);
+   void updateRegFileAccessCounters(const McPATInfo* instruction);
+   void updateExecutionUnitCounters(const McPATInfo* instruction);
 
    // Create core wrapper
    McPAT::CoreWrapper* createCoreWrapper(double voltage, double max_frequency_at_voltage);

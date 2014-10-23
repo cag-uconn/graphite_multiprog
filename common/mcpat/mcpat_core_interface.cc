@@ -357,7 +357,7 @@ void McPATCoreInterface::initializeOutputDataStructure()
 //---------------------------------------------------------------------------
 // Update Event Counters
 //---------------------------------------------------------------------------
-void McPATCoreInterface::updateEventCounters(const McPATInstruction* instruction, UInt64 cycle_count,
+void McPATCoreInterface::updateEventCounters(const McPATInfo* instruction, UInt64 cycle_count,
                                              UInt64 total_branch_misprediction_count)
 {
    // Update instruction counters
@@ -375,41 +375,41 @@ void McPATCoreInterface::updateEventCounters(const McPATInstruction* instruction
 //---------------------------------------------------------------------------
 // Update Instruction Counters
 //---------------------------------------------------------------------------
-void McPATCoreInterface::updateInstructionCounters(const McPATInstruction* instruction)
+void McPATCoreInterface::updateInstructionCounters(const McPATInfo* instruction)
 {
-   const McPATInstruction::MicroOpList& micro_op_list = instruction->getMicroOpList();
+   const McPATInfo::MicroOpList& micro_op_list = instruction->getMicroOpList();
    for (unsigned int i = 0; i < micro_op_list.size(); i++)
    {
-      McPATInstruction::MicroOpType micro_op_type = micro_op_list[i];
+      McPATInfo::MicroOpType micro_op_type = micro_op_list[i];
 
       _total_instructions ++;
       _committed_instructions ++;
       
       switch (micro_op_type)
       {
-      case McPATInstruction::GENERIC_INST:
+      case McPATInfo::GENERIC_INST:
          _generic_instructions ++;
          break;
 
-      case McPATInstruction::INTEGER_INST:
+      case McPATInfo::INTEGER_INST:
          _int_instructions ++;
          _committed_int_instructions ++;
          break;
 
-      case McPATInstruction::FLOATING_POINT_INST:
+      case McPATInfo::FLOATING_POINT_INST:
          _fp_instructions ++;
          _committed_fp_instructions ++;
          break;
 
-      case McPATInstruction::LOAD_INST:
+      case McPATInfo::LOAD_INST:
          _load_instructions ++;
          break;
 
-      case McPATInstruction::STORE_INST:
+      case McPATInfo::STORE_INST:
          _store_instructions ++;
          break;
 
-      case McPATInstruction::BRANCH_INST:
+      case McPATInfo::BRANCH_INST:
          _branch_instructions ++;
          break;
 
@@ -423,9 +423,9 @@ void McPATCoreInterface::updateInstructionCounters(const McPATInstruction* instr
 //---------------------------------------------------------------------------
 // Update Reg File Access Counters
 //---------------------------------------------------------------------------
-void McPATCoreInterface::updateRegFileAccessCounters(const McPATInstruction* instruction)
+void McPATCoreInterface::updateRegFileAccessCounters(const McPATInfo* instruction)
 {
-   const McPATInstruction::RegisterFile& register_file = instruction->getRegisterFile();
+   const McPATInfo::RegisterFile& register_file = instruction->getRegisterFile();
    _int_regfile_reads += register_file._num_integer_reads;;
    _int_regfile_writes += register_file._num_integer_writes;
    _fp_regfile_reads += register_file._num_floating_point_reads;
@@ -435,25 +435,25 @@ void McPATCoreInterface::updateRegFileAccessCounters(const McPATInstruction* ins
 //---------------------------------------------------------------------------
 // Update Execution Unit Access Counters
 //---------------------------------------------------------------------------
-void McPATCoreInterface::updateExecutionUnitCounters(const McPATInstruction* instruction)
+void McPATCoreInterface::updateExecutionUnitCounters(const McPATInfo* instruction)
 {
-   const McPATInstruction::ExecutionUnitList& execution_unit_list = instruction->getExecutionUnitList();
+   const McPATInfo::ExecutionUnitList& execution_unit_list = instruction->getExecutionUnitList();
    for (unsigned int i = 0; i < execution_unit_list.size(); i++)
    {
-      McPATInstruction::ExecutionUnitType unit_type = execution_unit_list[i];
+      McPATInfo::ExecutionUnitType unit_type = execution_unit_list[i];
       switch (unit_type)
       {
-      case McPATInstruction::ALU:
+      case McPATInfo::ALU:
          _ialu_accesses ++;
          _cdb_alu_accesses ++;
          break;
 
-      case McPATInstruction::MUL:
+      case McPATInfo::MUL:
          _mul_accesses ++;
          _cdb_mul_accesses ++;
          break;
 
-      case McPATInstruction::FPU:
+      case McPATInfo::FPU:
          _fpu_accesses ++;
          _cdb_fpu_accesses ++;
          break;

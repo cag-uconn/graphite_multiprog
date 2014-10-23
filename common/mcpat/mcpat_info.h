@@ -4,7 +4,7 @@
 using std::vector;
 #include "fixed_types.h"
 
-class McPATInstruction
+class McPATInfo
 {
 public:
    enum MicroOpType
@@ -41,12 +41,12 @@ public:
    };
    typedef vector<ExecutionUnitType> ExecutionUnitList;
  
-   McPATInstruction(const MicroOpList& micro_op_list, const RegisterFile& register_file, const ExecutionUnitList& execution_unit_list)
+   McPATInfo(const MicroOpList& micro_op_list, const RegisterFile& register_file, const ExecutionUnitList& execution_unit_list)
       : _micro_op_list(micro_op_list)
       , _register_file(register_file)
       , _execution_unit_list(execution_unit_list)
    {}
-   ~McPATInstruction()
+   ~McPATInfo()
    {}
    
    const MicroOpList& getMicroOpList() const

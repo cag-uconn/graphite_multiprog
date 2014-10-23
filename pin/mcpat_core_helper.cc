@@ -2,42 +2,42 @@
 #include "pin.H"
 
 void
-fillMcPATMicroOpList(McPATInstruction::MicroOpList& micro_op_list,
+fillMcPATMicroOpList(McPATInfo::MicroOpList& micro_op_list,
                      InstructionType type, UInt32 num_read_memory_operands, UInt32 num_write_memory_operands)
 {
    // can be {INTEGER_INST, FLOATING_POINT_INST, BRANCH_INST, LOAD_INST, STORE_INST}
      
-   if ((type == INST_IALU) || (type == INST_IMUL) || (type == INST_IDIV))
+   if (type == INST_IALU || type == INST_IMUL || type == INST_IDIV)
    {
-      micro_op_list.push_back(McPATInstruction::INTEGER_INST);
+      micro_op_list.push_back(McPATInfo::INTEGER_INST);
    }
-   else if ((type == INST_FALU) || (type == INST_FMUL) || (type == INST_FDIV) ||
-            (type == INST_XMM_SS) || (type == INST_XMM_SD))
+   else if (type == INST_FALU   || type == INST_FMUL  || type == INST_FDIV ||
+            type == INST_XMM_SS || type == INST_XMM_SD)
    {
-      micro_op_list.push_back(McPATInstruction::FLOATING_POINT_INST);
+      micro_op_list.push_back(McPATInfo::FLOATING_POINT_INST);
    }
-   else if (type == INST_XMM_PS)
+   else if (type == INST_XMM_PS || type == INST_XMM_PD)
    {
-      micro_op_list.push_back(McPATInstruction::FLOATING_POINT_INST);
-      micro_op_list.push_back(McPATInstruction::FLOATING_POINT_INST);
+      micro_op_list.push_back(McPATInfo::FLOATING_POINT_INST);
+      micro_op_list.push_back(McPATInfo::FLOATING_POINT_INST);
    }
    else if (type == INST_BRANCH)
    {
-      micro_op_list.push_back(McPATInstruction::BRANCH_INST);
+      micro_op_list.push_back(McPATInfo::BRANCH_INST);
    }
    else
    {
-      micro_op_list.push_back(McPATInstruction::GENERIC_INST);
+      micro_op_list.push_back(McPATInfo::GENERIC_INST);
    }
 
    for (unsigned int i = 0; i < num_read_memory_operands; i++)
-      micro_op_list.push_back(McPATInstruction::LOAD_INST);
+      micro_op_list.push_back(McPATInfo::LOAD_INST);
    for (unsigned int i = 0; i < num_write_memory_operands; i++)
-      micro_op_list.push_back(McPATInstruction::STORE_INST);
+      micro_op_list.push_back(McPATInfo::STORE_INST);
 }
 
 void
-fillMcPATRegisterFileAccessCounters(McPATInstruction::RegisterFile& register_file,
+fillMcPATRegisterFileAccessCounters(McPATInfo::RegisterFile& register_file,
                                     const RegisterOperandList& read_register_operands,
                                     const RegisterOperandList& write_register_operands)
 {
@@ -64,7 +64,7 @@ fillMcPATRegisterFileAccessCounters(McPATInstruction::RegisterFile& register_fil
 }
 
 void
-fillMcPATExecutionUnitList(McPATInstruction::ExecutionUnitList& execution_unit_list,
+fillMcPATExecutionUnitList(McPATInfo::ExecutionUnitList& execution_unit_list,
                            InstructionType instruction_type)
 {
    // can be a vector of {ALU, MUL, FPU}
@@ -74,24 +74,24 @@ fillMcPATExecutionUnitList(McPATInstruction::ExecutionUnitList& execution_unit_l
 
    if (instruction_type == INST_IALU)
    {   
-      execution_unit_list.push_back(McPATInstruction::ALU);
+      execution_unit_list.push_back(McPATInfo::ALU);
    }
    else if ((instruction_type == INST_IMUL) || (instruction_type == INST_IDIV))
    {
-      execution_unit_list.push_back(McPATInstruction::MUL);
+      execution_unit_list.push_back(McPATInfo::MUL);
    }
    else if ((instruction_type == INST_FALU) || (instruction_type == INST_FMUL) || (instruction_type == INST_FDIV))
    {
-      execution_unit_list.push_back(McPATInstruction::FPU);
+      execution_unit_list.push_back(McPATInfo::FPU);
    }
    else if ((instruction_type == INST_XMM_SS) || (instruction_type == INST_XMM_SD))
    {
-      execution_unit_list.push_back(McPATInstruction::FPU);
+      execution_unit_list.push_back(McPATInfo::FPU);
    }
    else if (instruction_type == INST_XMM_PS)
    {
-      execution_unit_list.push_back(McPATInstruction::FPU);
-      execution_unit_list.push_back(McPATInstruction::FPU);
+      execution_unit_list.push_back(McPATInfo::FPU);
+      execution_unit_list.push_back(McPATInfo::FPU);
    }
 }
 
