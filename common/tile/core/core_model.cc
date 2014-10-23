@@ -38,7 +38,7 @@ CoreModel::CoreModel(Core *core)
    , _checkpointed_time(0)
    , _total_cycles(0)
    , _instruction_queue(2)  // Max 2 instructions
-   , _dynamic_memory_request_queue(3) // Max 3 dynamic memory request objects
+   , _dynamic_memory_info_queue(3) // Max 3 dynamic memory request objects
    , _dynamic_branch_info_queue(1) // Max 1 dynamic branch info object
    , _enabled(false)
 {
@@ -227,22 +227,6 @@ CoreModel::issueInstructionFetch(const Time& issue_time, uintptr_t address, uint
                                       address, ins_buf, size, issue_time)._latency;
 }
 
-DynamicMemoryInfo
-CoreModel::issueLoad(const Time& issue_time, const DynamicMemoryRequest& request)
-{
-   Byte data_buf[request._size];
-   return _core->initiateMemoryAccess(MemComponent::L1_DCACHE, request._lock_signal, request._mem_op_type,
-                                      request._address, data_buf, request._size, issue_time);
-}
-
-DynamicMemoryInfo
-CoreModel::issueStore(const Time& issue_time, const DynamicMemoryRequest& request)
-{
-   Byte* data_buf = (Byte*) request._address;
-   return _core->initiateMemoryAccess(MemComponent::L1_DCACHE, request._lock_signal, request._mem_op_type,
-                                      request._address, data_buf, request._size, issue_time);
-}
-
 void
 CoreModel::updateMemoryFenceCounters()
 {
@@ -324,31 +308,31 @@ CoreModel::iterate()
 }
 
 void
-CoreModel::pushDynamicMemoryRequest(const DynamicMemoryRequest& request)
+CoreModel::pushDynamicMemoryInfo(const DynamicMemoryInfo& info)
 {
    if (_instruction_queue.empty() || !_enabled)
       return;
-   LOG_PRINT("pushDynamicMemoryRequest[%s Address(%#lx), Size(%u)]",
-             SPELL_MEMOP(request._mem_op_type), request._address, request._size);
-   assert(!_dynamic_memory_request_queue.full());
-   _dynamic_memory_request_queue.push_back(request);
+   LOG_PRINT("pushDynamicMemoryInfo[%s Address(%#lx), Size(%u)]",
+             SPELL_MEMOP(info._mem_op_type), info._address, info._size);
+   assert(!_dynamic_memory_info_queue.full());
+   _dynamic_memory_info_queue.push_back(info);
 }
 
 void
-CoreModel::popDynamicMemoryRequest()
+CoreModel::popDynamicMemoryInfo()
 {
    assert(_enabled);
-   assert(!_dynamic_memory_request_queue.empty());
-   __attribute__((unused)) const DynamicMemoryRequest& request = _dynamic_memory_request_queue.front();
-   LOG_PRINT("popDynamicMemoryRequest[%s Address(%#lx), Size(%u)]",
-             SPELL_MEMOP(request._mem_op_type), request._address, request._size);
-   _dynamic_memory_request_queue.pop_front();
+   assert(!_dynamic_memory_info_queue.empty());
+   __attribute__((unused)) const DynamicMemoryInfo& info = _dynamic_memory_info_queue.front();
+   LOG_PRINT("popDynamicMemoryInfo[%s Address(%#lx), Size(%u)]",
+             SPELL_MEMOP(info._mem_op_type), info._address, info._size);
+   _dynamic_memory_info_queue.pop_front();
 }
 
 const
-DynamicMemoryRequest& CoreModel::getDynamicMemoryRequest()
+DynamicMemoryInfo& CoreModel::getDynamicMemoryInfo()
 {
-   return _dynamic_memory_request_queue.front();
+   return _dynamic_memory_info_queue.front();
 }
 
 void

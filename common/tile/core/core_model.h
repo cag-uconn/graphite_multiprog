@@ -13,7 +13,6 @@ class McPATCoreInterface;
 #include "instruction.h"
 #include "basic_block.h"
 #include "fixed_types.h"
-#include "dynamic_memory_request.h"
 #include "dynamic_memory_info.h"
 #include "dynamic_branch_info.h"
 #include "page_attributes.h"
@@ -36,9 +35,9 @@ public:
    Time getCurrTime() const { return _curr_time; }
    void setCurrTime(Time time);
 
-   void pushDynamicMemoryRequest(const DynamicMemoryRequest &request);
-   void popDynamicMemoryRequest();
-   const DynamicMemoryRequest& getDynamicMemoryRequest();
+   void pushDynamicMemoryInfo(const DynamicMemoryInfo &info);
+   void popDynamicMemoryInfo();
+   const DynamicMemoryInfo& getDynamicMemoryInfo();
 
    void pushDynamicBranchInfo(const DynamicBranchInfo &info);
    void popDynamicBranchInfo();
@@ -60,9 +59,6 @@ public:
 
    // Model instruction fetch
    Time issueInstructionFetch(const Time& issue_time, uintptr_t address, uint32_t size);
-   // Model memory access (loads/stores)
-   DynamicMemoryInfo issueLoad(const Time& issue_time, const DynamicMemoryRequest& request);
-   DynamicMemoryInfo issueStore(const Time& issue_time, const DynamicMemoryRequest& request);
 
    Time getLatency(uint16_t lat) const;
    const Time& get_ONE_CYCLE() const   { return _ONE_CYCLE; }
@@ -96,12 +92,12 @@ private:
    Time _checkpointed_time;
    UInt64 _total_cycles;
 
-   typedef boost::circular_buffer<DynamicMemoryRequest> DynamicMemoryRequestQueue;
+   typedef boost::circular_buffer<DynamicMemoryInfo> DynamicMemoryInfoQueue;
    typedef boost::circular_buffer<DynamicBranchInfo> DynamicBranchInfoQueue;
    typedef boost::circular_buffer<Instruction*> InstructionQueue;
 
    InstructionQueue _instruction_queue;
-   DynamicMemoryRequestQueue _dynamic_memory_request_queue;
+   DynamicMemoryInfoQueue _dynamic_memory_info_queue;
    DynamicBranchInfoQueue _dynamic_branch_info_queue;
 
    bool _enabled;
