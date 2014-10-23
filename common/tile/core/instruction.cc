@@ -8,100 +8,33 @@
 
 // Instruction
 
-Instruction::Instruction(InstructionType type, UInt64 opcode, IntPtr address, UInt32 size, bool atomic,
-                         const OperandList& operands, const McPATInstruction* mcpat_instruction)
-   : _type(type)
-   , _dynamic(false)
-   , _opcode(opcode)
-   , _address(address)
+Instruction::Instruction(uintptr_t address, uint32_t size,
+                         uint32_t nUops, MicroOp* uopArray)
+   : _address(address)
    , _size(size)
-   , _atomic(atomic)
-   , _operands(operands)
-   , _mcpat_instruction(mcpat_instruction)
-{
-   bool mov_memory = (_operands.getNumReadMemory() > 0 || _operands.getNumWriteMemory() > 0) && (_type == INST_MOV);
-
-   bool explicit_fence = ((type == INST_LFENCE) || (type == INST_SFENCE) || (type == INST_MFENCE)); 
-   bool implicit_fence = _atomic;
-
-   // Fill micro-op structure
- 
-   // Fences
-   if (_type == INST_LFENCE)
-      _micro_ops.push_back(MicroOp(MicroOp::LFENCE));
-   if (_type == INST_SFENCE)
-      _micro_ops.push_back(MicroOp(MicroOp::SFENCE));
-   if ((_type == INST_MFENCE) || implicit_fence)
-      _micro_ops.push_back(MicroOp(MicroOp::MFENCE));
-   
-   // Load micro-ops
-   for (UInt32 i = 0; i < _operands.getNumReadMemory(); i++)
-      _micro_ops.push_back(MicroOp(MicroOp::LOAD));
-
-   // Exec micro-ops
-   if (!mov_memory && !explicit_fence)
-      _micro_ops.push_back(MicroOp(MicroOp::EXEC));
-   
-   // Store micro-ops
-   for (UInt32 i = 0; i < _operands.getNumWriteMemory(); i++)
-      _micro_ops.push_back(MicroOp(MicroOp::STORE));
-}
-
-Instruction::Instruction(InstructionType type, bool dynamic)
-   : _type(type)
-   , _dynamic(true)
-   , _mcpat_instruction(NULL)
-{
-}
-
-Time
-Instruction::getCost(CoreModel* perf)
-{
-   LOG_ASSERT_ERROR(_type < MAX_INSTRUCTION_COUNT, "Unknown instruction type: %d", _type);
-   return perf->getCost(_type); 
-}
-
-// BranchInstruction
-
-BranchInstruction::BranchInstruction(UInt64 opcode, IntPtr address, UInt32 size, bool atomic,
-                                     const OperandList& operands, const McPATInstruction* mcpat_instruction)
-   : Instruction(INST_BRANCH, opcode, address, size, atomic, operands, mcpat_instruction)
+   , _nUops(nUops)
+   , _uopArray(uopArray)
+   , _mcpatInfo(NULL)
 {}
 
-Time
-BranchInstruction::getCost(CoreModel* perf)
+// DynamicInstruction
+DynamicInstruction::DynamicInstruction(Type type, const Time& cost)
+   : _type(type), _cost(cost)
+{}
+
+string
+DynamicInstruction::getTypeStr() const
 {
-   double frequency = perf->getCore()->getFrequency();
-   BranchPredictor *bp = perf->getBranchPredictor();
-
-   const DynamicBranchInfo& info = perf->getDynamicBranchInfo();
-
-   // branch prediction not modeled
-   if (bp == NULL)
+   switch (_type)
    {
-      perf->popDynamicBranchInfo();
-      return Time(Latency(1,frequency));
+   case NETRECV:
+      return "NETRECV";
+   case SYNC:
+      return "SYNC";
+   case SPAWN:
+      return "SPAWN";
+   default:
+      LOG_PRINT_ERROR("Unrecognized type: %u", _type);
+      return "";
    }
-
-   bool prediction = bp->predict(getAddress(), info._target);
-   bool correct = (prediction == info._taken);
-
-   bp->update(prediction, info._taken, getAddress(), info._target);
-   Latency cost = correct ? Latency(1,frequency) : Latency(bp->getMispredictPenalty(),frequency);
-      
-   perf->popDynamicBranchInfo();
-   return Time(cost);
-}
-
-// SpawnInstruction
-
-SpawnInstruction::SpawnInstruction(Time cost)
-   : DynamicInstruction(cost, INST_SPAWN)
-{}
-
-Time
-SpawnInstruction::getCost(CoreModel* perf)
-{
-   perf->setCurrTime(_cost);
-   throw CoreModel::AbortInstructionException(); // exit out of handleInstruction
 }

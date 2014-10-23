@@ -1,173 +1,74 @@
-#ifndef INSTRUCTION_H
-#define INSTRUCTION_H
+#pragma once
 
-#include <iostream>
-#include <sstream>
-#include <vector>
 #include <string>
-using std::vector;
 using std::string;
-using std::ostringstream;
-using std::stringstream;
 
 #include "common_types.h"
 #include "time_types.h"
-#include "mcpat_instruction.h"
+#include "mcpat_info.h"
 #include "micro_op.h"
 
 // forward declaration
 class CoreModel;
 
-enum InstructionType
-{
-   INST_GENERIC,
-   INST_MOV,
-   INST_IALU,
-   INST_IMUL,
-   INST_IDIV,
-   INST_FALU,
-   INST_FMUL,
-   INST_FDIV,
-   INST_XMM_SS,
-   INST_XMM_SD,
-   INST_XMM_PS,
-   INST_BRANCH,
-   INST_LFENCE,
-   INST_SFENCE,
-   INST_MFENCE,
-   INST_DYNAMIC_MISC,
-   INST_RECV,
-   INST_SYNC,
-   INST_SPAWN,
-   INST_STALL,
-   MAX_INSTRUCTION_COUNT
-};
-
-__attribute__((unused)) static const char * INSTRUCTION_NAMES [] = 
-{"generic","mov","ialu","imul","idiv","falu","fmul","fdiv","xmm_ss","xmm_sd","xmm_ps","branch","lfence","sfence","mfence","dynamic_misc","recv","sync","spawn","stall"};
-
-typedef UInt32 RegisterOperand;
-typedef vector<RegisterOperand> RegisterOperandList;
-typedef vector<UInt64> ImmediateOperandList;
-
-class OperandList
-{
-public:
-   OperandList()
-      : _num_read_memory_operands(0)
-      , _num_write_memory_operands(0)
-   {}
-   OperandList(const RegisterOperandList& read_register_operands, const RegisterOperandList& write_register_operands,
-               UInt32 num_read_memory_operands, UInt32 num_write_memory_operands,
-               const ImmediateOperandList& immediate_operands)
-      : _read_register_operands(read_register_operands)
-      , _write_register_operands(write_register_operands)
-      , _num_read_memory_operands(num_read_memory_operands)
-      , _num_write_memory_operands(num_write_memory_operands)
-      , _immediate_operands(immediate_operands)
-   {}
-   ~OperandList()
-   {}
-
-   const RegisterOperandList& getReadRegister() const    { return _read_register_operands; }
-   const RegisterOperandList& getWriteRegister() const   { return _write_register_operands; }
-   const UInt32& getNumReadMemory() const                { return _num_read_memory_operands; }
-   const UInt32& getNumWriteMemory() const               { return _num_write_memory_operands; }
-   const ImmediateOperandList& getImmediate() const      { return _immediate_operands; }
-
-private:
-   const RegisterOperandList _read_register_operands;
-   const RegisterOperandList _write_register_operands;
-   const UInt32 _num_read_memory_operands;
-   const UInt32 _num_write_memory_operands;
-   const ImmediateOperandList _immediate_operands;
-};
-
 class Instruction
 {
 public:
-   Instruction(InstructionType type, UInt64 opcode, IntPtr address, UInt32 size, bool atomic,
-               const OperandList& operands, const McPATInstruction* mcpat_instruction);
-   Instruction(InstructionType type, bool dynamic);
-   virtual ~Instruction() {}
+   Instruction(uintptr_t address, uint32_t size,
+               uint32_t nUops, MicroOp* uopArray);
    
-   virtual Time getCost(CoreModel* perf);
+   uintptr_t getAddress() const              { return _address;      }
+   uint32_t getSize() const                  { return _size;         }
+   uint32_t getNumUops() const               { return _nUops;        }
+   const MicroOp& getUop(uint32_t i) const   { return _uopArray[i];  }
+   const McPATInfo* getMcPATInfo() const     { return _mcpatInfo;    }
+   void setMcPATInfo(McPATInfo* info)        { _mcpatInfo = info;    }
+#ifdef TARGET_PROFILING
+   void setCount(uint64_t c)                 { _count = c;           }
+   void incrCount()                          { _count ++;            }
+   void setApproxOpcode(uint32_t op)         { _approxOpcode = op;   }
+#endif
 
-   InstructionType getType() const
-   { return _type; }
-   bool isDynamic() const
-   { return _dynamic; }
-   UInt64 getOpcode() const
-   { return _opcode; }
-   IntPtr getAddress() const
-   { return _address; }
-   UInt32 getSize() const
-   { return _size; }
-   bool isAtomic() const
-   { return _atomic; }
-
-   const MicroOpList& getMicroOps() const
-   { return _micro_ops; }
-   const RegisterOperandList& getReadRegisterOperands() const
-   { return _operands.getReadRegister(); }
-   const RegisterOperandList& getWriteRegisterOperands() const
-   { return _operands.getWriteRegister(); }
-   const UInt32& getNumReadMemoryOperands() const
-   { return _operands.getNumReadMemory(); }
-   const UInt32& getNumWriteMemoryOperands() const
-   { return _operands.getNumWriteMemory(); }
-   const ImmediateOperandList& getImmediateOperands() const
-   { return _operands.getImmediate(); }
-
-   const McPATInstruction* getMcPATInstruction() const
-   { return _mcpat_instruction; }
-   
 private:
-   InstructionType _type;
-   bool _dynamic;
-   UInt64 _opcode;
-   IntPtr _address;
-   UInt32 _size;
-   bool _atomic;
-
-   MicroOpList _micro_ops;
-   const OperandList _operands;
-   const McPATInstruction* _mcpat_instruction;
+   uintptr_t _address;
+   uint32_t _size;
+   uint32_t _nUops;
+   MicroOp* _uopArray;
+   const McPATInfo* _mcpatInfo;
+#ifdef TARGET_PROFILING
+   uint64_t _count;
+   uint32_t _approxOpcode;
+#endif
 };
 
-// conditional branches
-class BranchInstruction : public Instruction
+// For operations not associated with the binary -- such as processing a packet
+class DynamicInstruction
 {
 public:
-   BranchInstruction(UInt64 opcode, IntPtr address, UInt32 size, bool atomic,
-                     const OperandList& operands, const McPATInstruction* mcpat_instruction);
-   Time getCost(CoreModel* perf);
-};
+   enum Type
+   {
+      NETRECV,
+      SYNC,
+      SPAWN
+   };
 
-// for operations not associated with the binary -- such as processing
-// a packet
-class DynamicInstruction : public Instruction
-{
-public:
-   DynamicInstruction(Time cost, InstructionType type)
-      : Instruction(type, true)
-      , _cost(cost)
-   {}
-   ~DynamicInstruction() {}
+   DynamicInstruction(Type type, const Time& cost);
 
-   Time getCost(CoreModel* perf)
-   { return _cost; }
+   Type getType() const    { return _type; }
+   Time getCost() const    { return _cost; }
+   string getTypeStr() const;
 
-protected:
+private:
+   Type _type;
    Time _cost;
 };
 
-// RecvInstruction - called for netRecv
-class RecvInstruction : public DynamicInstruction
+// NetRecvInstruction - called for netRecv
+class NetRecvInstruction : public DynamicInstruction
 {
 public:
-   RecvInstruction(Time cost)
-      : DynamicInstruction(cost, INST_RECV)
+   NetRecvInstruction(const Time& cost)
+      : DynamicInstruction(NETRECV, cost)
    {}
 };
 
@@ -175,26 +76,16 @@ public:
 class SyncInstruction : public DynamicInstruction
 {
 public:
-   SyncInstruction(Time cost)
-      : DynamicInstruction(cost, INST_SYNC)
+   SyncInstruction(const Time& cost)
+      : DynamicInstruction(SYNC, cost)
    {}
 };
 
-// Stall instruction
-class StallInstruction : public DynamicInstruction
-{
-public:
-   StallInstruction(Time cost)
-      : DynamicInstruction(cost, INST_STALL)
-   {}
-};
-
-// SpawnInstruction - set clock to particular time
+// SpawnInstruction - set clock to particular time at the start of a thread
 class SpawnInstruction : public DynamicInstruction
 {
 public:
-   SpawnInstruction(Time time);
-   Time getCost(CoreModel* perf);
+   SpawnInstruction(const Time& cost)
+      : DynamicInstruction(SPAWN, cost)
+   {}
 };
-
-#endif
