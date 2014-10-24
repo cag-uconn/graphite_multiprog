@@ -33,15 +33,6 @@ class PinMemoryManager
       // Functions for redirecting general memory accesses
       carbon_reg_t redirectMemOp (bool has_lock_prefix, IntPtr tgt_ea, IntPtr size, UInt32 op_num, bool is_read);
       void completeMemWrite (bool has_lock_prefix, IntPtr tgt_ea, IntPtr size, UInt32 op_num);
-
-      // Functions for redirecting pushf
-      carbon_reg_t redirectPushf ( IntPtr tgt_esp, IntPtr size );
-      carbon_reg_t completePushf (IntPtr esp, IntPtr size);
-      
-      // Functions for redirecting popf
-      carbon_reg_t redirectPopf (IntPtr tgt_esp, IntPtr size);
-      carbon_reg_t completePopf (IntPtr esp, IntPtr size);
-
 };
 
 #endif /* __PIN_MEMORY_MANAGER_H__ */

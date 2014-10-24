@@ -6,6 +6,9 @@
 #include "core_model.h"
 #include "hash_map.h"
 
+#define XC(cat) (XED_CATEGORY_##cat)
+#define XO(opcode) (XED_ICLASS_##opcode)
+
 extern HashMap core_map;
 
 void memOp(THREADID thread_id, Core::lock_signal_t lock_signal, Core::mem_op_t mem_op_type, IntPtr d_addr, char *data_buffer, UInt32 data_size, BOOL push_info)
@@ -19,7 +22,9 @@ void memOp(THREADID thread_id, Core::lock_signal_t lock_signal, Core::mem_op_t m
 
 bool rewriteStackOp(INS ins)
 {
-   if (INS_Opcode (ins) == XED_ICLASS_PUSH)
+   unsigned short int opcode = INS_Opcode(ins);
+   
+   if (opcode == XO(PUSH) || opcode == XO(PUSHF) || opcode == XO(PUSHFD) || opcode == XO(PUSHFQ))
    {
       if (INS_OperandIsImmediate (ins, 0))
       {
@@ -69,11 +74,12 @@ bool rewriteStackOp(INS ins)
       }
    }
    
-   else if (INS_Opcode (ins) == XED_ICLASS_POP)
+   else if (opcode == XO(POP) || opcode == XO(POPF) || opcode == XO(POPFD) || opcode == XO(POPFQ))
    {
       if (INS_OperandIsReg (ins, 0))
       {
          REG reg = INS_OperandReg (ins, 0);
+         assert(reg);
          INS_InsertCall (ins, IPOINT_BEFORE,
                AFUNPTR (emuPopReg),
                IARG_THREAD_ID,
@@ -166,7 +172,7 @@ bool rewriteStackOp(INS ins)
       return true;
    }
 
-   else if (INS_Opcode (ins) == XED_ICLASS_LEAVE)
+   else if (opcode == XO(LEAVE))
    {
       INS_InsertCall (ins, IPOINT_BEFORE,
             AFUNPTR (emuLeave),
@@ -178,48 +184,6 @@ bool rewriteStackOp(INS ins)
             IARG_END);
 
       INS_Delete (ins);
-      return true;
-   }
-
-   else if ((INS_Opcode (ins) == XED_ICLASS_PUSHF) || (INS_Opcode (ins) == XED_ICLASS_PUSHFD))
-   {
-      INS_InsertCall (ins, IPOINT_BEFORE, 
-            AFUNPTR (redirectPushf),
-            IARG_THREAD_ID,
-            IARG_REG_VALUE, REG_STACK_PTR,
-            IARG_MEMORYWRITE_SIZE,
-            IARG_RETURN_REGS, REG_STACK_PTR,
-            IARG_END);
-
-      INS_InsertCall (ins, IPOINT_AFTER,
-            AFUNPTR (completePushf),
-            IARG_THREAD_ID,
-            IARG_REG_VALUE, REG_STACK_PTR,
-            IARG_MEMORYWRITE_SIZE,
-            IARG_RETURN_REGS, REG_STACK_PTR,
-            IARG_END);
-
-      return true;
-   }
-
-   else if ((INS_Opcode (ins) == XED_ICLASS_POPF) || (INS_Opcode (ins) == XED_ICLASS_POPFD))
-   {
-      INS_InsertCall (ins, IPOINT_BEFORE,
-            AFUNPTR (redirectPopf),
-            IARG_THREAD_ID,
-            IARG_REG_VALUE, REG_STACK_PTR,
-            IARG_MEMORYREAD_SIZE,
-            IARG_RETURN_REGS, REG_STACK_PTR,
-            IARG_END);
-
-      INS_InsertCall (ins, IPOINT_AFTER,
-            AFUNPTR (completePopf),
-            IARG_THREAD_ID,
-            IARG_REG_VALUE, REG_STACK_PTR,
-            IARG_MEMORYREAD_SIZE,
-            IARG_RETURN_REGS, REG_STACK_PTR,
-            IARG_END);
-
       return true;
    }
 
@@ -369,42 +333,6 @@ ADDRINT emuLeave(THREADID thread_id, ADDRINT tgt_esp, ADDRINT *tgt_ebp, ADDRINT 
    tgt_esp += read_size;
    
    return tgt_esp;
-}
-
-ADDRINT redirectPushf(THREADID thread_id, ADDRINT tgt_esp, ADDRINT size)
-{
-   assert (size == sizeof (ADDRINT));
-
-   Core *core = core_map.get<Core>(thread_id);
-   assert(core); 
-   return core->getPinMemoryManager()->redirectPushf(tgt_esp, size);
-}
-
-ADDRINT completePushf(THREADID thread_id, ADDRINT esp, ADDRINT size)
-{
-   assert (size == sizeof(ADDRINT));
-   
-   Core *core = core_map.get<Core>(thread_id);
-   assert(core);
-   return core->getPinMemoryManager()->completePushf(esp, size);
-}
-
-ADDRINT redirectPopf(THREADID thread_id, ADDRINT tgt_esp, ADDRINT size)
-{
-   assert (size == sizeof (ADDRINT));
-
-   Core *core = core_map.get<Core>(thread_id);
-   assert(core);
-   return core->getPinMemoryManager()->redirectPopf(tgt_esp, size);
-}
-
-ADDRINT completePopf(THREADID thread_id, ADDRINT esp, ADDRINT size)
-{
-   assert (size == sizeof (ADDRINT));
-   
-   Core *core = core_map.get<Core>(thread_id);
-   assert(core);
-   return core->getPinMemoryManager()->completePopf(esp, size);
 }
 
 ADDRINT redirectMemOp(THREADID thread_id, bool has_lock_prefix, ADDRINT tgt_ea, ADDRINT size, UInt32 op_num, bool is_read)

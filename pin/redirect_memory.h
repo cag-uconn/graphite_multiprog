@@ -16,10 +16,6 @@ ADDRINT emuCallMem(THREADID thread_id, ADDRINT *tgt_esp, ADDRINT *tgt_eax, ADDRI
 ADDRINT emuCallRegOrImm(THREADID thread_id, ADDRINT *tgt_esp, ADDRINT *tgt_eax, ADDRINT next_ip, ADDRINT br_tgt_ip, ADDRINT write_size);
 ADDRINT emuRet(THREADID thread_id, ADDRINT *tgt_esp, UINT32 imm, ADDRINT read_size, BOOL push_info);
 ADDRINT emuLeave(THREADID thread_id, ADDRINT tgt_esp, ADDRINT *tgt_ebp, ADDRINT read_size);
-ADDRINT redirectPushf(THREADID thread_id, ADDRINT tgt_esp, ADDRINT size);
-ADDRINT completePushf(THREADID thread_id, ADDRINT esp, ADDRINT size);
-ADDRINT redirectPopf(THREADID thread_id, ADDRINT tgt_esp, ADDRINT size);
-ADDRINT completePopf(THREADID thread_id, ADDRINT esp, ADDRINT size);
 
 ADDRINT redirectMemOp(THREADID thread_id, bool has_lock_prefix, ADDRINT tgt_ea, ADDRINT size, UInt32 op_num, bool is_read);
 ADDRINT redirectMemOpSaveEa(ADDRINT ea);
