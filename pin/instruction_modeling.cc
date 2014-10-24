@@ -5,7 +5,7 @@
 #include "core.h"
 #include "hash_map.h"
 #include "mcpat_core_helper.h"
-#include "decoder.h"
+#include "nehalem_decoder.h"
 #include "core_model.h"
 #include "instruction_modeling.h"
 
