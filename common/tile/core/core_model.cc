@@ -98,7 +98,7 @@ CoreModel::outputSummary(ostream& os, const Time& target_completion_time)
    os << "        Store Queue: "       << _total_store_queue__stall_time.toNanosec()                  << endl;
    os << "      Execution Unit: "      << _total_execution_unit__stall_time.toNanosec()               << endl;
    os << "      Branch Speculation: "  << _total_branch_speculation_violation__stall_time.toNanosec() << endl;
-   os << "      Load Speculation: "    << _total_load_speculation_violation__stall_time.toNanosec()   << endl;
+   // os << "      Load Speculation: "    << _total_load_speculation_violation__stall_time.toNanosec()   << endl;
    os << "      Synchronization: "     << _total_sync__stall_time.toNanosec()                         << endl;
    os << "      Network Recv: "        << _total_netrecv__stall_time.toNanosec()                      << endl;
    os << "      Idle: "                << _total__idle_time.toNanosec()                               << endl;
@@ -224,7 +224,7 @@ CoreModel::issueInstructionFetch(const Time& issue_time, uintptr_t address, uint
 {
    Byte ins_buf[size];
    return _core->initiateMemoryAccess(MemComponent::L1_ICACHE, Core::NONE, Core::READ,
-                                      address, ins_buf, size, issue_time)._latency;
+                                      address, ins_buf, size)._latency;
 }
 
 void

@@ -15,7 +15,6 @@ class McPATCoreInterface;
 #include "fixed_types.h"
 #include "dynamic_memory_info.h"
 #include "dynamic_branch_info.h"
-#include "page_attributes.h"
 
 #define ONE_CYCLE    (_core_model->get_ONE_CYCLE())
 

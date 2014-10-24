@@ -4,6 +4,7 @@
 #include "tile.h"
 #include "core.h"
 #include "hash_map.h"
+#include "dynamic_memory_info.h"
 
 extern HashMap core_map;
 

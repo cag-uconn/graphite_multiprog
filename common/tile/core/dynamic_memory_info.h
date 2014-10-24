@@ -1,6 +1,7 @@
 #pragma once
 
 #include "time_types.h"
+#include "core.h"
 
 class DynamicMemoryInfo
 {
