@@ -106,11 +106,11 @@ public:
       StoreQueue(CoreModel* core_model);
       ~StoreQueue();
 
-      void handle(Time& dispatch_time, Time& commit_time, const Time& curr_time,
+      void handle(Time& dispatch_time, Time& commit_time,
                   const Time& address_ready, const Time& data_ready);
       const Time& getStallTime() const    { return _total_stall_time; }
       
-      void handleFence(Time& commit_time);
+      void handleFence(Time& dispatch_time, Time& commit_time);
       bool isAddressAvailable(const Time& issue_time, IntPtr address) const;
 
    private:
@@ -142,7 +142,7 @@ public:
       LoadQueue(CoreModel* core_model);
       ~LoadQueue();
 
-      Time handle(Time& dispatch_time, Time& commit_time, const Time& curr_time,
+      Time handle(Time& dispatch_time, Time& commit_time,
                   const Time& address_ready, bool& speculation_failed,
                   const StoreQueue* store_queue);
       const Time& getStallTime() const    { return _total_stall_time; }

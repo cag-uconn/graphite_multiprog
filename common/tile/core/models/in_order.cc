@@ -133,7 +133,6 @@ InOrderCoreModel::handleInstruction(Instruction *instruction)
             bool speculation_failed = false;
             results_ready = _load_queue->handle(_dispatch_time, _commit_time,
                                                 speculation_failed, _store_queue);
-            assert(_commit_time > _dispatch_time && _dispatch_time > _curr_time);
             // Did speculation fail?
             if (speculation_failed)
             {
@@ -154,7 +153,7 @@ InOrderCoreModel::handleInstruction(Instruction *instruction)
       case MicroOp::FENCE:
          // Can we make the timestamps corresponding to all entries in the load/store queue
          // equal to the max of the deallocate time of the last entry?
-         _store_queue->handleFence(_commit_time);
+         _store_queue->handleFence(_dispatch_time, _commit_time);
          // Update memory fence counters
          updateMemoryFenceCounters();
          break;
@@ -185,6 +184,12 @@ InOrderCoreModel::handleInstruction(Instruction *instruction)
          break;
       }
 
+      LOG_ASSERT_ERROR(_commit_time > _dispatch_time,
+                       "Uop-Type(%u): Curr-Time(%llu ns), Fetch-Ready(%llu ns), "
+                       "Dispatch-Time(%llu ns), Results-Ready(%llu ns), Commit-Time(%llu ns)",
+                       micro_op.type, _curr_time.toNanosec(), fetch_ready.toNanosec(),
+                       _dispatch_time.toNanosec(), results_ready.toNanosec(), _commit_time.toNanosec());
+      
       // Update register scoreboard
       updateRegisterScoreboard(micro_op, results_ready);
    }
@@ -323,8 +328,6 @@ InOrderCoreModel::LoadQueue::LoadQueue(CoreModel* core_model)
 
    // Speculation handler
    _load_speculation_handler = LoadSpeculationHandler::create();
-
-   initializeCounters();
 }
 
 InOrderCoreModel::LoadQueue::~LoadQueue()
@@ -341,12 +344,15 @@ InOrderCoreModel::LoadQueue::handle(Time& dispatch_time, Time& commit_time,
    assert(info._mem_op_type == Core::READ || info._mem_op_type == Core::READ_EX);
 
    LOG_PRINT("Load-Queue: handle[Address(%#lx), Size(%u), Mem-Op-Type(%s), Lock-Signal(%s)]",
-             address, info._size, SPELL_MEMOP(info._mem_op_type), SPELL_LOCK_SIGNAL(info._lock_signal));
+             info._address, info._size, SPELL_MEMOP(info._mem_op_type), SPELL_LOCK_SIGNAL(info._lock_signal));
 
    // Load queue allocation
    Time allocate_time = getMax<Time>(dispatch_time, _scoreboard[_allocate_idx]);
    _total_stall_time += (allocate_time - dispatch_time);
    dispatch_time = allocate_time;
+
+   // Address Translation
+   Time address_translation_ready = dispatch_time + ONE_CYCLE;
 
    Time issue_time;
 
@@ -355,11 +361,11 @@ InOrderCoreModel::LoadQueue::handle(Time& dispatch_time, Time& commit_time,
    switch (scheme)
    {
    case IN_PARALLEL:
-      issue_time = dispatch_time;
+      issue_time = address_translation_ready;
       break;
 
    case SERIALIZE:
-      issue_time = getMax<Time>(dispatch_time, _ordering_point);
+      issue_time = getMax<Time>(address_translation_ready, _ordering_point);
       break;
 
    default:
@@ -370,6 +376,7 @@ InOrderCoreModel::LoadQueue::handle(Time& dispatch_time, Time& commit_time,
    Time latency = ( store_queue->isAddressAvailable(issue_time, info._address)
                      && (info._lock_signal == Core::NONE) )
                    ? ONE_CYCLE : info._latency;
+   
    Time completion_time = issue_time + latency;   
    if (scheme == SERIALIZE)
       _ordering_point = completion_time;
@@ -445,8 +452,6 @@ InOrderCoreModel::StoreQueue::StoreQueue(CoreModel* core_model)
    _operands_scoreboard.resize(_num_entries, Time(0));
    _addresses.resize(_num_entries, INVALID_ADDRESS);
    _allocate_idx = 0;
-
-   initializeCounters();
 }
 
 InOrderCoreModel::StoreQueue::~StoreQueue()
@@ -473,8 +478,13 @@ InOrderCoreModel::StoreQueue::handle(Time& dispatch_time, Time& commit_time)
    _total_stall_time += (allocate_time - dispatch_time);
    dispatch_time = allocate_time;
    
-   commit_time = getMax<Time>(commit_time, dispatch_time);
+   // Address Translation
+   Time address_translation_ready = dispatch_time + ONE_CYCLE;
+
+   commit_time = getMax<Time>(commit_time, address_translation_ready);
    const Time& last_deallocate_time = getLastDeallocateTime();
+
+   Time completion_time; // Time at which store is completed (removed from store buffer)
 
    Scheme scheme = getScheme();
 
@@ -484,28 +494,26 @@ InOrderCoreModel::StoreQueue::handle(Time& dispatch_time, Time& commit_time)
       {
          // 1st Phase: Exclusive store prefetch (RFO)
          // 2nd Phase: Actual store takes place
-         Time phase_one_latency = (info._lock_signal == Core::NONE) ? info._latency : Time(0);
+         Time RFO_latency = (info._lock_signal == Core::NONE) ? info._latency : Time(0);
          // Phase-2 latency is usually the access time of the L1-D cache (assuming a hit)
-         Time phase_two_latency = _L1_D_cache_latency;
+         Time store_latency = ONE_CYCLE; // _L1_D_cache_latency;
 
-         Time phase_one_issue_time = dispatch_time;
-         Time phase_one_completion_time = phase_one_issue_time + phase_one_latency;
-         Time phase_two_issue_time = getMax<Time>(phase_one_completion_time, commit_time, last_deallocate_time);
-         Time completion_time = phase_two_issue_time + phase_two_latency;
+         Time RFO_issue_time = address_translation_ready;
+         Time RFO_completion_time = RFO_issue_time + RFO_latency;
+         Time store_issue_time = getMax<Time>(RFO_completion_time, commit_time, last_deallocate_time);
+         completion_time = store_issue_time + store_latency;
          
-         LOG_PRINT("TWO_PHASES: Phase1: Issue-Time(%llu ns), Latency(%llu ns), Completion-Time(%llu ns)",
-                   phase_one_issue_time.toNanosec(), phase_one_latency.toNanosec(), phase_one_completion_time.toNanosec());
-         LOG_PRINT("TWO_PHASES: Phase2: Issue-Time(%llu ns), Latency(%llu ns), Completion-Time(%llu ns)",
-                   phase_two_issue_time.toNanosec(), phase_two_latency.toNanosec(), phase_two_completion_time.toNanosec());
-         LOG_PRINT("TWO_PHASES: Deallocate-Time(%llu ns)",
-                   deallocate_time.toNanosec());
+         LOG_PRINT("TWO_PHASES: RFO: Issue-Time(%llu ns), Latency(%llu ns), Completion-Time(%llu ns)",
+                   RFO_issue_time.toNanosec(), RFO_latency.toNanosec(), RFO_completion_time.toNanosec());
+         LOG_PRINT("TWO_PHASES: STORE: Issue-Time(%llu ns), Latency(%llu ns), Completion-Time(%llu ns)",
+                   store_issue_time.toNanosec(), store_latency.toNanosec(), completion_time.toNanosec());
       }
       break;
 
    case SERIALIZE:
       {
          Time issue_time = getMax<Time>(commit_time, last_deallocate_time);
-         Time completion_time = issue_time + info._latency;
+         completion_time = issue_time + info._latency;
          LOG_PRINT("SERIALIZE: Issue-Time(%llu ns), Latency(%llu ns), Completion-Time(%llu ns)",
                    issue_time.toNanosec(), info._latency.toNanosec(), completion_time.toNanosec());
       }
@@ -517,8 +525,10 @@ InOrderCoreModel::StoreQueue::handle(Time& dispatch_time, Time& commit_time)
    }
 
    Time deallocate_time = completion_time + ONE_CYCLE;
+   assert(deallocate_time > last_deallocate_time);
 
    // The store queue should be de-allocated in order for memory consistency purposes
+   assert(address_translation_ready < deallocate_time);
    _operands_scoreboard[_allocate_idx] = dispatch_time;
    _scoreboard[_allocate_idx] = deallocate_time;
    _addresses[_allocate_idx] = address;
@@ -529,9 +539,22 @@ InOrderCoreModel::StoreQueue::handle(Time& dispatch_time, Time& commit_time)
 }
 
 void
-InOrderCoreModel::StoreQueue::handleFence(Time& commit_time)
+InOrderCoreModel::StoreQueue::handleFence(Time& dispatch_time, Time& commit_time)
 {
-   commit_time = getMax<Time>(commit_time, getLastDeallocateTime());
+   // Store queue allocation
+   Time allocate_time = getMax<Time>(dispatch_time, _scoreboard[_allocate_idx]);
+   _total_stall_time += (allocate_time - dispatch_time);
+   dispatch_time = allocate_time;
+   
+   Time completion_time = getMax<Time>(dispatch_time, getLastDeallocateTime()) + ONE_CYCLE;
+   commit_time = getMax<Time>(commit_time, completion_time);
+   
+   // Update the scoreboards
+   _operands_scoreboard[_allocate_idx] = Time(0);
+   _scoreboard[_allocate_idx] = commit_time;
+   _addresses[_allocate_idx] = INVALID_ADDRESS;
+  
+   _allocate_idx = (_allocate_idx + 1) % (_num_entries);
 }
 
 const Time&

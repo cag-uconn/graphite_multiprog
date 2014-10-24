@@ -78,7 +78,7 @@ public:
       void handle(Time& dispatch_time, Time& commit_time);
       
       const Time& getStallTime() const    { return _total_stall_time; }
-      void handleFence(Time& commit_time);
+      void handleFence(Time& dispatch_time, Time& commit_time);
       bool isAddressAvailable(const Time& issue_time, IntPtr address) const;
 
    private:
