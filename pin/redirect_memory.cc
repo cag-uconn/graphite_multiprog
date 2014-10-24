@@ -92,6 +92,7 @@ bool rewriteStackOp(INS ins)
          INS_InsertCall (ins, IPOINT_BEFORE,
                AFUNPTR (emuPopMem),
                IARG_THREAD_ID,
+               IARG_REG_VALUE, REG_STACK_PTR,
                IARG_MEMORYWRITE_EA,
                IARG_MEMORYREAD_SIZE,
                IARG_RETURN_REGS, REG_STACK_PTR,
