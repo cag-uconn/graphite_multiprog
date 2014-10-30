@@ -2,7 +2,7 @@
 #include <vector>
 using namespace std;
 
-#include "network_model_atac.h"
+#include "atac.h"
 #include "simulator.h"
 #include "tile_manager.h"
 #include "tile.h"

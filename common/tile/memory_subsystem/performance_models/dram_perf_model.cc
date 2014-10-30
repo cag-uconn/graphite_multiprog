@@ -4,8 +4,8 @@ using namespace std;
 #include "simulator.h"
 #include "config.h"
 #include "dram_perf_model.h"
-#include "queue_model_history_list.h"
-#include "queue_model_history_tree.h"
+#include "queue_models/history_list.h"
+#include "queue_models/history_tree.h"
 #include "constants.h"
 
 // Note: Each Dram Controller owns a single DramModel object

@@ -1,14 +1,14 @@
 #pragma once
 
-#include "mcpat_instruction.h"
-#include "instruction.h"
+#include "mcpat_info.h"
+#include "instruction_modeling.h"
 
-void fillMcPATMicroOpList(McPATInstruction::MicroOpList& micro_op_list,
+void fillMcPATMicroOpList(McPATInfo::MicroOpList& micro_op_list,
                           InstructionType type, UInt32 num_read_memory_operands, UInt32 num_write_memory_operands);
-void fillMcPATRegisterFileAccessCounters(McPATInstruction::RegisterFile& register_file,
+void fillMcPATRegisterFileAccessCounters(McPATInfo::RegisterFile& register_file,
                                          const RegisterOperandList& read_register_operands,
                                          const RegisterOperandList& write_register_operands);
-void fillMcPATExecutionUnitList(McPATInstruction::ExecutionUnitList& execution_unit_list,
+void fillMcPATExecutionUnitList(McPATInfo::ExecutionUnitList& execution_unit_list,
                                 InstructionType instruction_type);
 
 // Utils

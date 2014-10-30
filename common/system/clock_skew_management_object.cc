@@ -4,9 +4,9 @@
 #include "packetize.h"
 
 #include "clock_skew_management_object.h"
-#include "lax_barrier_sync_client.h"
-#include "lax_barrier_sync_server.h"
-#include "lax_p2p_sync_client.h"
+#include "clock_skew_management_schemes/lax_barrier_sync_client.h"
+#include "clock_skew_management_schemes/lax_barrier_sync_server.h"
+#include "clock_skew_management_schemes/lax_p2p_sync_client.h"
 
 #include "log.h"
 

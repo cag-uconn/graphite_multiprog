@@ -4,7 +4,7 @@
 #include <list>
 
 #include "queue_model.h"
-#include "queue_model_m_g_1.h"
+#include "queue_models/m_g_1.h"
 #include "fixed_types.h"
 
 class QueueModelHistoryList : public QueueModel

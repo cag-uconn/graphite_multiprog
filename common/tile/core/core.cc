@@ -13,6 +13,7 @@
 #include "config.h"
 #include "log.h"
 #include "dvfs_manager.h"
+#include "dynamic_memory_info.h"
 
 Core::Core(Tile *tile, core_type_t core_type)
    : _tile(tile)
@@ -140,7 +141,7 @@ Core::initiateMemoryAccess(MemComponent::Type mem_component, lock_signal_t lock_
                            bool push_info, Time time_arg)
 {
    LOG_ASSERT_ERROR(Config::getSingleton()->isSimulatingSharedMemory(), "Shared Memory Disabled");
-   DynamicMemoryInfo dynamic_memory_info(address, mem_op_type != WRITE);
+   DynamicMemoryInfo dynamic_memory_info(address, data_size, mem_op_type, lock_signal);
 
    if (data_size == 0)
    {
@@ -198,7 +199,9 @@ Core::initiateMemoryAccess(MemComponent::Type mem_component, lock_signal_t lock_
             // Instruction buffer hit, so NO need to access ICACHE
             _instruction_buffer_hits ++;
             // 1 cycle to access instruction buffer
-            curr_time += Latency(1, _frequency);
+            Time access_time = Latency(1, _frequency);
+            curr_time += access_time;
+            dynamic_memory_info._latency += access_time;
             continue;
          }
          else

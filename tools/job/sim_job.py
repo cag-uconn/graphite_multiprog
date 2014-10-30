@@ -4,6 +4,7 @@ import sys
 import os
 import subprocess
 import signal
+import time
 
 from termcolors import *
 
@@ -24,6 +25,7 @@ class SimJob:
    #  spawn job
    def spawn(self):
       self.makeCommand()
+      self.createOutputDir()
       self.proc = subprocess.Popen(self.command, shell=True, preexec_fn=os.setsid)
 
    # poll:
@@ -54,7 +56,6 @@ class SimJob:
       self.command += " SCHEDULER=\"%s\"" % (self.scheduler)
       self.command += " BATCH_JOB=\"true\""
       self.command += " > %s/output 2>&1" % (self.output_dir)
-      self.createOutputDir();
       print self.command
 
    def makeSimFlags(self):
@@ -70,4 +71,4 @@ class SimJob:
          os.mkdir(self.output_dir)
       except OSError:
          pass
-      
+

@@ -2,7 +2,7 @@
 
 #include "fixed_types.h"
 #include "queue_model.h"
-#include "queue_model_m_g_1.h"
+#include "queue_models/m_g_1.h"
 #include "interval_tree.h"
 
 class QueueModelHistoryTree : public QueueModel

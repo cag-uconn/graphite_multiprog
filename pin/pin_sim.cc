@@ -177,24 +177,21 @@ VOID instructionCallback(INS ins, void *v)
             IARG_END);
    }
 
-   if (Config::getSingleton()->getEnableCoreModeling())
-   {
-      // Core Performance Modeling
-      addInstructionModeling(ins);
+   // Core Performance Modeling
+   addInstructionModeling(ins);
 
-      // Progress Trace
-      addProgressTrace(ins);
-      
-      // Clock Skew Management
-      addPeriodicSync(ins);
-      
-      // Scheduling
-      addYield(ins);
-      
-      // Runtime Energy Monitoring
-      addRuntimeEnergyMonitoring(ins);
-   }
-
+   // Progress Trace
+   addProgressTrace(ins);
+   
+   // Clock Skew Management
+   addPeriodicSync(ins);
+   
+   // Scheduling
+   addYield(ins);
+   
+   // Runtime Energy Monitoring
+   addRuntimeEnergyMonitoring(ins);
+   
    if (Sim()->getConfig()->getSimulationMode() == Config::FULL)
    {
       // Special handling for futex syscall because of internal Pin lock

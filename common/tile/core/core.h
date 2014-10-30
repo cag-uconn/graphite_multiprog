@@ -12,6 +12,7 @@ class SyscallMdl;
 class SyncClient;
 class ClockSkewManagementClient;
 class PinMemoryManager;
+class DynamicMemoryInfo;
 
 #include "mem_component.h"
 #include "common_types.h"
@@ -19,7 +20,6 @@ class PinMemoryManager;
 #include "packet_type.h"
 #include "time_types.h"
 #include "dvfs_manager.h"
-#include "dynamic_memory_info.h"
 
 class Core
 {
@@ -60,7 +60,7 @@ public:
    DynamicMemoryInfo initiateMemoryAccess(MemComponent::Type mem_component,
                                           lock_signal_t lock_signal, mem_op_t mem_op_type, IntPtr address,
                                           Byte* data_buf, UInt32 data_size,
-                                          bool push_info = false, Time time = Time(0));
+                                          bool push_info = false, Time time_arg = Time(0));
    
    void accessMemory(lock_signal_t lock_signal, mem_op_t mem_op_type, IntPtr address,
                      char* data_buffer, UInt32 data_size, bool push_info = false);

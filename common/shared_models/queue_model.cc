@@ -1,9 +1,9 @@
 #include "queue_model.h"
 #include "simulator.h"
 #include "config.h"
-#include "queue_model_basic.h"
-#include "queue_model_history_list.h"
-#include "queue_model_history_tree.h"
+#include "queue_models/basic.h"
+#include "queue_models/history_list.h"
+#include "queue_models/history_tree.h"
 #include "log.h"
 
 QueueModel::QueueModel(Type type)

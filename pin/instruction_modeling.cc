@@ -1,12 +1,13 @@
-#include "instruction_modeling.h"
 #include "simulator.h"
 #include "core_model.h"
 #include "tile_manager.h"
 #include "tile.h"
 #include "core.h"
-#include "core_model.h"
 #include "hash_map.h"
 #include "mcpat_core_helper.h"
+#include "nehalem_decoder.h"
+#include "core_model.h"
+#include "instruction_modeling.h"
 
 extern HashMap core_map;
 
@@ -159,56 +160,43 @@ InstructionType getInstructionType(INS ins)
    }
 
    // MOV instruction
-   else if 
-      (
-       (inst_opcode >= XED_ICLASS_MOV) && (inst_opcode <= XED_ICLASS_MOVZX)
-      )
+   else if (inst_opcode >= XED_ICLASS_MOV && inst_opcode <= XED_ICLASS_MOVZX)
    {
       return INST_MOV;
    }
 
-   // LFENCE
-   else if (inst_opcode == XED_ICLASS_LFENCE)
+   // LFENCE, SFENCE, MFENCE
+   else if (inst_opcode == XED_ICLASS_LFENCE || inst_opcode == XED_ICLASS_SFENCE || inst_opcode == XED_ICLASS_MFENCE)
    {
-      return INST_LFENCE;
-   }
-   // SFENCE
-   else if (inst_opcode == XED_ICLASS_SFENCE)
-   {
-      return INST_SFENCE;
-   }
-   // MFENCE
-   else if (inst_opcode == XED_ICLASS_MFENCE)
-   {
-      return INST_MFENCE;
+      return INST_FENCE;
    }
 
    // FPU Opcode
    else if
       (
-       (inst_opcode == XED_ICLASS_FADD) || (inst_opcode == XED_ICLASS_FADDP) ||
-       (inst_opcode == XED_ICLASS_FIADD) ||
-       (inst_opcode == XED_ICLASS_FSUB) || (inst_opcode == XED_ICLASS_FSUBP) ||
-       (inst_opcode == XED_ICLASS_FISUB) ||
-       (inst_opcode == XED_ICLASS_FSUBR) || (inst_opcode == XED_ICLASS_FSUBRP) ||
-       (inst_opcode == XED_ICLASS_FISUBR)
+       inst_opcode == XED_ICLASS_FADD  || inst_opcode == XED_ICLASS_FADDP  ||
+       inst_opcode == XED_ICLASS_FIADD ||
+       inst_opcode == XED_ICLASS_FSUB  || inst_opcode == XED_ICLASS_FSUBP  ||
+       inst_opcode == XED_ICLASS_FISUB ||
+       inst_opcode == XED_ICLASS_FSUBR || inst_opcode == XED_ICLASS_FSUBRP ||
+       inst_opcode == XED_ICLASS_FISUBR
       )
    {
       return INST_FALU;
    }
    else if 
       (
-       (inst_opcode == XED_ICLASS_FMUL) || (inst_opcode == XED_ICLASS_FMULP)||
-       (inst_opcode == XED_ICLASS_FIMUL)
+       inst_opcode == XED_ICLASS_FMUL  || inst_opcode == XED_ICLASS_FMULP  ||
+       inst_opcode == XED_ICLASS_FIMUL
       )
    {
       return INST_FMUL;
    }
    else if
       (
-       (inst_opcode == XED_ICLASS_FDIV) || (inst_opcode == XED_ICLASS_FDIVP)||
-       (inst_opcode == XED_ICLASS_FDIVR) || (inst_opcode == XED_ICLASS_FDIVRP)||
-       (inst_opcode == XED_ICLASS_FIDIV) || (inst_opcode == XED_ICLASS_FIDIVR)
+       inst_opcode == XED_ICLASS_FDIV  || inst_opcode == XED_ICLASS_FDIVP  ||
+       inst_opcode == XED_ICLASS_FDIVR || inst_opcode == XED_ICLASS_FDIVRP ||
+       inst_opcode == XED_ICLASS_FIDIV || inst_opcode == XED_ICLASS_FIDIVR
       )
    {
       return INST_FDIV;
@@ -217,45 +205,60 @@ InstructionType getInstructionType(INS ins)
    // SIMD Instructions
    else if
       (
-       (inst_opcode == XED_ICLASS_ADDSS) ||
-       (inst_opcode == XED_ICLASS_SUBSS) ||
-       (inst_opcode == XED_ICLASS_MULSS) ||
-       (inst_opcode == XED_ICLASS_DIVSS) ||
-       (inst_opcode == XED_ICLASS_MINSS) ||
-       (inst_opcode == XED_ICLASS_MAXSS) ||
-       (inst_opcode == XED_ICLASS_SQRTSS) ||
-       (inst_opcode == XED_ICLASS_RSQRTSS) ||
-       (inst_opcode == XED_ICLASS_RCPSS) ||
-       (inst_opcode == XED_ICLASS_CMPSS) ||
-       (inst_opcode == XED_ICLASS_COMISS)
+       inst_opcode == XED_ICLASS_ADDSS    ||
+       inst_opcode == XED_ICLASS_SUBSS    ||
+       inst_opcode == XED_ICLASS_MULSS    ||
+       inst_opcode == XED_ICLASS_DIVSS    ||
+       inst_opcode == XED_ICLASS_MINSS    ||
+       inst_opcode == XED_ICLASS_MAXSS    ||
+       inst_opcode == XED_ICLASS_SQRTSS   ||
+       inst_opcode == XED_ICLASS_RSQRTSS  ||
+       inst_opcode == XED_ICLASS_RCPSS    ||
+       inst_opcode == XED_ICLASS_CMPSS    ||
+       inst_opcode == XED_ICLASS_COMISS
       )
    {
       return INST_XMM_SS;
    }
    else if
       (
-       (inst_opcode == XED_ICLASS_ADDSD) ||
-       (inst_opcode == XED_ICLASS_SUBSD) ||
-       (inst_opcode == XED_ICLASS_MULSD) ||
-       (inst_opcode == XED_ICLASS_DIVSD) ||
-       (inst_opcode == XED_ICLASS_MINSD) ||
-       (inst_opcode == XED_ICLASS_MAXSD) ||
-       (inst_opcode == XED_ICLASS_SQRTSD)
+       inst_opcode == XED_ICLASS_ADDSD    ||
+       inst_opcode == XED_ICLASS_SUBSD    ||
+       inst_opcode == XED_ICLASS_MULSD    ||
+       inst_opcode == XED_ICLASS_DIVSD    ||
+       inst_opcode == XED_ICLASS_MINSD    ||
+       inst_opcode == XED_ICLASS_MAXSD    ||
+       inst_opcode == XED_ICLASS_SQRTSD
       )
    {
       return INST_XMM_SD;
    }
    else if
       (
-       (inst_opcode == XED_ICLASS_ADDPS) || (inst_opcode == XED_ICLASS_ADDPD) ||
-       (inst_opcode == XED_ICLASS_SUBPS) || (inst_opcode == XED_ICLASS_SUBPD) ||
-       (inst_opcode == XED_ICLASS_MULPS) || (inst_opcode == XED_ICLASS_MULPD) ||
-       (inst_opcode == XED_ICLASS_DIVPS) || (inst_opcode == XED_ICLASS_DIVPD) ||
-       (inst_opcode == XED_ICLASS_MINPS) || (inst_opcode == XED_ICLASS_MINPD) ||
-       (inst_opcode == XED_ICLASS_MAXPS) || (inst_opcode == XED_ICLASS_MAXPD) ||
-       (inst_opcode == XED_ICLASS_SQRTPS) || (inst_opcode == XED_ICLASS_SQRTPD) ||
-       (inst_opcode == XED_ICLASS_RSQRTPS) ||
-       (inst_opcode == XED_ICLASS_RCPPS) || (inst_opcode == XED_ICLASS_CMPPS)
+       inst_opcode == XED_ICLASS_ADDPS    ||
+       inst_opcode == XED_ICLASS_SUBPS    ||
+       inst_opcode == XED_ICLASS_MULPS    ||
+       inst_opcode == XED_ICLASS_DIVPS    ||
+       inst_opcode == XED_ICLASS_MINPS    ||
+       inst_opcode == XED_ICLASS_MAXPS    ||
+       inst_opcode == XED_ICLASS_SQRTPS   ||
+       inst_opcode == XED_ICLASS_RSQRTPS  ||
+       inst_opcode == XED_ICLASS_RCPPS    || 
+       inst_opcode == XED_ICLASS_CMPPS
+      )
+   {
+      return INST_XMM_PS;
+   }
+   else if
+      (
+       inst_opcode == XED_ICLASS_ADDPD    ||
+       inst_opcode == XED_ICLASS_SUBPD    ||
+       inst_opcode == XED_ICLASS_MULPD    ||
+       inst_opcode == XED_ICLASS_DIVPD    ||
+       inst_opcode == XED_ICLASS_MINPD    ||
+       inst_opcode == XED_ICLASS_MAXPD    ||
+       inst_opcode == XED_ICLASS_SQRTPD   ||
+       inst_opcode == XED_ICLASS_CMPPD
       )
    {
       return INST_XMM_PS;
@@ -264,11 +267,11 @@ InstructionType getInstructionType(INS ins)
    // Integer Addition
    else if
      (
-      (inst_opcode == XED_ICLASS_ADD) || (inst_opcode == XED_ICLASS_ADC) ||
-      (inst_opcode == XED_ICLASS_PADDB) ||
-      (inst_opcode == XED_ICLASS_PADDW) || (inst_opcode == XED_ICLASS_PADDD) ||
-      (inst_opcode == XED_ICLASS_PADDSB) || (inst_opcode == XED_ICLASS_PADDSW) ||
-      (inst_opcode == XED_ICLASS_PADDUSB) || (inst_opcode == XED_ICLASS_PADDUSW)
+      inst_opcode == XED_ICLASS_ADD     || inst_opcode == XED_ICLASS_ADC      ||
+      inst_opcode == XED_ICLASS_PADDB   ||
+      inst_opcode == XED_ICLASS_PADDW   || inst_opcode == XED_ICLASS_PADDD    ||
+      inst_opcode == XED_ICLASS_PADDSB  || inst_opcode == XED_ICLASS_PADDSW   ||
+      inst_opcode == XED_ICLASS_PADDUSB || inst_opcode == XED_ICLASS_PADDUSW
      )
    {
       return INST_IALU;
@@ -277,11 +280,11 @@ InstructionType getInstructionType(INS ins)
    // Integer Subtraction
    else if
      (
-      (inst_opcode == XED_ICLASS_SUB) ||
-      (inst_opcode == XED_ICLASS_PSUBB) || (inst_opcode == XED_ICLASS_PSUBW) ||
-      (inst_opcode == XED_ICLASS_PSUBD) ||
-      (inst_opcode == XED_ICLASS_PSUBSB) || (inst_opcode == XED_ICLASS_PSUBSW) ||
-      (inst_opcode == XED_ICLASS_PSUBUSB) || (inst_opcode == XED_ICLASS_PSUBUSW)
+      inst_opcode == XED_ICLASS_SUB     ||
+      inst_opcode == XED_ICLASS_PSUBB   || inst_opcode == XED_ICLASS_PSUBW    ||
+      inst_opcode == XED_ICLASS_PSUBD   ||
+      inst_opcode == XED_ICLASS_PSUBSB  || inst_opcode == XED_ICLASS_PSUBSW   ||
+      inst_opcode == XED_ICLASS_PSUBUSB || inst_opcode == XED_ICLASS_PSUBUSW
      ) 
    {
       return INST_IALU;
@@ -290,8 +293,8 @@ InstructionType getInstructionType(INS ins)
    // Bitwise operations
    else if
       (
-       (inst_opcode == XED_ICLASS_OR) || (inst_opcode == XED_ICLASS_AND) ||
-       (inst_opcode == XED_ICLASS_XOR) || (inst_opcode == XED_ICLASS_ANDNPS)
+       inst_opcode == XED_ICLASS_OR    || inst_opcode == XED_ICLASS_AND    ||
+       inst_opcode == XED_ICLASS_XOR   || inst_opcode == XED_ICLASS_ANDNPS
       )
    {
       return INST_IALU;
@@ -300,12 +303,12 @@ InstructionType getInstructionType(INS ins)
    // Other simple operations
    else if
       (
-       (inst_opcode == XED_ICLASS_CMP) || (inst_opcode == XED_ICLASS_BSF) ||
-       (inst_opcode == XED_ICLASS_BSR) || (inst_opcode == XED_ICLASS_BTC) ||
-       (inst_opcode == XED_ICLASS_BTR) || (inst_opcode == XED_ICLASS_BTS) ||
-       (inst_opcode == XED_ICLASS_CMPSB) ||
-       (inst_opcode == XED_ICLASS_CMPSW) || (inst_opcode == XED_ICLASS_CMPSD) ||
-       (inst_opcode == XED_ICLASS_CMPXCHG)
+       inst_opcode == XED_ICLASS_CMP   || inst_opcode == XED_ICLASS_BSF    ||
+       inst_opcode == XED_ICLASS_BSR   || inst_opcode == XED_ICLASS_BTC    ||
+       inst_opcode == XED_ICLASS_BTR   || inst_opcode == XED_ICLASS_BTS    ||
+       inst_opcode == XED_ICLASS_CMPSB ||
+       inst_opcode == XED_ICLASS_CMPSW || inst_opcode == XED_ICLASS_CMPSD  ||
+       inst_opcode == XED_ICLASS_CMPXCHG
       )
    {
       return INST_IALU;
@@ -314,22 +317,19 @@ InstructionType getInstructionType(INS ins)
    // Integer Multiplication 
    else if 
       (
-       (inst_opcode == XED_ICLASS_MUL) || (inst_opcode == XED_ICLASS_IMUL)||
-       (inst_opcode == XED_ICLASS_PCLMULQDQ) || (inst_opcode == XED_ICLASS_PFMUL)||
-       (inst_opcode == XED_ICLASS_PMULDQ) || (inst_opcode == XED_ICLASS_PMULHRSW)||
-       (inst_opcode == XED_ICLASS_PMULHRW) || (inst_opcode == XED_ICLASS_PMULHUW)||
-       (inst_opcode == XED_ICLASS_PMULHW) || (inst_opcode == XED_ICLASS_PMULLD)||
-       (inst_opcode == XED_ICLASS_PMULLW) || (inst_opcode == XED_ICLASS_PMULUDQ)
+       inst_opcode == XED_ICLASS_MUL       || inst_opcode == XED_ICLASS_IMUL     ||
+       inst_opcode == XED_ICLASS_PCLMULQDQ || inst_opcode == XED_ICLASS_PFMUL    ||
+       inst_opcode == XED_ICLASS_PMULDQ    || inst_opcode == XED_ICLASS_PMULHRSW ||
+       inst_opcode == XED_ICLASS_PMULHRW   || inst_opcode == XED_ICLASS_PMULHUW  ||
+       inst_opcode == XED_ICLASS_PMULHW    || inst_opcode == XED_ICLASS_PMULLD   ||
+       inst_opcode == XED_ICLASS_PMULLW    || inst_opcode == XED_ICLASS_PMULUDQ
       )
    {
       return INST_IMUL;
    }
 
    // Integer Division
-   else if 
-      (
-       (inst_opcode == XED_ICLASS_DIV) || (inst_opcode == XED_ICLASS_IDIV)
-      )
+   else if (inst_opcode == XED_ICLASS_DIV || inst_opcode == XED_ICLASS_IDIV)
    {
       return INST_IDIV;
    }
@@ -355,28 +355,25 @@ VOID addInstructionModeling(INS ins)
    fillRegisterOperandList(read_register_operands, write_register_operands, ins);
    fillNumMemoryOperands(num_read_memory_operands, num_write_memory_operands, ins);
    fillImmediateOperandList(immediate_operands, ins);
-   OperandList operand_list(read_register_operands, write_register_operands,
-                            num_read_memory_operands, num_write_memory_operands,
-                            immediate_operands);
 
    InstructionType instruction_type = getInstructionType(ins);
-   McPATInstruction::MicroOpList micro_op_list;
-   McPATInstruction::RegisterFile register_file;
-   McPATInstruction::ExecutionUnitList execution_unit_list;
+   assert( (instruction_type == INST_BRANCH) == (INS_Category(ins) == XED_CATEGORY_COND_BR) );
+
+   McPATInfo::MicroOpList micro_op_list;
+   McPATInfo::RegisterFile register_file;
+   McPATInfo::ExecutionUnitList execution_unit_list;
 
    fillMcPATMicroOpList(micro_op_list, instruction_type, num_read_memory_operands, num_write_memory_operands);
    fillMcPATRegisterFileAccessCounters(register_file, read_register_operands, write_register_operands);
    fillMcPATExecutionUnitList(execution_unit_list, instruction_type);
-   McPATInstruction* mcpat_instruction = new McPATInstruction(micro_op_list, register_file, execution_unit_list);
+   McPATInfo* mcpat_info = new McPATInfo(micro_op_list, register_file, execution_unit_list);
 
-   Instruction* instruction;
+   Instruction* instruction = Decoder::decodeInstruction(ins);
+   instruction->setMcPATInfo(mcpat_info);
 
    // branches
    if (instruction_type == INST_BRANCH)
    {
-      instruction = new BranchInstruction(INS_Opcode(ins), INS_Address(ins), INS_Size(ins), INS_IsAtomicUpdate(ins),
-                                          operand_list, mcpat_instruction);
-
       INS_InsertCall(
          ins, IPOINT_TAKEN_BRANCH, (AFUNPTR)handleBranch,
          IARG_THREAD_ID,
@@ -389,14 +386,6 @@ VOID addInstructionModeling(INS ins)
          IARG_BOOL, FALSE,
          IARG_BRANCH_TARGET_ADDR,
          IARG_END);
-   }
-
-   // Now handle instructions which have a static cost
-   else
-   {
-      instruction = new Instruction(instruction_type, INS_Opcode(ins),
-                                    INS_Address(ins), INS_Size(ins), INS_IsAtomicUpdate(ins),
-                                    operand_list, mcpat_instruction);
    }
 
    INS_InsertCall(ins, IPOINT_BEFORE,

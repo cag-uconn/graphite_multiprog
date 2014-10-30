@@ -58,31 +58,3 @@ PinMemoryManager::completeMemWrite (bool has_lock_prefix, IntPtr tgt_ea, IntPtr 
 
    m_core->accessMemory (lock_signal, Core::WRITE, tgt_ea, scratchpad, size, true);
 }
-
-carbon_reg_t 
-PinMemoryManager::redirectPushf ( IntPtr tgt_esp, IntPtr size )
-{
-   m_saved_esp = tgt_esp;
-   return ((carbon_reg_t) m_scratchpad [0]) + size;
-}
-
-carbon_reg_t 
-PinMemoryManager::completePushf ( IntPtr esp, IntPtr size )
-{
-   m_saved_esp -= size;
-   completeMemWrite (false, (IntPtr) m_saved_esp, size, 0);
-   return m_saved_esp;
-}
-
-carbon_reg_t 
-PinMemoryManager::redirectPopf (IntPtr tgt_esp, IntPtr size)
-{
-   m_saved_esp = tgt_esp;
-   return redirectMemOp (false, m_saved_esp, size, 0, true);
-}
-
-carbon_reg_t 
-PinMemoryManager::completePopf (IntPtr esp, IntPtr size)
-{
-   return (m_saved_esp + size);
-}

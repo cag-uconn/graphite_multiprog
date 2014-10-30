@@ -1,71 +1,84 @@
 #include "simulator.h"
+#include "core_model.h"
+#include "core.h"
 #include "branch_predictor.h"
-#include "one_bit_branch_predictor.h"
+#include "branch_predictors/one_bit.h"
+#include "branch_predictors/two_level.h"
 
-BranchPredictor::BranchPredictor()
+BranchPredictor::BranchPredictor(CoreModel* core_model)
+   : _core_model(core_model)
 {
-   initializeCounters();
-}
-
-BranchPredictor::~BranchPredictor()
-{ }
-
-UInt64 BranchPredictor::m_mispredict_penalty;
-
-BranchPredictor* BranchPredictor::create()
-{
+   config::Config *cfg = Sim()->getCfg();
    try
    {
-      config::Config *cfg = Sim()->getCfg();
-      assert(cfg);
-
-      m_mispredict_penalty = cfg->getInt("branch_predictor/mispredict_penalty",0);
-
-      string type = cfg->getString("branch_predictor/type","none");
-      if (type == "none")
-      {
-         return 0;
-      }
-      else if (type == "one_bit")
-      {
-         UInt32 size = cfg->getInt("branch_predictor/size");
-         return new OneBitBranchPredictor(size);
-      }
-      else
-      {
-         LOG_PRINT_ERROR("Invalid branch predictor type.");
-         return 0;
-      }
+      _mispredict_penalty = cfg->getInt("branch_predictor/mispredict_penalty");
    }
    catch (...)
    {
       LOG_PRINT_ERROR("Config info not available while constructing branch predictor.");
-      return 0;
    }
+   initializeCounters();
 }
 
-UInt64 BranchPredictor::getMispredictPenalty()
+BranchPredictor::~BranchPredictor()
+{}
+
+BranchPredictor* BranchPredictor::create(CoreModel* core_model)
 {
-   return m_mispredict_penalty;
+   config::Config *cfg = Sim()->getCfg();
+   try
+   {
+      string type = cfg->getString("branch_predictor/type");
+      if (type == "one_bit")
+         return new OneBitBranchPredictor(core_model);
+      else if (type == "two_level")
+         return new TwoLevelBranchPredictor(core_model);
+      else
+         LOG_PRINT_ERROR("Invalid branch predictor type.");
+   }
+   catch (...)
+   {
+      LOG_PRINT_ERROR("Config info not available while constructing branch predictor.");
+   }
+   return NULL;
 }
 
-void BranchPredictor::updateCounters(bool predicted, bool actual)
+bool
+BranchPredictor::handle(uintptr_t address)
 {
-   if (predicted == actual)
-      ++m_correct_predictions;
+   const DynamicBranchInfo& info = _core_model->getDynamicBranchInfo();
+
+   bool prediction = predict(address, info._target);
+   bool correct = (prediction == info._taken);
+
+   update(prediction, info._taken, address, info._target);
+   updateCounters(prediction, info._taken);
+
+   _core_model->popDynamicBranchInfo();
+   return !correct;
+}
+
+void
+BranchPredictor::updateCounters(bool prediction, bool actual)
+{
+   if (prediction == actual)
+      ++_correct_predictions;
    else
-      ++m_incorrect_predictions;
+      ++_incorrect_predictions;
 }
 
-void BranchPredictor::initializeCounters()
+void
+BranchPredictor::initializeCounters()
 {
-   m_correct_predictions = 0;
-   m_incorrect_predictions = 0;
+   _correct_predictions = 0;
+   _incorrect_predictions = 0;
 }
 
-void BranchPredictor::outputSummary(std::ostream &os)
+void
+BranchPredictor::outputSummary(std::ostream &os)
 {
    os << "    Branch Predictor Statistics:" << endl
-      << "      Num Correct: " << m_correct_predictions << endl
-      << "      Num Incorrect: " << m_incorrect_predictions << endl;
+      << "      Num Correct: " << _correct_predictions << endl
+      << "      Num Incorrect: " << _incorrect_predictions << endl
+      << "      Accuracy (%): " << 100.0 * _correct_predictions / (_correct_predictions + _incorrect_predictions) << endl;
 }

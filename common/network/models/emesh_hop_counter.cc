@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "network_model_emesh_hop_counter.h"
+#include "emesh_hop_counter.h"
 #include "simulator.h"
 #include "config.h"
 #include "config.h"

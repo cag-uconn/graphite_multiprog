@@ -15,6 +15,7 @@ import signal
 sys.path.append("%s/tools/job/" % os.environ.get('GRAPHITE_HOME'))
 from basic_master_job import BasicMasterJob
 from condor_master_job import CondorMasterJob
+from condor_submit_job import CondorSubmitJob
 from termcolors import *
 
 # Read output_dir from the command string
@@ -109,7 +110,6 @@ if __name__=="__main__":
    output_dir = getOutputDir(sim_flags)
    num_processes = getNumProcesses(sim_flags)
    machine_list = getMachineList(sim_flags, num_processes)
-   working_dir = os.getcwd()
 
    if (mode == "pin"):
       command = "%s %s -- %s" % (pin_run, sim_flags, exec_command)
@@ -126,7 +126,10 @@ if __name__=="__main__":
    if (scheduler == "basic"):
       job = BasicMasterJob(command, output_dir, config_filename, batch_job, machine_list)
    elif (scheduler == "condor"):
-      job = CondorMasterJob(command, output_dir, config_filename, batch_job)
+      cjob = CondorMasterJob(command, output_dir, config_filename, batch_job)
+      if (batch_job == "true"):
+         sys.exit(0)
+      job = CondorSubmitJob(output_dir, [output_dir])
    else:
       print "*ERROR* Unrecognized Scheduler: %s" % (scheduler)
       sys.exit(4)

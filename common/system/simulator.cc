@@ -80,7 +80,7 @@ Simulator::Simulator()
 void Simulator::start()
 {
    LOG_PRINT("In Simulator ctor.");
-   _config.logTileMap();
+   _config.generateTileMap();
 
    initializeGraphiteHome();
    initializePowerModelingTools();
@@ -107,7 +107,7 @@ void Simulator::start()
    if (_mcp)
       _mcp->spawnThread();
    if (_statistics_manager)
-      _statistics_manager->spawnThread();   
+      _statistics_manager->spawnThread();
 
    shutdownPowerModelingTools();
 }

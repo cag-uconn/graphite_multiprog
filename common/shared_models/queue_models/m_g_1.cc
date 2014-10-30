@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include "queue_model_m_g_1.h"
+#include "m_g_1.h"
 #include "utils.h"
 #include "log.h"
 

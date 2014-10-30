@@ -162,17 +162,17 @@ public:
    bool getEnablePowerModeling() const;
    bool getEnableAreaModeling() const;
 
+   // Generate mapping of tile to processes
+   void generateTileMap();
+   
    // Logging
    std::string getOutputFileName() const;
    std::string formatOutputFileName(std::string filename) const;
-   void logTileMap();
 
    static Config *getSingleton();
 
 private:
-   void GenerateTileMap();
    std::vector<TileList> computeProcessToTileMapping();
-   void printProcessToTileMapping();
    
    UInt32  m_num_processes;         // Total number of processes (incl myself)
    UInt32  m_total_tiles;           // Total number of tiles in all processes
@@ -219,6 +219,8 @@ private:
    static SimulationMode parseSimulationMode(std::string mode);
    static UInt32 computeTileIDLength(UInt32 tile_count);
    static bool isTileCountPermissible(UInt32 tile_count);
+   
+   void logTileMap();
 };
 
 #endif

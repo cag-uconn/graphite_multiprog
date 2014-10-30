@@ -442,8 +442,8 @@ NetPacket Network::netRecv(const NetMatch &match)
       CoreModel* core_model = _tile->getCore()->getModel();
       if (core_model)
       {  
-         LOG_PRINT("netRecv: Queueing RecvInstruction(%llu ns)", packet.time.toNanosec() - start_time.toNanosec());
-         RecvInstruction *i = new RecvInstruction(packet.time - start_time);
+         LOG_PRINT("netRecv: Queueing NetRecvInstruction(%llu ns)", packet.time.toNanosec() - start_time.toNanosec());
+         NetRecvInstruction *i = new NetRecvInstruction(packet.time - start_time);
          core_model->processDynamicInstruction(i);
       }
    }

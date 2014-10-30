@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
+import sys
 import time
+import multiprocessing
 
 from scheduler import Scheduler
+from condor_submit_job import CondorSubmitJob
 from termcolors import *
 
 # Condor Scheduler
@@ -11,33 +14,39 @@ class CondorScheduler(Scheduler):
       Scheduler.__init__(self, jobs, results_dir, config_filename)
 
    def start(self):
-      # Schedule all the jobs
-      for job in self.jobs:
+      self.output_dir_list = []
+      self.num_spawned = 0
+      self.num_joined = 0
+      self.num_active = 0
+      self.THRESHOLD = multiprocessing.cpu_count()
+
+      while self.num_joined < len(self.jobs):
+         self.spawnJob()
+         self.waitJob()
+      
+      # Submit the Condor job
+      self.condor_job = CondorSubmitJob(self.results_dir, self.output_dir_list)
+      self.condor_job.spawn()
+
+   def spawnJob(self):
+      if self.num_active < self.THRESHOLD and self.num_spawned < len(self.jobs):
+         job = self.jobs[self.num_spawned]
          job.spawn()
-         time.sleep(0.1)
+         self.output_dir_list.append(job.output_dir)
+         self.num_active += 1
+         self.num_spawned += 1
+
+   def waitJob(self):
+      if self.num_active == self.THRESHOLD or self.num_spawned == len(self.jobs):
+         self.jobs[self.num_joined].wait()
+         self.num_active -= 1
+         self.num_joined += 1
 
    def iterate(self):
-      # Poll jobs to see if any of them completed
-      # If number of jobs = 0, end the simulation
-      if len(self.jobs) == 0:
-         return True
-
-      # check active jobs
-      terminated = []
-      for i in range(0, len(self.jobs)):
-         status = self.jobs[i].poll()
-         if status != None:
-            terminated.append(i)
-
-      terminated.reverse()
-      for i in terminated:
-         del self.jobs[i]
-
-      return False
+      # Poll the condor_job to see if it has completed
+      status = self.condor_job.poll()
+      return status == False
 
    def stop(self):
-      # Kill all jobs
-      for job in self.jobs:
-         msg = colorstr('Keyboard interrupt. Killing simulation', 'RED')
-         print "%s: %s" % (msg, job.command)
-         job.kill()
+      msg = colorstr('Keyboard interrupt. Killing condor jobs', 'RED')
+      self.condor_job.kill()

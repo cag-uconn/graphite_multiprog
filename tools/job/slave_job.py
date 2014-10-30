@@ -12,7 +12,8 @@ class SlaveJob(Job):
    def spawn(self):
       return Job.spawn(self, self.proc_num)
 
-# getGraphiteHome:
-#  get the graphite home directory from the script name
-def getGraphiteHome(script_name):
-   return (os.sep).join(script_name.split(os.sep)[:-3])
+   @staticmethod
+   # getGraphiteHome:
+   #  get the graphite home directory from the script name
+   def getGraphiteHome(script_name):
+      return (os.sep).join(script_name.split(os.sep)[:-3])

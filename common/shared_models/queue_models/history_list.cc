@@ -4,7 +4,7 @@
 #include "simulator.h"
 #include "tile_manager.h"
 #include "config.h"
-#include "queue_model_history_list.h"
+#include "history_list.h"
 #include "log.h"
 
 QueueModelHistoryList::QueueModelHistoryList(UInt64 min_processing_time)

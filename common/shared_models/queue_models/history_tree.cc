@@ -5,7 +5,7 @@
 #include "simulator.h"
 #include "tile_manager.h"
 #include "config.h"
-#include "queue_model_history_tree.h"
+#include "history_tree.h"
 #include "log.h"
 
 #define PAIR(x_,y_)  (make_pair(x_,y_))
