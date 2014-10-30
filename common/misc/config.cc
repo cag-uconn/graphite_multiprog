@@ -94,8 +94,6 @@ Config::Config()
 
    // Compute Tile ID length in bits
    m_tile_id_length = computeTileIDLength(m_application_tiles);
-
-   GenerateTileMap();
 }
 
 Config::~Config()
@@ -151,7 +149,7 @@ UInt32 Config::computeTileIDLength(UInt32 application_tile_count)
    return ceilLog2(application_tile_count);
 }
 
-void Config::GenerateTileMap()
+void Config::generateTileMap()
 {
    vector<TileList> process_to_tile_mapping = computeProcessToTileMapping();
    
@@ -192,7 +190,8 @@ void Config::GenerateTileMap()
    m_proc_to_tile_list_map[0].push_back(m_total_tiles - 1);
    m_tile_to_proc_map[m_total_tiles - 1] = 0;
 
-   // printProcessToTileMapping();
+   // Log the tile map
+   logTileMap();
 }
 
 vector<Config::TileList>
@@ -225,25 +224,6 @@ Config::computeProcessToTileMapping()
       current_proc = (current_proc + 1) % m_num_processes;
    }
    return process_to_tile_mapping;
-}
-
-void Config::printProcessToTileMapping()
-{
-   UInt32 curr_process_num = atoi(getenv("CARBON_PROCESS_INDEX"));
-   if (curr_process_num == 0)
-   {
-      for (UInt32 i = 0; i < m_num_processes; i++)
-      {
-         fprintf(stderr, "\nProcess(%u): %u\n", i, (UInt32) m_proc_to_tile_list_map[i].size());
-         for (TileList::iterator tile_it = m_proc_to_tile_list_map[i].begin(); \
-               tile_it != m_proc_to_tile_list_map[i].end(); tile_it++)
-         {
-            fprintf(stderr, "%i, ", *tile_it);
-         }
-         fprintf(stderr, "\n\n");
-      }
-   }
-   exit(-1);
 }
 
 void Config::logTileMap()
