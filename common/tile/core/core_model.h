@@ -71,7 +71,7 @@ protected:
    Time _curr_time;
    
    void updateMemoryFenceCounters();
-   void updateDynamicInstructionStallCounters(const DynamicInstruction* ins);
+   void updateDynamicInstructionStallCounters(DynamicInstruction::Type type, const Time& cost);
    void updatePipelineStallCounters(const Time& instruction_fetch__stall_time,
                                     const Time& memory_access__stall_time,
                                     const Time& load_queue__stall_time,

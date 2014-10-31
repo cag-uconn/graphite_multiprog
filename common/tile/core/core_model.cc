@@ -234,21 +234,21 @@ CoreModel::updateMemoryFenceCounters()
 }
 
 void
-CoreModel::updateDynamicInstructionStallCounters(const DynamicInstruction* ins)
+CoreModel::updateDynamicInstructionStallCounters(DynamicInstruction::Type type, const Time& cost)
 {
-   switch (ins->getType())
+   switch (type)
    {
    case DynamicInstruction::NETRECV:
-      _total_netrecv__stall_time += ins->getCost();
+      _total_netrecv__stall_time += cost;
       break;
    case DynamicInstruction::SYNC:
-      _total_sync__stall_time += ins->getCost();
+      _total_sync__stall_time += cost;
       break;
    case DynamicInstruction::SPAWN:
-      _total__idle_time += ins->getCost();
+      _total__idle_time += cost;
       break;
    default:
-      LOG_PRINT_ERROR("Unrecognized dynamic instruction: %u", ins->getType());
+      LOG_PRINT_ERROR("Unrecognized dynamic instruction: %u", type);
       break;
    }
 }

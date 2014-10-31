@@ -155,6 +155,8 @@ LaxBarrierSyncServer::barrierRelease()
       }
    }
 
+   LOG_PRINT("Barrier-Release: Next-Time(%llu)", m_next_barrier_time);
+
    // Notify Statistics thread about the global time
    if (Sim()->getStatisticsManager())
       Sim()->getStatisticsManager()->getThread()->notify(m_next_barrier_time);

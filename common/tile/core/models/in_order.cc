@@ -72,8 +72,11 @@ void
 InOrderCoreModel::handleDynamicInstruction(DynamicInstruction* instruction)
 {
    // Special handling for dynamic instructions
-   _curr_time += instruction->getCost();
-   updateDynamicInstructionStallCounters(instruction);
+   Time cost = instruction->getCost();
+   if (instruction->getType() == DynamicInstruction::SPAWN)
+      cost = max<Time>(_curr_time, instruction->getCost()) - _curr_time;
+   _curr_time += cost;
+   updateDynamicInstructionStallCounters(instruction->getType(), cost);
 }
 
 void
