@@ -1,5 +1,6 @@
 #include "tile.h"
 #include "core.h"
+#include "dynamic_memory_info.h"
 #include "mem_component.h"
 #include "tile_manager.h"
 #include "simulator.h"
@@ -23,7 +24,7 @@ int main (int argc, char *argv[])
    // Start simulator
    CarbonStartSim(argc, argv);
    // Enable performance models
-   CarbonEnableModels();
+   __CarbonEnableModels();
 
    // Init barrier
    CarbonBarrierInit(&barrier, num_threads);
@@ -62,7 +63,7 @@ int main (int argc, char *argv[])
    }
   
    // Disable performance models
-   CarbonDisableModels();
+   __CarbonDisableModels();
    // Shutdown simulator 
    CarbonStopSim();
 

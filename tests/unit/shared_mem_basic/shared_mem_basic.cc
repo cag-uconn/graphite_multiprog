@@ -1,5 +1,6 @@
 #include "tile.h"
 #include "core.h"
+#include "dynamic_memory_info.h"
 #include "mem_component.h"
 #include "tile_manager.h"
 #include "simulator.h"
@@ -14,7 +15,7 @@ int main (int argc, char *argv[])
 {
    printf("Starting (shared_mem_basic)\n");
    CarbonStartSim(argc, argv);
-   CarbonEnableModels();
+   __CarbonEnableModels();
    
    IntPtr address = 0x1000;
 
@@ -26,17 +27,16 @@ int main (int argc, char *argv[])
 
    printf("Writing(%u) into address(%#lx)\n", written_val, address);
    // Write some value into this address
-   core->initiateMemoryAccess(MemComponent::L1_DCACHE, Core::NONE, Core::WRITE, address, (Byte*) &written_val, sizeof(written_val), true);
+   core->initiateMemoryAccess(MemComponent::L1_DCACHE, Core::NONE, Core::WRITE, address, (Byte*) &written_val, sizeof(written_val));
    printf("Writing(%u) into address(%#lx) completed\n", written_val, address);
 
    // Read out the value
    printf("Reading from address(%#lx)\n", address);
-   core->initiateMemoryAccess(MemComponent::L1_DCACHE, Core::NONE, Core::READ, address, (Byte*) &read_val, sizeof(read_val), true);
+   core->initiateMemoryAccess(MemComponent::L1_DCACHE, Core::NONE, Core::READ, address, (Byte*) &read_val, sizeof(read_val));
    printf("Reading(%u) from address(%#lx) completed\n", read_val, address);
-   // LOG_ASSERT_ERROR(num_misses == 0, "num_misses(%u)", num_misses);
    LOG_ASSERT_ERROR(read_val == 100, "read_val(%u)", read_val);
 
-   CarbonDisableModels();
+   __CarbonDisableModels();
    CarbonStopSim();
 
    printf("Finished (shared_mem_basic) - SUCCESS\n");

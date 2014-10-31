@@ -1,5 +1,6 @@
 #include "tile.h"
 #include "core.h"
+#include "dynamic_memory_info.h"
 #include "mem_component.h"
 #include "tile_manager.h"
 #include "simulator.h"
@@ -23,7 +24,7 @@ int main (int argc, char *argv[])
 {
    printf("Starting (shared_mem_test4)\n");
    CarbonStartSim(argc, argv);
-   CarbonEnableModels();
+   __CarbonEnableModels();
 
    CarbonBarrierInit(&barrier, num_threads);
 
@@ -44,7 +45,7 @@ int main (int argc, char *argv[])
   
    printf("shared_mem_test4 (SUCCESS)\n");
   
-   CarbonDisableModels();
+   __CarbonDisableModels();
    CarbonStopSim();
    return 0;
 }

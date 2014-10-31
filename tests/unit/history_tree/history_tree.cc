@@ -1,8 +1,8 @@
 #include <cstdlib>
 #include "carbon_user.h"
 #include "fixed_types.h"
-#include "queue_model_history_tree.h"
-#include "queue_model_history_list.h"
+#include "queue_models/history_tree.h"
+#include "queue_models/history_list.h"
 
 #define NUM_PACKETS  10
 
