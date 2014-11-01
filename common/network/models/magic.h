@@ -9,6 +9,8 @@ public:
    NetworkModelMagic(Network *net, SInt32 network_id);
    ~NetworkModelMagic();
 
+private:
+   // Routing Function
    void routePacket(const NetPacket &pkt, queue<Hop>& next_hops);
 };
 

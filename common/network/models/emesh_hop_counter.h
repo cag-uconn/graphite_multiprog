@@ -12,7 +12,6 @@ public:
    NetworkModelEMeshHopCounter(Network *net, SInt32 network_id);
    ~NetworkModelEMeshHopCounter();
 
-   void routePacket(const NetPacket &pkt, queue<Hop> &next_hops);
    void outputSummary(std::ostream &out, const Time& target_completion_time);
 
    // Energy computation
@@ -39,6 +38,9 @@ private:
    UInt64 _crossbar_traversals;
    UInt64 _link_traversals;
 
+   // Routing Function
+   void routePacket(const NetPacket &pkt, queue<Hop> &next_hops);
+  
    // DVFS
    void setDVFS(double frequency, double voltage, const Time& curr_time);
    

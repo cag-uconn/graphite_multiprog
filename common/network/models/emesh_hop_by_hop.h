@@ -19,10 +19,6 @@ public:
    NetworkModelEMeshHopByHop(Network* net, SInt32 network_id);
    ~NetworkModelEMeshHopByHop();
 
-   static bool isTileCountPermissible(SInt32 tile_count);
-   static pair<bool,vector<tile_id_t> > computeMemoryControllerPositions(SInt32 num_memory_controllers, SInt32 tile_count);
-   static pair<bool,vector<Config::TileList> > computeProcessToTileMapping();
-
    void outputSummary(std::ostream &out, const Time& target_completion_time);
 
    // Energy computation
@@ -30,7 +26,9 @@ public:
    double getDynamicEnergy();
    double getStaticEnergy();
 
-   static SInt32 computeDistance(tile_id_t sender, tile_id_t receiver);
+   static bool isTileCountPermissible(SInt32 tile_count);
+   static pair<bool,vector<tile_id_t> > computeMemoryControllerPositions(SInt32 num_memory_controllers, SInt32 tile_count);
+   static pair<bool,vector<Config::TileList> > computeProcessToTileMapping();
 
 private:
    enum NodeType
@@ -77,6 +75,7 @@ private:
    void destroyRouterAndLinkModels();
 
    // Utilities
+   static SInt32 computeDistance(tile_id_t sender, tile_id_t receiver);
    static void computePosition(tile_id_t tile, SInt32 &x, SInt32 &y);
    static tile_id_t computeTileID(SInt32 x, SInt32 y);
 

@@ -21,7 +21,6 @@ public:
    NetworkModelAtac(Network *net, SInt32 network_id);
    ~NetworkModelAtac();
 
-   void routePacket(const NetPacket &pkt, queue<Hop> &nextHops);
    void outputSummary(std::ostream &out, const Time& target_completion_time);
 
    // Energy computation
@@ -34,9 +33,6 @@ public:
    static pair<bool, vector<vector<tile_id_t> > > computeProcessToTileMapping();
 
 private:
-   // DVFS
-   void setDVFS(double frequency, double voltage, const Time& curr_time);
-
    enum NodeType
    {
       EMESH = 2,  // Start at 2 always
@@ -149,7 +145,12 @@ private:
    vector<RouterModel*> _star_net_router_list;
    vector<vector<ElectricalLinkModel*> > _star_net_link_list;
 
-   // Private Functions
+   // Routing Function
+   void routePacket(const NetPacket &pkt, queue<Hop> &next_hops);
+  
+   // DVFS
+   void setDVFS(double frequency, double voltage, const Time& curr_time);
+
    void routePacketOnENet(const NetPacket& pkt, tile_id_t sender, tile_id_t receiver, queue<Hop>& next_hops);
    void routePacketOnONet(const NetPacket& pkt, tile_id_t sender, tile_id_t receiver, queue<Hop>& next_hops);
 
