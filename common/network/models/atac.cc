@@ -51,7 +51,7 @@ NetworkModelAtac::NetworkModelAtac(Network *net, SInt32 network_id)
    }
    catch (...)
    {
-      LOG_PRINT_ERROR("Could not read ATAC flit_width parameter from cfg file");
+      LOG_PRINT_ERROR("Could not read ATAC frequency and flit_width parameters from cfg file");
    }
 
    // Has Broadcast Capability
@@ -849,7 +849,7 @@ NetworkModelAtac::isTileCountPermissible(SInt32 tile_count)
 
    if (tile_count != (enet_width * enet_height))
    {
-      fprintf(stderr, "Can't form a mesh with tile count(%i)", tile_count);
+      fprintf(stderr, "Can't form a mesh with tile count(%i)\n", tile_count);
       return false;
    }
    return true;
@@ -1174,6 +1174,280 @@ NetworkModelAtac::outputContentionModelsSummary(ostream& out)
    }
 }
 
+// DVFS
+void
+NetworkModelAtac::setDVFS(double frequency, double voltage, const Time& curr_time)
+{
+   if (!Config::getSingleton()->getEnablePowerModeling())
+      return;
+   if (!isApplicationTile(_tile_id))
+      return;
+       
+   LOG_PRINT("setDVFS[Frequency(%g), Voltage(%g), Time(%llu ns)]", frequency, voltage, curr_time.toNanosec());
+   
+   // ENet Router
+   _enet_router->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+
+   // ENet Link
+   for (SInt32 i = 0; i < _num_enet_router_ports; i++)
+   {
+      _enet_link_list[i]->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+   }
+   // Access Point
+   if (isAccessPoint(_tile_id))
+   {
+      _enet_link_list[_num_enet_router_ports]->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+   }
+
+   // Send Hub Router
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      _send_hub_router->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+   }
+
+   // Optical Link
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      _optical_link->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+   }
+
+   // Receive Hub Router
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      _receive_hub_router->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+   }
+
+   // Receive Net
+   if (_receive_net_type == BTREE)
+   {
+      if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+      {
+         for (SInt32 i = 0; i < _num_receive_networks_per_cluster; i++)
+         {
+            _btree_link_list[i]->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+         }
+      }
+   }
+   else // (_receive_net_type == STAR)
+   {
+      if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+      {
+         for (SInt32 i = 0; i < _num_receive_networks_per_cluster; i++)
+         {
+            _star_net_router_list[i]->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+            for (SInt32 j = 0; j < _cluster_size; j++)
+            {
+               _star_net_link_list[i][j]->getPowerModel()->setDVFS(frequency, voltage, curr_time);
+            }
+         }
+      }
+   }
+}
+
+void
+NetworkModelAtac::computeEnergy(const Time& curr_time)
+{
+   assert (Config::getSingleton()->getEnablePowerModeling());
+   if (!isApplicationTile(_tile_id))
+      return;
+       
+   // ENet Router
+	_enet_router->getPowerModel()->computeEnergy(curr_time);
+
+	// ENet Link
+	for (SInt32 i = 0; i < _num_enet_router_ports; i++)
+	{
+	   _enet_link_list[i]->getPowerModel()->computeEnergy(curr_time);
+	}
+	// Access Point
+	if (isAccessPoint(_tile_id))
+	{
+	   _enet_link_list[_num_enet_router_ports]->getPowerModel()->computeEnergy(curr_time);
+	}
+
+   // Send Hub Router
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      _send_hub_router->getPowerModel()->computeEnergy(curr_time);
+   }
+
+   // Optical Link
+	if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+	{
+      _optical_link->getPowerModel()->computeEnergy(curr_time);
+	}
+
+	// Receive Hub Router
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      _receive_hub_router->getPowerModel()->computeEnergy(curr_time);
+   }
+
+   // Receive Net
+   if (_receive_net_type == BTREE)
+   {
+      if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+      {
+         for (SInt32 i = 0; i < _num_receive_networks_per_cluster; i++)
+         {
+            _btree_link_list[i]->getPowerModel()->computeEnergy(curr_time);
+         }
+      }
+   }
+   else // (_receive_net_type == STAR)
+   {
+      if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+      {
+         for (SInt32 i = 0; i < _num_receive_networks_per_cluster; i++)
+         {
+            _star_net_router_list[i]->getPowerModel()->computeEnergy(curr_time);
+            for (SInt32 j = 0; j < _cluster_size; j++)
+            {
+               _star_net_link_list[i][j]->getPowerModel()->computeEnergy(curr_time);
+            }
+         }
+      }
+   }
+}
+
+double
+NetworkModelAtac::getDynamicEnergy()
+{
+   assert (Config::getSingleton()->getEnablePowerModeling());
+   if (!isApplicationTile(_tile_id))
+      return 0.0;
+   double dynamic_energy = 0.0;
+   
+   // ENet Router
+	dynamic_energy += _enet_router->getPowerModel()->getDynamicEnergy();
+
+	// ENet Link
+	for (SInt32 i = 0; i < _num_enet_router_ports; i++)
+	{
+	   dynamic_energy += _enet_link_list[i]->getPowerModel()->getDynamicEnergy();
+	}
+	// Access Point
+	if (isAccessPoint(_tile_id))
+	{
+	   dynamic_energy += _enet_link_list[_num_enet_router_ports]->getPowerModel()->getDynamicEnergy();
+	}
+
+   // Send Hub Router
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      dynamic_energy += _send_hub_router->getPowerModel()->getDynamicEnergy();
+   }
+
+   // Optical Link
+	if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+	{
+      dynamic_energy += _optical_link->getPowerModel()->getDynamicEnergy();
+	}
+
+	// Receive Hub Router
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      dynamic_energy += _receive_hub_router->getPowerModel()->getDynamicEnergy();
+   }
+
+   // Receive Net
+   if (_receive_net_type == BTREE)
+   {
+      if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+      {
+         for (SInt32 i = 0; i < _num_receive_networks_per_cluster; i++)
+         {
+            dynamic_energy += _btree_link_list[i]->getPowerModel()->getDynamicEnergy();
+         }
+      }
+   }
+   else // (_receive_net_type == STAR)
+   {
+      if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+      {
+         for (SInt32 i = 0; i < _num_receive_networks_per_cluster; i++)
+         {
+            dynamic_energy += _star_net_router_list[i]->getPowerModel()->getDynamicEnergy();
+            for (SInt32 j = 0; j < _cluster_size; j++)
+            {
+               dynamic_energy += _star_net_link_list[i][j]->getPowerModel()->getDynamicEnergy();
+            }
+         }
+      }
+   }
+
+   return dynamic_energy;
+}
+
+double
+NetworkModelAtac::getStaticEnergy()
+{
+   assert (Config::getSingleton()->getEnablePowerModeling());
+   if (!isApplicationTile(_tile_id))
+      return 0.0;
+   double static_energy = 0.0;
+   
+   // ENet Router
+	static_energy += _enet_router->getPowerModel()->getStaticEnergy();
+
+	// ENet Link
+	for (SInt32 i = 0; i < _num_enet_router_ports; i++)
+	{
+	   static_energy += _enet_link_list[i]->getPowerModel()->getStaticEnergy();
+	}
+	// Access Point
+	if (isAccessPoint(_tile_id))
+	{
+	   static_energy += _enet_link_list[_num_enet_router_ports]->getPowerModel()->getStaticEnergy();
+	}
+
+   // Send Hub Router
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      static_energy += _send_hub_router->getPowerModel()->getStaticEnergy();
+   }
+
+   // Optical Link
+	if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+	{
+      static_energy += _optical_link->getPowerModel()->getStaticEnergy();
+	}
+
+	// Receive Hub Router
+   if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+   {
+      static_energy += _receive_hub_router->getPowerModel()->getStaticEnergy();
+   }
+
+   // Receive Net
+   if (_receive_net_type == BTREE)
+   {
+      if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+      {
+         for (SInt32 i = 0; i < _num_receive_networks_per_cluster; i++)
+         {
+            static_energy += _btree_link_list[i]->getPowerModel()->getStaticEnergy();
+         }
+      }
+   }
+   else // (_receive_net_type == STAR)
+   {
+      if (_tile_id == getTileIDWithOpticalHub(getClusterID(_tile_id)))
+      {
+         for (SInt32 i = 0; i < _num_receive_networks_per_cluster; i++)
+         {
+            static_energy += _star_net_router_list[i]->getPowerModel()->getStaticEnergy();
+            for (SInt32 j = 0; j < _cluster_size; j++)
+            {
+               static_energy += _star_net_link_list[i][j]->getPowerModel()->getStaticEnergy();
+            }
+         }
+      }
+   }
+
+   return static_energy;
+}
+
 void
 NetworkModelAtac::outputPowerSummary(ostream& out, const Time& target_completion_time)
 {
@@ -1261,7 +1535,7 @@ NetworkModelAtac::outputPowerSummary(ostream& out, const Time& target_completion
                for (SInt32 j = 0; j < _cluster_size; j++)
                {
                   receive_net_static_energy += _star_net_link_list[i][j]->getPowerModel()->getStaticEnergy();
-                  receive_net_dynamic_energy += _star_net_link_list[i][j]->getPowerModel()->getStaticEnergy();
+                  receive_net_dynamic_energy += _star_net_link_list[i][j]->getPowerModel()->getDynamicEnergy();
                }
             }
          }

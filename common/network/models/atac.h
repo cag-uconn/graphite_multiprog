@@ -22,14 +22,21 @@ public:
    ~NetworkModelAtac();
 
    void routePacket(const NetPacket &pkt, queue<Hop> &nextHops);
+   void outputSummary(std::ostream &out, const Time& target_completion_time);
+
+   // Energy computation
+   void computeEnergy(const Time& curr_time);
+   double getDynamicEnergy();
+   double getStaticEnergy();
 
    static bool isTileCountPermissible(SInt32 tile_count);
    static pair<bool, vector<tile_id_t> > computeMemoryControllerPositions(SInt32 num_memory_controllers, SInt32 tile_count);
    static pair<bool, vector<vector<tile_id_t> > > computeProcessToTileMapping();
 
-   void outputSummary(std::ostream &out, const Time& target_completion_time);
-
 private:
+   // DVFS
+   void setDVFS(double frequency, double voltage, const Time& curr_time);
+
    enum NodeType
    {
       EMESH = 2,  // Start at 2 always
