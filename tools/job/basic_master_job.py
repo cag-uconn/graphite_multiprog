@@ -11,20 +11,21 @@ from master_job import MasterJob
 # BasicJob:
 #  a job built around the Graphite scheduler
 class BasicMasterJob(MasterJob):
-   def __init__(self, command, output_dir, config_filename, batch_job, machines):
+   def __init__(self, command, output_dir, config_filename, batch_job, machines,target_index):
       MasterJob.__init__(self, command, output_dir, config_filename, batch_job)
       self.working_dir = os.getcwd()
       self.machines = machines
+      self.target_index = target_index
    
-   # spawn:
+   # spawn: 
    #  start up a command across multiple machines
    def spawn(self):
       # spawn
       self.procs = {}
       for i in range(0, len(self.machines)):
          if (self.machines[i] == "localhost") or (self.machines[i] == r'127.0.0.1'):
-            print "Starting process: %d: %s" % (i, self.command)
-            self.procs[i] = MasterJob.spawn(self, i)
+            print "Starting target: %d process: %d: %s" % (self.target_index, i, self.command)
+            self.procs[i] = MasterJob.spawn(self, i, self.target_index)
          else:
             self.command = self.command.replace("\"", "\\\"")
             slave_command = "python -u %s/tools/job/basic_slave_job.py %s %d \\\"%s\\\"" % \

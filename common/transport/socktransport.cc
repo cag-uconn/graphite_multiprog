@@ -44,14 +44,19 @@ SockTransport::SockTransport()
    m_global_node = new SockNode(GLOBAL_TAG, this);
 }
 
-void SockTransport::getProcInfo()
+void SockTransport::getProcInfo()  //sqc_multi 
 {
    m_num_procs = (SInt32)Config::getSingleton()->getProcessCount();
+   m_num_targets = (SInt32)Config::getSingleton()->getTargetCount();
 
    const char *proc_index_str = getenv("CARBON_PROCESS_INDEX");
    LOG_ASSERT_ERROR(proc_index_str != NULL || m_num_procs == 1,
                     "Process index undefined with multiple processes.");
-
+					
+   const char *target_index_str = getenv("CARBON_TARGET_INDEX");
+   LOG_ASSERT_ERROR(target_index_str != NULL || m_num_targets == 1,
+                    "Target index undefined with multiple targets.");
+	  
    if (proc_index_str)
       m_proc_index = atoi(proc_index_str);
    else
@@ -62,6 +67,18 @@ void SockTransport::getProcInfo()
 
    Config::getSingleton()->setProcessNum(m_proc_index);
    LOG_PRINT("Process number set to %i", Config::getSingleton()->getCurrentProcessNum());
+   
+   if (target_index_str)
+      m_target_index = atoi(target_index_str);
+   else
+      m_target_index = 0;
+	  
+   LOG_ASSERT_ERROR(0 <= m_target_index && m_target_index < m_num_targets,
+                    "Invalid target index: %d with num_targets: %d", m_target_index, m_num_targets);
+
+   Config::getSingleton()->setTargetNum(m_target_index);
+   LOG_PRINT("Target number set to %i", Config::getSingleton()->getCurrentTargetNum());
+
 }
 
 void SockTransport::initBufferLists()

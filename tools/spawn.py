@@ -97,6 +97,26 @@ def getMachineList(command, num_processes):
    print "*ERROR* Could not read process list from config file"
    sys.exit(-1)
 
+def getTargetProcessesIndex(command): 
+   proc_match = re.match(r'.*--target_process_index\s*=\s*([0-9]+)', command)
+   if proc_match:
+      return int(proc_match.group(1))
+
+   print "*ERROR* Could not read target process index to start the simulation"
+   sys.exit(-1)   
+   
+def getConfigFilenameMultiApp(command):
+   config_filename_match = re.match(r'.*-c\s+([^\s]+\.cfg)\s+', command)
+   if config_filename_match:
+      return config_filename_match.group(1)
+   
+   print "*ERROR* Could not read config filename"
+   sys.exit(-1)
+   
+   
+   
+   
+   
 # main -- if this is used as standalone script
 if __name__=="__main__":
   
@@ -110,6 +130,7 @@ if __name__=="__main__":
    output_dir = getOutputDir(sim_flags)
    num_processes = getNumProcesses(sim_flags)
    machine_list = getMachineList(sim_flags, num_processes)
+   target_index = getTargetProcessesIndex(sim_flags)
 
    if (mode == "pin"):
       command = "%s %s -- %s" % (pin_run, sim_flags, exec_command)
@@ -124,7 +145,7 @@ if __name__=="__main__":
       sys.exit(3)
 
    if (scheduler == "basic"):
-      job = BasicMasterJob(command, output_dir, config_filename, batch_job, machine_list)
+      job = BasicMasterJob(command, output_dir, config_filename, batch_job, machine_list, target_index)
    elif (scheduler == "condor"):
       cjob = CondorMasterJob(command, output_dir, config_filename, batch_job)
       if (batch_job == "true"):
@@ -146,3 +167,5 @@ if __name__=="__main__":
       print msg
       job.kill()
       sys.exit(signal.SIGINT)
+
+	  

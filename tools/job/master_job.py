@@ -14,8 +14,9 @@ class MasterJob(Job):
       # Create output directory
       self.createOutputDir()
 
-   def spawn(self, proc_num):
-      return Job.spawn(self, proc_num)
+   # app_num added for multi-target processes
+   def spawn(self, proc_num, target_index):
+      return Job.spawn(self, proc_num, target_index)
 
    def createOutputDir(self):
       if self.batch_job == "false":

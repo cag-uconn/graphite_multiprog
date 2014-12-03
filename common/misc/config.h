@@ -86,6 +86,15 @@ public:
    UInt32 getCurrentProcessNum() { return m_current_process_num; }
    void setProcessNum(UInt32 in_my_proc_num) { m_current_process_num = in_my_proc_num; }
 
+   //target process number and index for multi-application  //sqc_multi
+   UInt32 getTargetCount() { return m_num_targets; }
+   void setTargetCount(UInt32 in_num_targets) { m_num_targets = in_num_targets; }
+
+   UInt32 getCurrentTargetNum() { return m_current_target_num; }
+   void setTargetNum(UInt32 in_my_target_num) { m_current_target_num = in_my_target_num; }
+   
+   
+   
    tile_id_t getMCPTileNum() { return (getTotalTiles() - 1); }
    core_id_t getMCPCoreId() { return (core_id_t) {(tile_id_t) getTotalTiles() - 1, MAIN_CORE_TYPE}; }
 
@@ -175,6 +184,7 @@ private:
    std::vector<TileList> computeProcessToTileMapping();
    
    UInt32  m_num_processes;         // Total number of processes (incl myself)
+   UInt32  m_num_targets;           // Total number of targets (incl myself)  //sqc_multi
    UInt32  m_total_tiles;           // Total number of tiles in all processes
    UInt32  m_application_tiles;     // Total number of tiles used by the application
    UInt32  m_num_cores_per_tile;    // Number of cores per tile
@@ -182,6 +192,7 @@ private:
    UInt32  m_max_threads_per_core;
 
    UInt32  m_current_process_num;   // Process number for this process
+   UInt32  m_current_target_num;    // Target number for this process //sqc_multi
 
    std::vector<TileParameters> m_tile_parameters_vec;         // Vector holding main tile parameters
    std::vector<NetworkParameters> m_network_parameters_vec;   // Vector holding network parameters

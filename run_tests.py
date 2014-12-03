@@ -24,8 +24,8 @@ config_filename = "carbon_sim.cfg"
 #   Is only used for the 'basic' scheduling system
 #   Warning: DO NOT use 'localhost' or '127.0.0.1', use the machine name
 machines = [
-    "draco1",
-    "draco2",
+    "cag7",
+    "cag8",
     "draco3",
     "draco4",
     "draco5",
@@ -35,7 +35,7 @@ machines = [
 # benchmark_list: List of benchmarks to use (includes SPLASH-2 & PARSEC)
 #   By default, only SPLASH-2 benchmarks are selected
 #benchmark_list = splash2_list + parsec_list
-benchmark_list = splash2_list
+benchmark_list = ["fft","radix"]
 
 # First, build all the benchmarks
 compileBenchmarks(benchmark_list)
@@ -51,7 +51,7 @@ for benchmark in benchmark_list:
 
    # Generate SIM_FLAGS
    sim_flags = "--general/total_cores=64 " + \
-               "--general/mode=lite " + \
+               "--general/mode=full " + \
                "--general/enable_power_modeling=true " + \
                "--general/trigger_models_within_application=true "
       

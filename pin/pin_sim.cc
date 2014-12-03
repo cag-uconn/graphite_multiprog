@@ -401,12 +401,11 @@ int main(int argc, char *argv[])
    cfg->load(config_path);
 
    handle_args(args, *cfg);
-
    Simulator::setConfig(cfg);
 
    Simulator::allocate();
    Sim()->start();
-
+   
    if (Sim()->getConfig()->getSimulationMode() == Config::FULL)
       PinConfig::allocate();
 
@@ -444,10 +443,10 @@ int main(int argc, char *argv[])
 
    // Add Application Fini function
    PIN_AddFiniUnlockedFunction(ApplicationExit, 0);
-
+   
    // Never returns
    LOG_PRINT("Running program...");
-   PIN_StartProgram();
+   PIN_StartProgram();   //sqc
 
    return 0;
 }
