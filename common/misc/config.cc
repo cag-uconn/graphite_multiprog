@@ -66,7 +66,7 @@ Config::Config()
 
    m_num_cores_per_tile = 1;
 
-   if ((m_simulation_mode == LITE) && (m_num_processes > 1))
+   if ((m_simulation_mode == LITE) && (m_process_count_current_target > 1))
    {
       fprintf(stderr, "ERROR: Use only 1 process in lite mode\n");
       exit(EXIT_FAILURE);

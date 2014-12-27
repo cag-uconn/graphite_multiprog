@@ -79,7 +79,7 @@ Simulator::Simulator()
 
 void Simulator::start()
 {
-   LOG_PRINT("In Simulator ctor.");
+   LOG_PRINT("Simulator ctor starting...");
    _config.generateTileMap();
 
    initializeGraphiteHome();
@@ -97,8 +97,7 @@ void Simulator::start()
    if (_config_file->getBool("statistics_trace/enabled"))
       _statistics_manager = new StatisticsManager();
 
-   if (_config.isMainProcessTarget())   //sqc_multi
-   //if (_config.getCurrentProcessNum() == 0)
+   if (_config.isMasterProcess())   //sqc_multi
       _mcp = new MCP(getMCPNetwork());
    _lcp = new LCP();
 
@@ -111,6 +110,7 @@ void Simulator::start()
       _statistics_manager->spawnThread();
 
    shutdownPowerModelingTools();
+   LOG_PRINT("Simulator ctor done...");
 }
 
 Simulator::~Simulator()

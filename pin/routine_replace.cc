@@ -150,23 +150,25 @@ void coordinateSimulatorModelsInitialization(const CONTEXT *ctxt)
       return;
    _initialization_complete = true;
 
+   Config* cfg = Sim()->getConfig();
    // The main process, which is the first thread (thread 0), waits for all thread spawners to be created.
-//   if (Sim()->getConfig()->getCurrentProcessNum() == 0)   //sqc_multi
-   if (Sim()->getConfig()->isMainProcessTarget())
+   if (cfg->isMasterProcess()) // sqc_multi
    {
       Core *core = Sim()->getTileManager()->getCurrentCore();
-      UInt32 num_processes = Sim()->getConfig()->getProcessCount();
-//      UInt32 num_processes_target = Sim()->getConfig()->getProcessCountCurrentTarget();
+      pair<UInt32,UInt32> process_num_bounds = cfg->getProcessNumBounds();
+      UInt32 first_process_num = process_num_bounds.first;
+      UInt32 last_process_num = process_num_bounds.second;
+      assert(first_process_num == cfg->getCurrentProcessNum());
 
       // For each process, send a message to the thread spawner for that process telling it that
       // we're initializing, wait until the thread spawners are all initialized.
-      for (UInt32 i = 1; i < num_processes; i++)
+      for (UInt32 i = first_process_num + 1; i <= last_process_num; i++)
       {
          // This whole process should probably happen through the MCP
-         core->getTile()->getNetwork()->netSend (Sim()->getConfig()->getThreadSpawnerCoreId(i), SYSTEM_INITIALIZATION_NOTIFY, NULL, 0);
+         core->getTile()->getNetwork()->netSend(cfg->getThreadSpawnerCoreId(i), SYSTEM_INITIALIZATION_NOTIFY, NULL, 0);
 
          // main thread clock is not affected by start-up time of other processes
-         core->getTile()->getNetwork()->netRecv (Sim()->getConfig()->getThreadSpawnerCoreId(i), core->getId(), SYSTEM_INITIALIZATION_ACK);
+         core->getTile()->getNetwork()->netRecv(cfg->getThreadSpawnerCoreId(i), core->getId(), SYSTEM_INITIALIZATION_ACK);
       }
     
       // Initialization for all other processes have taken place. Now enable the models (if configured)
@@ -176,21 +178,28 @@ void coordinateSimulatorModelsInitialization(const CONTEXT *ctxt)
       }
       
       // Tell the thread spawner for each process that we're done initializing...even though we haven't?
-      for (UInt32 i = 1; i < num_processes; i++)
+      for (UInt32 i = first_process_num + 1; i <= last_process_num; i++)
       {
-         core->getTile()->getNetwork()->netSend (Sim()->getConfig()->getThreadSpawnerCoreId(i), SYSTEM_INITIALIZATION_FINI, NULL, 0);
+         core->getTile()->getNetwork()->netSend(Sim()->getConfig()->getThreadSpawnerCoreId(i), SYSTEM_INITIALIZATION_FINI, NULL, 0);
       }
+
+      // Barrier between all processes
+      Sim()->getTransport()->barrier();
 
       spawnThreadSpawner(ctxt);
 
       PIN_ExecuteAt(ctxt);
    }
-   else
+   else // (!cfg->isMasterProcess())
    {
       // This whole process should probably happen through the MCP
       Core *core = Sim()->getTileManager()->getCurrentCore();
-      core->getTile()->getNetwork()->netSend (Sim()->getConfig()->getMainThreadCoreId(), SYSTEM_INITIALIZATION_ACK, NULL, 0);
-      core->getTile()->getNetwork()->netRecv (Sim()->getConfig()->getMainThreadCoreId(), core->getId(), SYSTEM_INITIALIZATION_FINI);
+      tile_id_t master_tile_id = cfg->getMasterThreadTileID();
+      core->getTile()->getNetwork()->netSend(Tile::getMainCoreId(master_tile_id), SYSTEM_INITIALIZATION_ACK, NULL, 0);
+      core->getTile()->getNetwork()->netRecv(Tile::getMainCoreId(master_tile_id), core->getId(), SYSTEM_INITIALIZATION_FINI);
+
+      // Barrier between all processes
+      Sim()->getTransport()->barrier();
 
       callThreadSpawner(ctxt);
 

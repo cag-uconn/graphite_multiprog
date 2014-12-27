@@ -29,8 +29,6 @@ machines = [
     "127.0.0.1",
     "127.0.0.1",
     "127.0.0.1",
-    "draco5",
-    "draco6",
     ]
 
 # benchmark_list: List of benchmarks to use (includes SPLASH-2 & PARSEC)
@@ -57,9 +55,9 @@ app_flags_MultiApp = [getAppFlags(benchmark_list[0]), getAppFlags(benchmark_list
 
 # Generate SIM_FLAGS
 sim_flags = "--general/total_cores=64 " + \
-            "--general/mode=full " + \
-            "--general/enable_power_modeling=true " + \
-            "--general/trigger_models_within_application=true "
+            "--general/mode=lite "
+#            "--general/enable_power_modeling=true " + \
+#            "--general/trigger_models_within_application=true "
       
 # Generate sub_dir where results are going to be placed
 sub_dir = "multi_%s_%s" % (benchmark_list[0], benchmark_list[1])

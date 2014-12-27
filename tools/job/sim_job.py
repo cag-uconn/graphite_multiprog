@@ -88,9 +88,9 @@ class SimJobMultiApp:
    # spawn:
    #  spawn job
    def spawn(self):
+      self.makeCommand()
+      self.createOutputDir()
       for i in range(0,len(self.command_MultiApp)):
-         self.makeCommand()
-         self.createOutputDir()
          self.proc = subprocess.Popen(self.command_MultiApp[i], shell=True, preexec_fn=os.setsid)
          
       

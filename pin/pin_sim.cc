@@ -253,24 +253,25 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
    // 1) (!done_app_initialization) && (curr_process_num == 0)
    // 2) (done_app_initialization) && (!thread_spawner)
 
+   Config* cfg = Sim()->getConfig();
    if (! done_app_initialization)
    {
       // The app is not initialized, start the main thread on the main core on tile 0.
-      UInt32 curr_process_num = Sim()->getConfig()->getCurrentProcessNum();
-
-      if (Sim()->getConfig()->getSimulationMode() == Config::LITE)
+      if (cfg->getSimulationMode() == Config::LITE)
       {
-         LOG_ASSERT_ERROR(curr_process_num == 0, "Lite mode can only be run with 1 process");
-         Sim()->getTileManager()->initializeThread(Tile::getMainCoreId(0));
+         LOG_ASSERT_ERROR(cfg->getProcessCountCurrentTarget() == 0, "Lite mode can only be run with 1 process per target application");
+         tile_id_t tile_id = cfg->getMasterThreadTileID();
+         Sim()->getTileManager()->initializeThread(Tile::getMainCoreId(tile_id));
       }
-      else // Sim()->getConfig()->getSimulationMode() == Config::FULL
+      else // cfg->getSimulationMode() == Config::FULL
       {
          ADDRINT reg_esp = PIN_GetContextReg(ctxt, REG_STACK_PTR);
          allocateStackSpace();
          
-         if (curr_process_num == 0)
+         if (cfg->isMasterProcess())
          {
-            Sim()->getTileManager()->initializeThread(Tile::getMainCoreId(0));
+            tile_id_t tile_id = cfg->getMasterThreadTileID();
+            Sim()->getTileManager()->initializeThread(Tile::getMainCoreId(tile_id));
 
             ADDRINT reg_eip = PIN_GetContextReg(ctxt, REG_INST_PTR);
             // 1) Copying over Static Data
@@ -281,17 +282,18 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
             copyStaticData(img);
 
             // 2) Copying over initial stack data
-            copyInitialStackData(reg_esp, Tile::getMainCoreId(0));
+            copyInitialStackData(reg_esp, Tile::getMainCoreId(tile_id));
          }
-         else
+         else // (!cfg->isMasterProcess())
          {
-            tile_id_t tile_id = Sim()->getConfig()->getCurrentThreadSpawnerTileNum();
+            tile_id_t tile_id = cfg->getCurrentThreadSpawnerTileNum();
             Sim()->getTileManager()->initializeThread(Tile::getMainCoreId(tile_id));
             
             Core *core = Sim()->getTileManager()->getCurrentCore();
 
             // main thread clock is not affected by start-up time of other processes
-            core->getTile()->getNetwork()->netRecv(Tile::getMainCoreId(0), core->getId(), SYSTEM_INITIALIZATION_NOTIFY);
+            tile_id_t master_tile_id = cfg->getMasterThreadTileID();
+            core->getTile()->getNetwork()->netRecv(Tile::getMainCoreId(master_tile_id), core->getId(), SYSTEM_INITIALIZATION_NOTIFY);
 
             copyInitialStackData(reg_esp, Tile::getMainCoreId(tile_id));
          }
@@ -308,7 +310,7 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
       // This is NOT the main thread
       // 'application' thread or 'thread spawner'
 
-      if (Sim()->getConfig()->getSimulationMode() == Config::LITE)
+      if (cfg->getSimulationMode() == Config::LITE)
       {
          ThreadSpawnRequest req;
          Sim()->getThreadManager()->getThreadToSpawn(&req);
@@ -318,7 +320,7 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
                "req.tile_id(%i), num application cores(%u)", req.destination.tile_id, Config::getSingleton()->getApplicationTiles());
          Sim()->getThreadManager()->onThreadStart(&req);
       }
-      else // Sim()->getConfig()->getSimulationMode() == Config::FULL
+      else // cfg->getSimulationMode() == Config::FULL
       {
          ADDRINT reg_esp = PIN_GetContextReg(ctxt, REG_STACK_PTR);
          tile_id_t tile_id = PinConfig::getSingleton()->getTileIDFromStackPtr(reg_esp);
@@ -329,7 +331,7 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
 
          LOG_ASSERT_ERROR(tile_id != -1, "All application threads and thread spawner are cores now");
 
-         if (tile_id == Sim()->getConfig()->getCurrentThreadSpawnerTileNum())
+         if (tile_id == cfg->getCurrentThreadSpawnerTileNum())
          {
             // 'Thread Spawner' thread
             Sim()->getTileManager()->initializeThread(core_id);

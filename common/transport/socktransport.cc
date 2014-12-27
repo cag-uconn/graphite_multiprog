@@ -49,6 +49,8 @@ void SockTransport::getProcInfo()  //sqc_multi
    m_num_procs = (SInt32)Config::getSingleton()->getProcessCount();
    m_num_targets = (SInt32)Config::getSingleton()->getTargetCount();
 
+   LOG_PRINT("Num-Host-Processes: %u, Num-Target-Processes: %u", m_num_procs, m_num_targets);
+
    const char *proc_index_str = getenv("CARBON_PROCESS_INDEX");
    LOG_ASSERT_ERROR(proc_index_str != NULL || m_num_procs == 1,
                     "Process index undefined with multiple processes.");
@@ -87,7 +89,7 @@ void SockTransport::getProcInfo()  //sqc_multi
    UInt32 num_procs_target = Sim()->getCfg()->getInt(target_string);
    
    Config::getSingleton()->setProcessCountCurrentTarget(num_procs_target);
-   fprintf(stderr, "Number of process in target %i: (%i) \n",m_target_index, num_procs_target);
+   LOG_PRINT("Number of process in target %i: (%i) \n", m_target_index, num_procs_target);
 }
 
 void SockTransport::initBufferLists()
@@ -106,7 +108,7 @@ void SockTransport::initSockets()
 {
    SInt32 my_port;
 
-   LOG_PRINT("initSockets()");
+   LOG_PRINT("initSockets() start");
 
    // -- server side
    my_port = m_base_port + m_proc_index;
@@ -155,6 +157,7 @@ void SockTransport::initSockets()
 
       m_recv_sockets[proc_index] = sock;
    }
+   LOG_PRINT("initSockets() done");
 }
 
 void SockTransport::updateThreadFunc(void *vp)

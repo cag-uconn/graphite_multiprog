@@ -98,10 +98,16 @@ public:
    UInt32 getProcessCountCurrentTarget() { return m_process_count_current_target; }
    void setProcessCountCurrentTarget(UInt32 in_process_count_current_target) { m_process_count_current_target = in_process_count_current_target; }
    
-   //Check whether this process is the main process of this target  //sqc_multi
-   bool isMainProcessTarget() { return true; }
-   void setMainProcessTarget(UInt32 in_main_proc_target_num) { m_main_proc_target_num = in_main_proc_target_num; }
-   
+   // Check whether this process is the main process of this target  //sqc_multi
+   bool isMasterProcess() { return m_current_process_num == m_master_process_num; }
+   void setMasterProcessNum(UInt32 master_process_num) { m_master_process_num = master_process_num; }
+ 
+   // Process num bounds for current target
+   std::pair<UInt32,UInt32> getProcessNumBounds() { return std::make_pair(m_current_process_num, m_current_process_num); }
+
+   // Get master thread tile ID
+   tile_id_t getMasterThreadTileID() { return m_current_process_num; }
+
    //Changed for multi-target   //sqc_multi
 //   tile_id_t getMCPTileNum() { return (getTotalTiles() - 1); }
 //   core_id_t getMCPCoreId() { return (core_id_t) {(tile_id_t) getTotalTiles() - 1, MAIN_CORE_TYPE}; }
@@ -206,7 +212,7 @@ private:
 
    UInt32  m_current_process_num;   // Process number for this process
    UInt32  m_current_target_num;    // Target number for this process //sqc_multi
-   UInt32  m_main_proc_target_num;  // Main process number for this target //sqc_multi
+   UInt32  m_master_process_num;    // Master process number for this target //sqc_multi
    UInt32  m_process_count_current_target;  // Number of host processes in this target //sqc_multi
 
    std::vector<TileParameters> m_tile_parameters_vec;         // Vector holding main tile parameters

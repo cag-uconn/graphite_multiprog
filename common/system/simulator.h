@@ -32,6 +32,7 @@ public:
    static void allocate();
    static void release();
 
+   Transport *getTransport()                                   { return _transport; }
    TileManager *getTileManager()                               { return _tile_manager; }
    SimThreadManager *getSimThreadManager()                     { return _sim_thread_manager; }
    ThreadManager *getThreadManager()                           { return _thread_manager; }
