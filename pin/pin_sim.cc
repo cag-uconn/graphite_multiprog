@@ -259,7 +259,7 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
       // The app is not initialized, start the main thread on the main core on tile 0.
       if (cfg->getSimulationMode() == Config::LITE)
       {
-         LOG_ASSERT_ERROR(cfg->getProcessCountCurrentTarget() == 0, "Lite mode can only be run with 1 process per target application");
+         LOG_ASSERT_ERROR(cfg->getProcessCountCurrentTarget() == 1, "Lite mode can only be run with 1 process per target application");
          tile_id_t tile_id = cfg->getMasterThreadTileID();
          Sim()->getTileManager()->initializeThread(Tile::getMainCoreId(tile_id));
       }
