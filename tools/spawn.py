@@ -101,9 +101,9 @@ def getTargetProcessesIndex(command):
    proc_match = re.match(r'.*--target_process_index\s*=\s*([0-9]+)', command)
    if proc_match:
       return int(proc_match.group(1))
-
-   print "*ERROR* Could not read target process index to start the simulation"
-   sys.exit(-1)   
+   else:
+      print "Could not read target process index in the sim_flags, set to 0"
+      return int(0)
    
 def getConfigFilenameMultiApp(command):
    config_filename_match = re.match(r'.*-c\s+([^\s]+\.cfg)\s+', command)

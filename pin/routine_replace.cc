@@ -151,10 +151,12 @@ void coordinateSimulatorModelsInitialization(const CONTEXT *ctxt)
    _initialization_complete = true;
 
    // The main process, which is the first thread (thread 0), waits for all thread spawners to be created.
-   if (Sim()->getConfig()->getCurrentProcessNum() == 0)
+//   if (Sim()->getConfig()->getCurrentProcessNum() == 0)   //sqc_multi
+   if (Sim()->getConfig()->isMainProcessTarget())
    {
       Core *core = Sim()->getTileManager()->getCurrentCore();
       UInt32 num_processes = Sim()->getConfig()->getProcessCount();
+//      UInt32 num_processes_target = Sim()->getConfig()->getProcessCountCurrentTarget();
 
       // For each process, send a message to the thread spawner for that process telling it that
       // we're initializing, wait until the thread spawners are all initialized.

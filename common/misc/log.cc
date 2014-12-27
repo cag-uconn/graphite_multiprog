@@ -210,6 +210,9 @@ void Log::getFile(tile_id_t tile_id, bool sim_thread, FILE **file, Lock **lock)
    *file = NULL;
    *lock = NULL;
 
+   // Use target num sqc_multi
+   UInt32 targetNum = Config::getSingleton()->getCurrentTargetNum();
+   
    if (tile_id == INVALID_TILE_ID)
    {
       // System file -- use process num if available
@@ -242,7 +245,7 @@ void Log::getFile(tile_id_t tile_id, bool sim_thread, FILE **file, Lock **lock)
       {
          assert(tile_id < _tileCount);
          char filename[256];
-         sprintf(filename, "sim_%u.log", tile_id);
+         sprintf(filename, "sim_%u_%u.log", tile_id, targetNum);
          _simFiles[tile_id] = fopen(formatFileName(filename).c_str(), "w");
          assert(_simFiles[tile_id] != NULL);
       }
@@ -257,7 +260,7 @@ void Log::getFile(tile_id_t tile_id, bool sim_thread, FILE **file, Lock **lock)
       {
          assert(tile_id < _tileCount);
          char filename[256];
-         sprintf(filename, "app_%u.log", tile_id);
+         sprintf(filename, "app_%u_%u.log", tile_id, targetNum);
          _tileFiles[tile_id] = fopen(formatFileName(filename).c_str(), "w");
          assert(_tileFiles[tile_id] != NULL);
       }

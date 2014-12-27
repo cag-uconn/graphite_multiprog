@@ -15,16 +15,17 @@ from slave_job import SlaveJob
 # BasicSlaveJob:
 #  a job built around the Graphite scheduler
 class BasicSlaveJob(SlaveJob):
-   def __init__(self, proc_num, command, working_dir, graphite_home):
+   def __init__(self, proc_num, command, working_dir, graphite_home, target_index):
       SlaveJob.__init__(self, proc_num, command, graphite_home)
       self.working_dir = working_dir
+      self.target_index = target_index
    
    # spawn:
    #  start up a command over an ssh connection on one machine
    #  returns an object that can be passed to wait()
    def spawn(self):
       os.chdir(self.working_dir)
-      print "Starting process: %d: %s" % (self.proc_num, self.command)
+      print "Starting target: %d process: %d: %s" % (self.target_index, self.proc_num, self.command)
       self.proc = SlaveJob.spawn(self)
       self.renew_permissions_proc = self.spawnRenewPermisssionsProc()
 
@@ -71,8 +72,9 @@ if __name__=="__main__":
    proc_num = int(sys.argv[2])
    command = " ".join(sys.argv[3:])
    working_dir = sys.argv[1]
+   target_index = int(sys.argv[4])
    graphite_home = SlaveJob.getGraphiteHome(sys.argv[0])
 
-   job = BasicSlaveJob(proc_num, command, working_dir, graphite_home)
+   job = BasicSlaveJob(proc_num, command, working_dir, graphite_home, target_index)
    job.spawn()
    sys.exit(job.wait())

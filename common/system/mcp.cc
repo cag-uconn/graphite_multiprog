@@ -170,14 +170,15 @@ void MCP::quitThread()
 {
    LOG_PRINT("Send MCP thread quit message");
    SInt32 msg_type = MCP_MESSAGE_QUIT;
-   _network.netSend(Config::getSingleton()->getMCPCoreId(), MCP_SYSTEM_TYPE, &msg_type, sizeof(msg_type));
+   _network.netSend(Config::getSingleton()->getMainMCPCoreId(), MCP_SYSTEM_TYPE, &msg_type, sizeof(msg_type));   //sqc_multi may need to change later
    // Join thread
    _thread->join();
 }
 
 void MCP::run()
 {
-   core_id_t mcp_core_id = Config::getSingleton()->getMCPCoreId();
+   core_id_t mcp_core_id = Config::getSingleton()->getTargetMCPCoreId();   //sqc_multi may need to change later
+   LOG_PRINT("Initial MCP thread in MCP.cc, MCP core id: %d", mcp_core_id);   //sqc_multi
    Sim()->getTileManager()->initializeThread(mcp_core_id);
    Sim()->getTileManager()->initializeCommId(mcp_core_id.tile_id);
 

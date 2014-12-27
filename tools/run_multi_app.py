@@ -48,13 +48,12 @@ jobs = []
 
 # Generate command 
 command_MultiApp = [getCommand(benchmark_list[0]), getCommand(benchmark_list[1])]
-#command_MultiApp[0] = getCommand(benchmark_list[0])
-#command_MultiApp[1] = getCommand(benchmark_list[1])
+#command_MultiApp = [getCommand(benchmark_list[0])]
 
 # Get APP_FLAGS
 app_flags_MultiApp = [getAppFlags(benchmark_list[0]), getAppFlags(benchmark_list[1])]
-#app_flags_MultiApp[0] = getAppFlags(benchmark_list[0])
-#app_flags_MultiApp[1] = getAppFlags(benchmark_list[1])
+#app_flags_MultiApp = [getAppFlags(benchmark_list[0])]
+
 
 # Generate SIM_FLAGS
 sim_flags = "--general/total_cores=64 " + \
@@ -66,7 +65,7 @@ sim_flags = "--general/total_cores=64 " + \
 sub_dir = "multi_%s_%s" % (benchmark_list[0], benchmark_list[1])
   
 # Append to jobs list
-jobs.append(SimJobMultiApp(command_MultiApp, 1, config_filename, config_filename_MultiApp, results_dir, sub_dir, sim_flags, app_flags_MultiApp, "pin", scheduler))
+jobs.append(SimJobMultiApp(command_MultiApp, 2, config_filename, config_filename_MultiApp, results_dir, sub_dir, sim_flags, app_flags_MultiApp, "pin", scheduler))
 
 try:
    # Create results directory

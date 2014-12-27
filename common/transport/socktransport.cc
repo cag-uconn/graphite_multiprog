@@ -79,6 +79,15 @@ void SockTransport::getProcInfo()  //sqc_multi
    Config::getSingleton()->setTargetNum(m_target_index);
    LOG_PRINT("Target number set to %i", Config::getSingleton()->getCurrentTargetNum());
 
+   // set host process number in this target
+   char target_str[8];
+   snprintf(target_str, 8, "%d", m_target_index);
+   string target_string = "target_map/target";
+   target_string += target_str;
+   UInt32 num_procs_target = Sim()->getCfg()->getInt(target_string);
+   
+   Config::getSingleton()->setProcessCountCurrentTarget(num_procs_target);
+   fprintf(stderr, "Number of process in target %i: (%i) \n",m_target_index, num_procs_target);
 }
 
 void SockTransport::initBufferLists()
@@ -93,7 +102,7 @@ void SockTransport::initBufferLists()
    m_buffer_list_sems = new Semaphore[m_num_lists];
 }
 
-void SockTransport::initSockets()
+void SockTransport::initSockets() 
 {
    SInt32 my_port;
 

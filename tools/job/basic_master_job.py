@@ -22,16 +22,17 @@ class BasicMasterJob(MasterJob):
    def spawn(self):
       # spawn
       self.procs = {}
-      for i in range(0, len(self.machines)):
+#      for i in range(0, len(self.machines)):  #sqc_multi
+      for i in range(0, 1): 
          if (self.machines[i] == "localhost") or (self.machines[i] == r'127.0.0.1'):
             print "Starting target: %d process: %d: %s" % (self.target_index, i, self.command)
             self.procs[i] = MasterJob.spawn(self, i, self.target_index)
          else:
             self.command = self.command.replace("\"", "\\\"")
-            slave_command = "python -u %s/tools/job/basic_slave_job.py %s %d \\\"%s\\\"" % \
-                            (self.graphite_home, self.working_dir, i, self.command)
+            slave_command = "python -u %s/tools/job/basic_slave_job.py %s %d \\\"%s\\\" %d" % \
+                            (self.graphite_home, self.working_dir, i, self.command, self.target_index)
             ssh_command = "ssh -x %s \"%s\"" % (self.machines[i], slave_command)
-            print "Starting process: %d: %s" % (i, ssh_command)
+            print "Starting target: %d process: %d: %s" % (self.target_index, i, ssh_command)
             self.procs[i] = subprocess.Popen(ssh_command, shell=True, preexec_fn=os.setsid)
 
    # poll:

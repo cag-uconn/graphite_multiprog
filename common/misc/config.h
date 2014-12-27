@@ -86,18 +86,31 @@ public:
    UInt32 getCurrentProcessNum() { return m_current_process_num; }
    void setProcessNum(UInt32 in_my_proc_num) { m_current_process_num = in_my_proc_num; }
 
-   //target process number and index for multi-application  //sqc_multi
+   //Target process number  //sqc_multi
    UInt32 getTargetCount() { return m_num_targets; }
    void setTargetCount(UInt32 in_num_targets) { m_num_targets = in_num_targets; }
-
+   
+   //Target process index //sqc_multi
    UInt32 getCurrentTargetNum() { return m_current_target_num; }
    void setTargetNum(UInt32 in_my_target_num) { m_current_target_num = in_my_target_num; }
    
+   //Host process count in this target //sqc_multi
+   UInt32 getProcessCountCurrentTarget() { return m_process_count_current_target; }
+   void setProcessCountCurrentTarget(UInt32 in_process_count_current_target) { m_process_count_current_target = in_process_count_current_target; }
+   
+   //Check whether this process is the main process of this target  //sqc_multi
+   bool isMainProcessTarget() { return true; }
+   void setMainProcessTarget(UInt32 in_main_proc_target_num) { m_main_proc_target_num = in_main_proc_target_num; }
+   
+   //Changed for multi-target   //sqc_multi
+//   tile_id_t getMCPTileNum() { return (getTotalTiles() - 1); }
+//   core_id_t getMCPCoreId() { return (core_id_t) {(tile_id_t) getTotalTiles() - 1, MAIN_CORE_TYPE}; }
+   tile_id_t getMainMCPTileNum () { return (getTotalTiles() - m_num_targets); }
+   core_id_t getMainMCPCoreId() { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets), MAIN_CORE_TYPE}; }
+   tile_id_t getTargetMCPTileNum () { return (getTotalTiles() - m_num_targets + m_current_target_num); }
+   core_id_t getTargetMCPCoreId() { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets + m_current_target_num), MAIN_CORE_TYPE}; }
    
    
-   tile_id_t getMCPTileNum() { return (getTotalTiles() - 1); }
-   core_id_t getMCPCoreId() { return (core_id_t) {(tile_id_t) getTotalTiles() - 1, MAIN_CORE_TYPE}; }
-
    tile_id_t getMainThreadTileNum() { return 0; }
    core_id_t getMainThreadCoreId() { return (core_id_t) {0, MAIN_CORE_TYPE}; }
 
@@ -193,6 +206,8 @@ private:
 
    UInt32  m_current_process_num;   // Process number for this process
    UInt32  m_current_target_num;    // Target number for this process //sqc_multi
+   UInt32  m_main_proc_target_num;  // Main process number for this target //sqc_multi
+   UInt32  m_process_count_current_target;  // Number of host processes in this target //sqc_multi
 
    std::vector<TileParameters> m_tile_parameters_vec;         // Vector holding main tile parameters
    std::vector<NetworkParameters> m_network_parameters_vec;   // Vector holding network parameters
@@ -217,6 +232,7 @@ private:
    static UInt32 m_knob_total_tiles;
    static UInt32 m_knob_max_threads_per_core;
    static UInt32 m_knob_num_process;
+   static UInt32 m_knob_num_target;   //sqc_multi
    static bool m_knob_simarch_has_shared_mem;
    static std::string m_knob_output_file;
    static bool m_knob_enable_core_modeling;

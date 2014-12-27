@@ -56,17 +56,26 @@ ThreadManager::ThreadManager(TileManager *tile_manager)
 
       if (config->getSimulationMode() == Config::FULL)
       {
-         UInt32 first_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - Sim()->getConfig()->getProcessCount() - 1;
-         UInt32 last_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - 2;
+         //UInt32 first_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - Sim()->getConfig()->getProcessCount() - 1;
+         //UInt32 last_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - 2;
+         UInt32 first_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - Sim()->getConfig()->getProcessCount() - Sim()->getConfig()->getTargetCount();   //sqc_multi
+         UInt32 last_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - Sim()->getConfig()->getTargetCount()-1;   //sqc_multi
          for (UInt32 i = first_thread_spawner_id; i <= last_thread_spawner_id; i++)
          {
             m_thread_state[i][0].status = Core::RUNNING;
          }
       }
-      m_thread_state[config->getMCPTileNum()][0].status = Core::RUNNING;
       
-      LOG_ASSERT_ERROR(config->getMCPTileNum() < (SInt32) m_thread_state.size(),
-                       "MCP core num out of range (!?)");
+//      m_thread_state[config->getMCPTileNum()][0].status = Core::RUNNING;   //sqc_multi
+
+      //set all mcp tile to running sqc_multi 
+      for(UInt32 i = 0; i < Sim()->getConfig()->getTargetCount(); i++)
+      {
+         m_thread_state[Sim()->getConfig()->getTotalTiles() - i -1][0].status = Core::RUNNING;
+      }
+      
+      LOG_ASSERT_ERROR((SInt32)(config->getTotalTiles() -1) < (SInt32) m_thread_state.size(),
+                       "MCP core num out of range (!?)");   //sqc_multi
    }
 }
 
@@ -75,14 +84,21 @@ ThreadManager::~ThreadManager()
    if (m_master)
    {
       m_thread_state[0][0].status = Core::IDLE;
-      m_thread_state[Config::getSingleton()->getMCPTileNum()][0].status = Core::IDLE;
-      LOG_ASSERT_ERROR(Config::getSingleton()->getMCPTileNum() < (SInt32)m_thread_state.size(), "MCP core num out of range (!?)");
+//      m_thread_state[Config::getSingleton()->getMCPTileNum()][0].status = Core::IDLE;   //sqc_multi
+      for(UInt32 i = 0; i < Sim()->getConfig()->getTargetCount(); i++)
+      {
+         m_thread_state[Sim()->getConfig()->getTotalTiles() - i -1][0].status = Core::IDLE;
+      }
+      LOG_ASSERT_ERROR((SInt32)(Sim()->getConfig()->getTotalTiles() -1) < (SInt32)m_thread_state.size(), "MCP core num out of range (!?)");
 
       if (Sim()->getConfig()->getSimulationMode() == Config::FULL)
       {
          // Reserve core-id's 1 to (num_processes) for thread-spawners
-         UInt32 first_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - Sim()->getConfig()->getProcessCount() - 1;
-         UInt32 last_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - 2;
+//         UInt32 first_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - Sim()->getConfig()->getProcessCount() - 1;
+//         UInt32 last_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - 2;
+         UInt32 first_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - Sim()->getConfig()->getProcessCount() - Sim()->getConfig()->getTargetCount();   //sqc_multi
+         UInt32 last_thread_spawner_id = Sim()->getConfig()->getTotalTiles() - Sim()->getConfig()->getTargetCount()-1;   //sqc_multi         
+         
          for (UInt32 i = first_thread_spawner_id; i <= last_thread_spawner_id; i++)
          {
             m_thread_state[i][0].status = Core::IDLE;
@@ -124,10 +140,10 @@ void ThreadManager::onThreadStart(ThreadSpawnRequest *req)
    // send message to master process to update global thread state 
    Network *net = core->getTile()->getNetwork();
    SInt32 msg[] = { MCP_MESSAGE_THREAD_START, core->getId().tile_id, core->getId().core_type, m_tile_manager->getCurrentThreadIndex()};
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 msg,
-                sizeof(SInt32) + sizeof(core_id_t) + sizeof(thread_id_t));
+                sizeof(SInt32) + sizeof(core_id_t) + sizeof(thread_id_t));   //sqc_multi
 
    CoreModel *core_model = core->getModel();
    if (core_model)
@@ -165,10 +181,10 @@ void ThreadManager::onThreadExit()
    SInt32 msg[] = { MCP_MESSAGE_THREAD_EXIT, core->getId().tile_id, core->getId().core_type, thread_idx };
 
    // update global thread state
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 msg,
-                sizeof(SInt32) + sizeof(core_id_t) + sizeof(thread_id_t));
+                sizeof(SInt32) + sizeof(core_id_t) + sizeof(thread_id_t));   //sqc_multi
 
    m_thread_scheduler->onThreadExit();
 
@@ -248,7 +264,7 @@ SInt32 ThreadManager::spawnThread(tile_id_t dest_tile_id, thread_func_t func, vo
                               dest_core_id, INVALID_THREAD_ID, INVALID_THREAD_ID,
                               curr_time.getTime() };
 
-   core_id_t mcp_core_id = Config::getSingleton()->getMCPCoreId();
+   core_id_t mcp_core_id = Config::getSingleton()->getTargetMCPCoreId();   //sqc_multi
    net->netSend(mcp_core_id,
                 MCP_REQUEST_TYPE,
                 &req,
@@ -428,10 +444,10 @@ void ThreadManager::joinThread(thread_id_t join_thread_id)
                            };
 
    Network *net = core->getTile()->getNetwork();
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 &msg,
-                sizeof(msg));
+                sizeof(msg));   //sqc_multi
 
    // Set the CoreState to 'STALLED'
    core->setState(Core::STALLED);
@@ -630,10 +646,10 @@ void ThreadManager::setOSTid(core_id_t core_id, thread_id_t thread_idx, pid_t os
 
    Network *net = m_tile_manager->getCurrentCore()->getTile()->getNetwork();
 
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 &req,
-                sizeof(req));
+                sizeof(req));   //sqc_multi
 
    m_tid_map_lock.release();
 }
@@ -654,10 +670,10 @@ void ThreadManager::queryThreadIndex(thread_id_t thread_id, core_id_t &core_id, 
                   thread_id};
 
    Network *net = m_tile_manager->getCurrentCore()->getTile()->getNetwork();
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 &req,
-                sizeof(req));
+                sizeof(req));   //sqc_multi
 
    Core *core = m_tile_manager->getCurrentCore();
    NetPacket pkt = net->netRecvType(MCP_THREAD_QUERY_INDEX_REPLY_FROM_MASTER_TYPE, core->getId());

@@ -13,6 +13,7 @@
 
 UInt32 Config::m_knob_total_tiles;
 UInt32 Config::m_knob_num_process;
+UInt32 Config::m_knob_num_target;
 bool Config::m_knob_simarch_has_shared_mem;
 std::string Config::m_knob_output_file;
 bool Config::m_knob_enable_core_modeling;
@@ -39,6 +40,7 @@ Config::Config()
    {
       m_knob_total_tiles = Sim()->getCfg()->getInt("general/total_cores");
       m_knob_num_process = Sim()->getCfg()->getInt("general/num_processes");
+      m_knob_num_target = Sim()->getCfg()->getInt("general/num_targets");   //sqc_multi
       m_knob_simarch_has_shared_mem = Sim()->getCfg()->getBool("general/enable_shared_mem");
       m_knob_output_file = Sim()->getCfg()->getString("general/output_file");
       m_knob_enable_core_modeling = Sim()->getCfg()->getBool("general/enable_core_modeling");
@@ -57,6 +59,7 @@ Config::Config()
    }
 
    m_num_processes = m_knob_num_process;
+   m_num_targets = m_knob_num_target;
    m_total_tiles = m_knob_total_tiles;
    m_application_tiles = m_total_tiles;
    m_max_threads_per_core = m_knob_max_threads_per_core;
@@ -74,8 +77,8 @@ Config::Config()
    assert(m_num_processes > 0);
    assert(m_total_tiles > 0);
 
-   // Add one for the MCP
-   m_total_tiles += 1;
+   // Add MCPs (one for each target) sqc_multi
+   m_total_tiles += m_num_targets;
 
    // Add the thread-spawners (one for each process)
    if (m_simulation_mode == FULL)
@@ -121,7 +124,7 @@ bool Config::isApplicationTile(tile_id_t tile_id)
 tile_id_t Config::getThreadSpawnerTileNum(UInt32 proc_num)
 {
    if (m_simulation_mode == FULL)
-      return (getTotalTiles() - (1 + getProcessCount() - proc_num));
+      return (getTotalTiles() - (getProcessCount() +  getTargetCount() - proc_num));   //sqc_multi
    else
       return INVALID_TILE_ID;
 }
@@ -134,7 +137,7 @@ core_id_t Config::getThreadSpawnerCoreId(UInt32 proc_num)
 tile_id_t Config::getCurrentThreadSpawnerTileNum()
 {
    if (m_simulation_mode == FULL)
-      return (getTotalTiles() - (1 + getProcessCount() - getCurrentProcessNum()));
+      return (getTotalTiles() - (getProcessCount() + getTargetCount() - getCurrentProcessNum()));   //sqc_multi
    else
       return INVALID_TILE_ID;
 }
@@ -175,9 +178,9 @@ void Config::generateTileMap()
    if (m_simulation_mode == FULL)
    {
       // Assign the thread-spawners to tiles
-      // Thread-spawners occupy tile-id's (m_application_tiles) to (m_total_tiles - 2)
+      // Thread-spawners occupy tile-id's (m_application_tiles) to (m_total_tiles - 2) // to (m_total_tiles - m_num_targets -1) for multi-app sqc_multi
       UInt32 current_proc = 0;
-      for (UInt32 i = m_application_tiles; i < (m_total_tiles - 1); i++)
+      for (UInt32 i = m_application_tiles; i < (m_total_tiles - m_num_targets); i++)
       {
          assert((current_proc >= 0) && (current_proc < m_num_processes));
          m_tile_to_proc_map[i] = current_proc;
@@ -186,10 +189,19 @@ void Config::generateTileMap()
       }
    }
    
-   // Add one for the MCP
-   m_proc_to_tile_list_map[0].push_back(m_total_tiles - 1);
-   m_tile_to_proc_map[m_total_tiles - 1] = 0;
+   // Add one MCP
+//   m_proc_to_tile_list_map[0].push_back(m_total_tiles - 1);
+//   m_tile_to_proc_map[m_total_tiles - 1] = 0;
 
+   // Add MCPs (one for each target) sqc_multi
+   UInt32 current_target = 0;
+   for (UInt32 i = (m_total_tiles - m_num_targets); i < m_total_tiles; i++)
+   {
+      m_tile_to_proc_map[i] = current_target;
+      m_proc_to_tile_list_map[current_target].push_back(i);
+      current_target++;
+   }
+   
    // Log the tile map
    logTileMap();
 }
@@ -216,6 +228,8 @@ Config::computeProcessToTileMapping()
       }
    }
    
+   
+   //this may need to be changed sqc_multi
    vector<TileList> process_to_tile_mapping(m_num_processes);
    UInt32 current_proc = 0;
    for (UInt32 i = 0; i < m_application_tiles; i++)

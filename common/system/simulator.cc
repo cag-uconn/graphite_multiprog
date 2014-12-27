@@ -97,7 +97,8 @@ void Simulator::start()
    if (_config_file->getBool("statistics_trace/enabled"))
       _statistics_manager = new StatisticsManager();
 
-   if (_config.getCurrentProcessNum() == 0)
+   if (_config.isMainProcessTarget())   //sqc_multi
+   //if (_config.getCurrentProcessNum() == 0)
       _mcp = new MCP(getMCPNetwork());
    _lcp = new LCP();
 
@@ -287,7 +288,8 @@ void Simulator::shutdownPowerModelsDatabase()
 
 Network& Simulator::getMCPNetwork()
 {
-   Tile* mcp_core = _tile_manager->getTileFromID(_config.getMCPTileNum());
+   Tile* mcp_core = _tile_manager->getTileFromID(_config.getTargetMCPTileNum());   //sqc_multi
+   fprintf(stderr, "Target MCP Tile Num (%i) \n", _config.getTargetMCPTileNum());   //sqc_multi
    LOG_ASSERT_ERROR(mcp_core, "Could not find the MCP's core");
    return *(mcp_core->getNetwork());
 }

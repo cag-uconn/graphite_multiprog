@@ -79,7 +79,9 @@ ThreadScheduler::~ThreadScheduler()
 
 void ThreadScheduler::onThreadExit()
 {
-   if (m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getCurrentThreadSpawnerTileNum() && m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getMCPTileNum())
+// sqc_multi
+//   if (m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getCurrentThreadSpawnerTileNum() && m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getMCPTileNum())
+   if (m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getCurrentThreadSpawnerTileNum() && m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getTargetMCPTileNum())
    {
       // Wait for master to update the next thread
       Core *core = m_tile_manager->getCurrentCore();
@@ -106,7 +108,7 @@ void ThreadScheduler::masterOnThreadExit(core_id_t core_id, SInt32 thread_idx)
    m_core_lock[core_id.tile_id].acquire();
 
    assert(m_thread_manager->isCoreRunning(core_id) == INVALID_THREAD_ID);
-   if (core_id.tile_id != Sim()->getConfig()->getCurrentThreadSpawnerTileNum() && core_id.tile_id != Sim()->getConfig()->getMCPTileNum())
+   if (core_id.tile_id != Sim()->getConfig()->getCurrentThreadSpawnerTileNum() && core_id.tile_id != Sim()->getConfig()->getTargetMCPTileNum())   //sqc_multi
       if (!m_waiter_queue[core_id.tile_id].empty())
          m_waiter_queue[core_id.tile_id].pop(); 
 
@@ -257,10 +259,10 @@ void ThreadScheduler::migrateThread(thread_id_t thread_id, tile_id_t tile_id)
    Network *net = m_tile_manager->getCurrentTile()->getNetwork();
 
    // update global thread state
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 msg,
-                sizeof(SInt32) + sizeof(thread_id_t) + sizeof(tile_id_t) + sizeof(SInt32));
+                sizeof(SInt32) + sizeof(thread_id_t) + sizeof(tile_id_t) + sizeof(SInt32));   //sqc_multi
 }
 
 void ThreadScheduler::masterMigrateThread(thread_id_t src_thread_id, tile_id_t dst_tile_id, SInt32 dst_core_type)
@@ -381,10 +383,10 @@ bool ThreadScheduler::schedSetAffinity(thread_id_t tid, unsigned int cpusetsize,
                                  };
 
    Network *net = core->getTile()->getNetwork();
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 &req,
-                sizeof(req));
+                sizeof(req));   //sqc_multi
 
    return true;
 }
@@ -432,10 +434,10 @@ bool ThreadScheduler::schedGetAffinity(thread_id_t tid, unsigned int cpusetsize,
                                  };
 
    Network *net = core->getTile()->getNetwork();
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
                 MCP_REQUEST_TYPE,
                 &req,
-                sizeof(req));
+                sizeof(req));   //sqc_multi
 
    NetPacket pkt = net->netRecvType(MCP_THREAD_GETAFFINITY_REPLY_FROM_MASTER_TYPE, core->getId());
    LOG_ASSERT_ERROR(pkt.length == sizeof(req), "Unexpected reply size (got %i expected %i).", pkt.length, sizeof(req));
@@ -653,10 +655,10 @@ void ThreadScheduler::yieldThread(bool is_pre_emptive)
       };
 
       Network *net = core->getTile()->getNetwork();
-      net->netSend(Config::getSingleton()->getMCPCoreId(),
+      net->netSend(Config::getSingleton()->getTargetMCPCoreId(),
             MCP_REQUEST_TYPE,
             &req,
-            sizeof(req));
+            sizeof(req));   //sqc_multi
 
       NetPacket pkt = net->netRecvType(MCP_THREAD_YIELD_REPLY_FROM_MASTER_TYPE, core->getId());
 
