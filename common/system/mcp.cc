@@ -146,6 +146,14 @@ void MCP::processPacket()
       _clock_skew_management_server->processSyncMsg(recv_pkt.sender);
       break;
 
+   case MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS:
+      Sim()->getPerformanceCounterManager()->masterTogglePerformanceCountersRequest();
+      break;
+
+   case MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS_ACK:
+      Sim()->getPerformanceCounterManager()->masterTogglePerformanceCountersResponse();
+      break;
+
    default:
       LOG_PRINT_ERROR("Unhandled MCP message type: %i from %i", msg_type, recv_pkt.sender);
    }

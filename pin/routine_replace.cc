@@ -155,32 +155,35 @@ void coordinateSimulatorModelsInitialization(const CONTEXT *ctxt)
    if (cfg->isMasterProcess()) // sqc_multi
    {
       Core *core = Sim()->getTileManager()->getCurrentCore();
-      pair<UInt32,UInt32> process_num_bounds = cfg->getProcessNumBounds();
-      UInt32 first_process_num = process_num_bounds.first;
-      UInt32 last_process_num = process_num_bounds.second;
-      assert(first_process_num == cfg->getCurrentProcessNum());
+      Config::ProcessList process_num_list = cfg->getProcessNumList();
 
       // For each process, send a message to the thread spawner for that process telling it that
       // we're initializing, wait until the thread spawners are all initialized.
-      for (UInt32 i = first_process_num + 1; i <= last_process_num; i++)
+      for (Config::ProcessList::iterator itr = process_num_list.begin(); itr != process_num_list.end(); itr ++)
       {
-         // This whole process should probably happen through the MCP
-         core->getTile()->getNetwork()->netSend(cfg->getThreadSpawnerCoreId(i), SYSTEM_INITIALIZATION_NOTIFY, NULL, 0);
+         if (*itr == cfg->getCurrentProcessNum())
+            continue;
 
-         // main thread clock is not affected by start-up time of other processes
-         core->getTile()->getNetwork()->netRecv(cfg->getThreadSpawnerCoreId(i), core->getId(), SYSTEM_INITIALIZATION_ACK);
+         // Synchronize initialization with other processes of the same application
+         // FIXME: This whole process should probably happen through the MCP
+         core->getTile()->getNetwork()->netSend(cfg->getThreadSpawnerCoreID(*itr), SYSTEM_INITIALIZATION_NOTIFY, NULL, 0);
+         core->getTile()->getNetwork()->netRecv(cfg->getThreadSpawnerCoreID(*itr), core->getId(), SYSTEM_INITIALIZATION_ACK);
       }
-    
+     
       // Initialization for all other processes have taken place. Now enable the models (if configured)
       if (! Sim()->getCfg()->getBool("general/trigger_models_within_application", false))
       {
          __CarbonEnableModels();
       }
       
-      // Tell the thread spawner for each process that we're done initializing...even though we haven't?
-      for (UInt32 i = first_process_num + 1; i <= last_process_num; i++)
+      // Tell the thread spawner for each process that we're done initializing.
+      for (Config::ProcessList::iterator itr = process_num_list.begin(); itr != process_num_list.end(); itr ++)
       {
-         core->getTile()->getNetwork()->netSend(Sim()->getConfig()->getThreadSpawnerCoreId(i), SYSTEM_INITIALIZATION_FINI, NULL, 0);
+         if (*itr == cfg->getCurrentProcessNum())
+            continue;
+
+         // Synchronize with master thread of the current application
+         core->getTile()->getNetwork()->netSend(cfg->getThreadSpawnerCoreID(*itr), SYSTEM_INITIALIZATION_FINI, NULL, 0);
       }
 
       // Barrier between all processes
@@ -773,10 +776,8 @@ bool pthread_create_first_time = true;
 
 void replacementPthreadCreate (CONTEXT *ctxt)
 {
-   tile_id_t current_tile_id =  
-                        Sim()->getTileManager()->getCurrentTileID();
-   tile_id_t current_thread_spawner_id =  
-                        Sim()->getConfig()->getCurrentThreadSpawnerTileNum();
+   tile_id_t current_tile_id = Sim()->getTileManager()->getCurrentTileID();
+   tile_id_t current_thread_spawner_id = Sim()->getConfig()->getCurrentThreadSpawnerTileID();
    
    if ( pthread_create_first_time || current_tile_id == current_thread_spawner_id )
    {

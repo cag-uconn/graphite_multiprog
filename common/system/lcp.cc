@@ -73,7 +73,7 @@ void LCP::processPacket()
       Sim()->getThreadManager()->updateTerminateThreadSpawner();
       break;
 
-   case LCP_MESSAGE_TOGGLE_PERFORMACE_COUNTERS:
+   case LCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS:
       Sim()->getPerformanceCounterManager()->togglePerformanceCounters(data);
       break;
 

@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "log.h"
 #include "fixed_types.h"
 
 class Config
@@ -34,10 +35,10 @@ public:
       {}
       ~TileParameters() {}
 
-      std::string getCoreType()     { return m_core_type; }
-      std::string getL1ICacheType() { return m_l1_icache_type; }
-      std::string getL1DCacheType() { return m_l1_dcache_type; }
-      std::string getL2CacheType()  { return m_l2_cache_type; }
+      std::string getCoreType() const     { return m_core_type; }
+      std::string getL1ICacheType() const { return m_l1_icache_type; }
+      std::string getL1DCacheType() const { return m_l1_dcache_type; }
+      std::string getL2CacheType() const  { return m_l2_cache_type; }
    
    private:
       std::string m_core_type;
@@ -54,7 +55,7 @@ public:
       {}
       ~NetworkParameters() {}
 
-      std::string getType() { return m_type; }
+      std::string getType() const         { return m_type; }
    
    private:
       std::string m_type;
@@ -66,7 +67,9 @@ public:
       LITE,
       NUM_SIMULATION_MODES
    };
+
    typedef std::vector<tile_id_t> TileList;
+   typedef std::vector<UInt32> ProcessList;
    typedef std::vector<UInt32> TileToProcMap;
    typedef std::vector<tile_id_t>::const_iterator TLCI;
    typedef std::map<UInt32,tile_id_t> CommToTileMap;
@@ -78,56 +81,60 @@ public:
    void loadFromCmdLine();
 
    // Return the number of processes involved in this simulation
-   UInt32 getProcessCount() { return m_num_processes; }
-   void setProcessCount(UInt32 in_num_processes) { m_num_processes = in_num_processes; }
+   UInt32 getProcessCount() const               { return m_num_processes; }
+   void setProcessCount(UInt32 num_processes)   { m_num_processes = num_processes; }
 
    // Retrieve and set the process number for this process (I'm expecting
    //  that the initialization routine of the Transport layer will set this)
-   UInt32 getCurrentProcessNum() { return m_current_process_num; }
-   void setProcessNum(UInt32 proc_num) { m_current_process_num = proc_num; setMasterProcessNum(proc_num); }
+   UInt32 getCurrentProcessNum() const          { return m_current_process_num; }
+   void setProcessNum(UInt32 proc_num)          { m_current_process_num = proc_num; setMasterProcessNum(proc_num); }
 
-   //Target process number  //sqc_multi
-   UInt32 getTargetCount() { return m_num_targets; }
-   void setTargetCount(UInt32 in_num_targets) { m_num_targets = in_num_targets; }
+   // Num of target processes
+   UInt32 getTargetCount() const                { return m_num_targets; }
+   void setTargetCount(UInt32 num_targets)      { m_num_targets = num_targets; }
    
-   //Target process index //sqc_multi
-   UInt32 getCurrentTargetNum() { return m_current_target_num; }
-   void setTargetNum(UInt32 in_my_target_num) { m_current_target_num = in_my_target_num; }
+   // Target process ID
+   UInt32 getCurrentTargetNum() const           { return m_current_target_num; }
+   void setTargetNum(UInt32 target_num)         { m_current_target_num = target_num; }
    
-   //Host process count in this target //sqc_multi
-   UInt32 getProcessCountCurrentTarget() { return m_process_count_current_target; }
-   void setProcessCountCurrentTarget(UInt32 in_process_count_current_target) { m_process_count_current_target = in_process_count_current_target; }
+   // Number of processes for this target
+   UInt32 getProcessCountCurrentTarget() const { return m_process_count_current_target; }
+   void setProcessCountCurrentTarget(UInt32 process_count) { m_process_count_current_target = process_count; }
    
    // Check whether this process is the main process of this target  //sqc_multi
    bool isMasterProcess() const                        { return m_current_process_num == m_master_process_num; }
    UInt32 getMasterProcessNum() const                  { return m_master_process_num; }
    void setMasterProcessNum(UInt32 master_process_num) { m_master_process_num = master_process_num; }
  
-   // Process num bounds for current target
-   std::pair<UInt32,UInt32> getProcessNumBounds() { return std::make_pair(m_current_process_num, m_current_process_num); }
+   // Process num list for current target
+   ProcessList getProcessNumList() const
+   { return ProcessList(1, getCurrentProcessNum()); }
 
    // Get master thread tile ID
-   tile_id_t getMasterThreadTileID() { return m_current_process_num; }
+   tile_id_t getMasterThreadTileIDForTarget(UInt32 target_id) const
+   { return target_id; }
+   tile_id_t getMasterThreadTileID() const
+   { return getCurrentProcessNum(); }
 
-   //Changed for multi-target   //sqc_multi
-//   tile_id_t getMCPTileNum() { return (getTotalTiles() - 1); }
-//   core_id_t getMCPCoreId() { return (core_id_t) {(tile_id_t) getTotalTiles() - 1, MAIN_CORE_TYPE}; }
-   tile_id_t getMasterMCPTileID () { return (getTotalTiles() - m_num_targets); }
-   core_id_t getMasterMCPCoreID() { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets), MAIN_CORE_TYPE}; }
-   tile_id_t getMCPTileID () { return (getTotalTiles() - m_num_targets + m_current_target_num); }
-   core_id_t getMCPCoreID() { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets + m_current_target_num), MAIN_CORE_TYPE}; }
-   
-   
-   tile_id_t getMainThreadTileNum() { return 0; }
-   core_id_t getMainThreadCoreId() { return (core_id_t) {0, MAIN_CORE_TYPE}; }
+   // Get master process ID from target ID
+   UInt32 getMasterProcessID(UInt32 target_id)
+   { return target_id; }
 
-   tile_id_t getThreadSpawnerTileNum(UInt32 proc_num);
-   core_id_t getThreadSpawnerCoreId(UInt32 proc_num);
-   tile_id_t getCurrentThreadSpawnerTileNum(); 
-   core_id_t getCurrentThreadSpawnerCoreId(); 
+   // Get MCP tile/core ID
+   tile_id_t getMasterMCPTileID () const  { return (getTotalTiles() - m_num_targets); }
+   core_id_t getMasterMCPCoreID() const   { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets), MAIN_CORE_TYPE}; }
+   tile_id_t getMCPTileID() const         { return (getTotalTiles() - m_num_targets + m_current_target_num); }
+   core_id_t getMCPCoreID() const         { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets + m_current_target_num), MAIN_CORE_TYPE}; }
+  
+   // Get Thread Spawner tile/core IDs 
+   TileList getThreadSpawnerTileIDList() const;
+   tile_id_t getThreadSpawnerTileID(UInt32 proc_num) const;
+   core_id_t getThreadSpawnerCoreID(UInt32 proc_num) const;
+   tile_id_t getCurrentThreadSpawnerTileID() const;
+   core_id_t getCurrentThreadSpawnerCoreID() const;
 
    // Return the number of modules (tiles) in a given process
-   UInt32 getNumTilesInProcess(UInt32 proc_num)
+   UInt32 getNumTilesInProcess(UInt32 proc_num) const
    {
       assert (proc_num < m_num_processes); 
       return m_proc_to_tile_list_map[proc_num].size(); 
@@ -137,34 +144,36 @@ public:
    tile_id_t getTileIDFromIndex(UInt32 proc_num, SInt32 index);
    core_id_t getMainCoreIDFromIndex(UInt32 proc_num, SInt32 index);
    
-   UInt32 getNumLocalTiles() { return getNumTilesInProcess(getCurrentProcessNum()); }
-   UInt32 getMaxThreadsPerCore() { return m_max_threads_per_core;}
-   UInt32 getNumCoresPerTile() { return m_num_cores_per_tile;}
+   UInt32 getNumLocalTiles() const     { return getNumTilesInProcess(getCurrentProcessNum()); }
+   UInt32 getMaxThreadsPerCore() const { return m_max_threads_per_core;}
+   UInt32 getNumCoresPerTile() const   { return m_num_cores_per_tile;}
 
-   // Return the total number of modules in all processes
-   UInt32 getTotalTiles();
-   UInt32 getApplicationTiles();
-   bool isApplicationTile(tile_id_t tile_id);
+   // Return the number of tiles in all applications
+   UInt32 getTotalTiles() const;
+   UInt32 getApplicationTiles() const;
+   // Returns the number of tiles in only current application processes
+   UInt32 getTotalTilesCurrentTarget() const       { return 66; }
+   UInt32 getApplicationTilesCurrentTarget() const { return 64; }
+   bool isApplicationTile(tile_id_t tile_id) const;
 
    // Return an array of tile numbers for a given process
    //  The returned array will have numMods(proc_num) elements
-   const TileList & getTileListForProcess(UInt32 proc_num)
+   const TileList & getTileListForProcess(UInt32 proc_num) const
    { assert(proc_num < m_num_processes); return m_proc_to_tile_list_map[proc_num]; }
-   const TileList & getApplicationTileListForProcess(UInt32 proc_num)
+   const TileList & getApplicationTileListForProcess(UInt32 proc_num) const
    { assert(proc_num < m_num_processes); return m_proc_to_application_tile_list_map[proc_num]; }
 
-   const TileList & getTileListForCurrentProcess()
+   const TileList & getTileListForCurrentProcess() const
    { return getTileListForProcess(getCurrentProcessNum()); }
 
-   UInt32 getProcessNumForTile(UInt32 tile)
-   { 
-     if (tile >= m_total_tiles)
-     {
-       fprintf(stderr, "tile(%u), m_total_tiles(%u)\n", tile, m_total_tiles);
-       exit(-1);
-     }
-     return m_tile_to_proc_map[tile]; 
+   UInt32 getProcessNumForTile(tile_id_t tile_id) const
+   {
+     LOG_ASSERT_ERROR (tile_id < (tile_id_t) m_total_tiles, "Tile-ID:%i, Total-Tiles:%u", tile_id, m_total_tiles);
+     return m_tile_to_proc_map[tile_id]; 
    }
+
+   // Get tile ID list for target
+   const TileList getTileIDList() const;
 
    // For mapping between user-land communication id's to actual tile id's
    void updateCommToTileMap(UInt32 comm_id, tile_id_t tile_id);
@@ -174,16 +183,16 @@ public:
    UInt32 getTileIDLength() const
    { return m_tile_id_length; }
 
-   SimulationMode getSimulationMode()
+   SimulationMode getSimulationMode() const
    { return m_simulation_mode; }
 
    // Tile & Network Parameters
-   std::string getCoreType(tile_id_t tile_id);
-   std::string getL1ICacheType(tile_id_t tile_id);
-   std::string getL1DCacheType(tile_id_t tile_id);
-   std::string getL2CacheType(tile_id_t tile_id);
+   std::string getCoreType(tile_id_t tile_id) const;
+   std::string getL1ICacheType(tile_id_t tile_id) const;
+   std::string getL1DCacheType(tile_id_t tile_id) const;
+   std::string getL2CacheType(tile_id_t tile_id) const;
 
-   std::string getNetworkType(SInt32 network_id);
+   std::string getNetworkType(SInt32 network_id) const;
 
    // Knobs
    bool isSimulatingSharedMemory() const;

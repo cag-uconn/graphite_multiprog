@@ -286,7 +286,7 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
          }
          else // (!cfg->isMasterProcess())
          {
-            tile_id_t tile_id = cfg->getCurrentThreadSpawnerTileNum();
+            tile_id_t tile_id = cfg->getCurrentThreadSpawnerTileID();
             Sim()->getTileManager()->initializeThread(Tile::getMainCoreId(tile_id));
             
             Core *core = Sim()->getTileManager()->getCurrentCore();
@@ -331,7 +331,7 @@ VOID threadStartCallback(THREADID threadIndex, CONTEXT *ctxt, INT32 flags, VOID 
 
          LOG_ASSERT_ERROR(tile_id != -1, "All application threads and thread spawner are cores now");
 
-         if (tile_id == cfg->getCurrentThreadSpawnerTileNum())
+         if (tile_id == cfg->getCurrentThreadSpawnerTileID())
          {
             // 'Thread Spawner' thread
             Sim()->getTileManager()->initializeThread(core_id);

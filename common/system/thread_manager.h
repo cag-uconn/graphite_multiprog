@@ -74,9 +74,9 @@ public:
    bool isThreadStalled(tile_id_t tile_id, thread_id_t thread_id);
    bool isThreadStalled(core_id_t core_id, thread_id_t thread_id);
 
+   thread_id_t getRunningThreadIDX(core_id_t core_id);
+   thread_id_t getRunningThreadIDX(tile_id_t tile_id);
    bool areAllCoresRunning();
-   thread_id_t isCoreRunning(core_id_t core_id);
-   thread_id_t isCoreRunning(tile_id_t tile_id);
 
    bool isCoreInitializing(tile_id_t tile_id);
    bool isCoreInitializing(core_id_t core_id);

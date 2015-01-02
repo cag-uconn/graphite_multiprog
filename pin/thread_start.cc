@@ -222,7 +222,7 @@ VOID SimPthreadAttrInitOtherAttr(pthread_attr_t *attr)
    if (req == NULL)
    {
       // This is the thread spawner
-      core_id = Sim()->getConfig()->getCurrentThreadSpawnerCoreId();
+      core_id = Sim()->getConfig()->getCurrentThreadSpawnerCoreID();
       thread_idx = 0;
    }
    else

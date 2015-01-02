@@ -27,30 +27,18 @@ void __CarbonEnableModels()
    printf("[[Graphite]] --> [ Enabling Performance and Power Models ]\n");
    fflush(stdout);
    
-   __attribute__((unused)) SInt32 curr_proc_num = Config::getSingleton()->getCurrentProcessNum();
    Core* core = Sim()->getTileManager()->getCurrentCore();
-   __attribute__((unused)) tile_id_t curr_tile_id = core->getTile()->getId();
-   
-   LOG_ASSERT_ERROR(curr_proc_num == 0 && curr_tile_id == 0, "Curr Process Num(%i), Curr Tile ID(%i)",
-                    curr_proc_num, curr_tile_id);
-
    Network* network = core->getTile()->getNetwork();
-   Transport::Node* transport = Transport::getSingleton()->getGlobalNode();
-
+   // Send a message to the Master MCP asking it to initialize the models
    UnstructuredBuffer send_buff;
-   send_buff << (SInt32) LCP_MESSAGE_TOGGLE_PERFORMACE_COUNTERS << (SInt32) PerformanceCounterManager::ENABLE;
-   
-   // Send message to all processes to enable models
-   for (SInt32 i = 0; i < (SInt32) Config::getSingleton()->getProcessCount(); i++)
-   {
-      transport->globalSend(i, send_buff.getBuffer(), send_buff.size());
-   }
-   
-   // Collect ACKs from all processes after models have been enabled
-   for (SInt32 i = 0; i < (SInt32) Config::getSingleton()->getProcessCount(); i++)
-   {
-      network->netRecvType(LCP_TOGGLE_PERFORMANCE_COUNTERS_ACK, core->getId());
-   }
+   send_buff << (SInt32) MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS << (SInt32) PerformanceCounterManager::ENABLE;
+   network->netSend(Config::getSingleton()->getMasterMCPCoreID(),
+                    MCP_SYSTEM_TYPE,
+                    send_buff.getBuffer(),
+                    send_buff.size());
+
+   // Wait for the Master MCP to reply after initializing all simulator models
+   NetPacket pkt = network->netRecvType(MCP_SYSTEM_RESPONSE_TYPE, core->getId());
 }
 
 void __CarbonDisableModels()
@@ -58,28 +46,16 @@ void __CarbonDisableModels()
    printf("[[Graphite]] --> [ Disabling Performance and Power Models ]\n");
    fflush(stdout);
    
-   __attribute__((unused)) SInt32 curr_proc_num = Config::getSingleton()->getCurrentProcessNum();
    Core* core = Sim()->getTileManager()->getCurrentCore();
-   __attribute__((unused)) tile_id_t curr_tile_id = core->getTile()->getId();
-   
-   LOG_ASSERT_ERROR(curr_proc_num == 0 && curr_tile_id == 0, "Curr Process Num(%i), Curr Tile ID(%i)",
-                    curr_proc_num, curr_tile_id);
-
    Network* network = core->getTile()->getNetwork();
-   Transport::Node *transport = Transport::getSingleton()->getGlobalNode();
-
+   // Send a message to the Master MCP asking it to initialize the models
    UnstructuredBuffer send_buff;
-   send_buff << (SInt32) LCP_MESSAGE_TOGGLE_PERFORMACE_COUNTERS << (SInt32) PerformanceCounterManager::DISABLE;
-   
-   // Send message to all processes to disable models
-   for (SInt32 i = 0; i < (SInt32) Config::getSingleton()->getProcessCount(); i++)
-   {
-      transport->globalSend(i, send_buff.getBuffer(), send_buff.size());
-   }
-   
-   // Collect ACKs from all processes after models have been disabled
-   for (SInt32 i = 0; i < (SInt32) Config::getSingleton()->getProcessCount(); i++)
-   {
-      network->netRecvType(LCP_TOGGLE_PERFORMANCE_COUNTERS_ACK, core->getId());
-   }
+   send_buff << (SInt32) MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS << (SInt32) PerformanceCounterManager::DISABLE;
+   network->netSend(Config::getSingleton()->getMasterMCPCoreID(),
+                    MCP_SYSTEM_TYPE,
+                    send_buff.getBuffer(),
+                    send_buff.size());
+
+   // Wait for the Master MCP to reply after initializing all simulator models
+   NetPacket pkt = network->netRecvType(MCP_SYSTEM_RESPONSE_TYPE, core->getId());
 } 

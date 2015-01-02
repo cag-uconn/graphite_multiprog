@@ -106,50 +106,68 @@ Config::~Config()
    delete [] m_proc_to_application_tile_list_map;
 }
 
-UInt32 Config::getTotalTiles()
+UInt32 Config::getTotalTiles() const
 {
    return m_total_tiles;
 }
 
-UInt32 Config::getApplicationTiles()
+UInt32 Config::getApplicationTiles() const
 {
    return m_application_tiles;
 }
 
-bool Config::isApplicationTile(tile_id_t tile_id)
+bool Config::isApplicationTile(tile_id_t tile_id) const
 {
    return ((tile_id >= 0) && (tile_id < (tile_id_t) getApplicationTiles()));
 }
 
-tile_id_t Config::getThreadSpawnerTileNum(UInt32 proc_num)
+Config::TileList Config::getThreadSpawnerTileIDList() const
 {
-   if (m_simulation_mode == FULL)
-      return (getTotalTiles() - (getProcessCount() +  getTargetCount() - proc_num));   //sqc_multi
-   else
-      return INVALID_TILE_ID;
+   TileList tile_id_list;
+   ProcessList process_num_list = getProcessNumList();
+   for (ProcessList::iterator itr = process_num_list.begin(); itr != process_num_list.end(); itr ++)
+      tile_id_list.push_back(getThreadSpawnerTileID(*itr));
+   return tile_id_list;
 }
 
-core_id_t Config::getThreadSpawnerCoreId(UInt32 proc_num)
+tile_id_t Config::getThreadSpawnerTileID(UInt32 proc_num) const
 {
-   return (core_id_t) {getThreadSpawnerTileNum(proc_num), MAIN_CORE_TYPE};
+   assert(m_simulation_mode == FULL);
+   return getApplicationTiles() + proc_num;
 }
 
-tile_id_t Config::getCurrentThreadSpawnerTileNum()
+core_id_t Config::getThreadSpawnerCoreID(UInt32 proc_num) const
 {
-   if (m_simulation_mode == FULL)
-      return (getTotalTiles() - (getProcessCount() + getTargetCount() - getCurrentProcessNum()));   //sqc_multi
-   else
-      return INVALID_TILE_ID;
+   return (core_id_t) {getThreadSpawnerTileID(proc_num), MAIN_CORE_TYPE};
 }
 
-core_id_t Config::getCurrentThreadSpawnerCoreId()
+tile_id_t Config::getCurrentThreadSpawnerTileID() const
 {
-   return (core_id_t) {getCurrentThreadSpawnerTileNum(), MAIN_CORE_TYPE};
+   return getThreadSpawnerTileID(getCurrentProcessNum());
+}
+
+core_id_t Config::getCurrentThreadSpawnerCoreID() const
+{
+   return getThreadSpawnerCoreID(getCurrentProcessNum());
 }
 
 UInt32 Config::computeTileIDLength(UInt32 application_tile_count)
 {
    return ceilLog2(application_tile_count);
+}
+
+const Config::TileList
+Config::getTileIDList() const
+{
+   TileList target_tile_id_list;
+   ProcessList process_num_list = getProcessNumList();
+   for (ProcessList::iterator itr = process_num_list.begin(); itr != process_num_list.end(); itr ++)
+   {
+      TileList tile_id_list = getTileListForProcess(*itr);
+      for (TileList::iterator itr2 = tile_id_list.begin(); itr2 != tile_id_list.end(); itr2 ++)
+         target_tile_id_list.push_back(*itr2);
+   }
+   return target_tile_id_list;
 }
 
 void Config::generateTileMap()
@@ -189,16 +207,13 @@ void Config::generateTileMap()
       }
    }
    
-   // Add one MCP
-//   m_proc_to_tile_list_map[0].push_back(m_total_tiles - 1);
-//   m_tile_to_proc_map[m_total_tiles - 1] = 0;
-
-   // Add MCPs (one for each target) sqc_multi
+   // Add MCPs (one for each target)
    UInt32 current_target = 0;
    for (UInt32 i = (m_total_tiles - m_num_targets); i < m_total_tiles; i++)
    {
-      m_tile_to_proc_map[i] = current_target;
-      m_proc_to_tile_list_map[current_target].push_back(i);
+      UInt32 master_process_id = getMasterProcessID(current_target);
+      m_tile_to_proc_map[i] = master_process_id;
+      m_proc_to_tile_list_map[master_process_id].push_back(i);
       current_target++;
    }
    
@@ -490,7 +505,7 @@ void Config::parseNetworkParameters()
    }
 }
 
-string Config::getCoreType(tile_id_t tile_id)
+string Config::getCoreType(tile_id_t tile_id) const
 {
    LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
          "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
@@ -501,7 +516,7 @@ string Config::getCoreType(tile_id_t tile_id)
    return m_tile_parameters_vec[tile_id].getCoreType();
 }
 
-string Config::getL1ICacheType(tile_id_t tile_id)
+string Config::getL1ICacheType(tile_id_t tile_id) const
 {
    LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
          "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
@@ -512,7 +527,7 @@ string Config::getL1ICacheType(tile_id_t tile_id)
    return m_tile_parameters_vec[tile_id].getL1ICacheType();
 }
 
-string Config::getL1DCacheType(tile_id_t tile_id)
+string Config::getL1DCacheType(tile_id_t tile_id) const
 {
    LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
          "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
@@ -523,7 +538,7 @@ string Config::getL1DCacheType(tile_id_t tile_id)
    return m_tile_parameters_vec[tile_id].getL1DCacheType();
 }
 
-string Config::getL2CacheType(tile_id_t tile_id)
+string Config::getL2CacheType(tile_id_t tile_id) const
 {
    LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
          "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
@@ -534,7 +549,7 @@ string Config::getL2CacheType(tile_id_t tile_id)
    return m_tile_parameters_vec[tile_id].getL2CacheType();
 }
 
-string Config::getNetworkType(SInt32 network_id)
+string Config::getNetworkType(SInt32 network_id) const
 {
    LOG_ASSERT_ERROR(m_network_parameters_vec.size() == NUM_STATIC_NETWORKS,
          "m_network_parameters_vec.size(%u), NUM_STATIC_NETWORKS(%u)",

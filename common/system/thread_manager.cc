@@ -59,16 +59,12 @@ ThreadManager::ThreadManager(TileManager *tile_manager)
       // Set Thread Spawner cores running
       if (config->getSimulationMode() == Config::FULL)
       {
-         Config::TileList tile_ID_list = config->getThreadSpawnerTileIDList();
-         for (Config::TileList::const_iterator itr = tile_ID_list.begin(); itr != tile_ID_list.end(); itr ++)
+         Config::TileList tile_id_list = config->getThreadSpawnerTileIDList();
+         for (Config::TileList::const_iterator itr = tile_id_list.begin(); itr != tile_id_list.end(); itr ++)
          {
-            SInt32 tile_IDX = getTileIDXFromTileID(*itr);
-            m_thread_state[tile_IDX][0] = Core::RUNNING;
+            SInt32 tile_idx = getTileIDXFromTileID(*itr);
+            m_thread_state[tile_idx][0].status = Core::RUNNING;
          }
-         //SInt32 first_thread_spawner_IDX = total_tiles - config->getProcessCountCurrentTarget() - 1;
-         //SInt32 last_thread_spawner_IDX = total_tiles - 2;
-         //for (SInt32 i = first_thread_spawner_IDX; i <= last_thread_spawner_IDX; i++)
-         //   m_thread_state[i][0].status = Core::RUNNING;
       }
      
       // Set MCP core running
@@ -100,7 +96,7 @@ ThreadManager::~ThreadManager()
          for (Config::TileList::const_iterator itr = tile_ID_list.begin(); itr != tile_ID_list.end(); itr ++)
          {
             SInt32 tile_IDX = getTileIDXFromTileID(*itr);
-            m_thread_state[tile_IDX][0] = Core::IDLE;
+            m_thread_state[tile_IDX][0].status = Core::IDLE;
          }
       }
      
@@ -195,6 +191,7 @@ void ThreadManager::onThreadExit()
    // Set the CoreState to 'IDLE'
    core->setState(Core::IDLE);
 
+   Config* config = Sim()->getConfig();
    if (config->getSimulationMode() == Config::FULL)
    {
       // Terminate thread spawners if master thread
@@ -562,7 +559,7 @@ void ThreadManager::terminateThreadSpawners()
 
    assert(node);
 
-   Config::ProcessList process_num_list = config->getProcessNumList();
+   Config::ProcessList process_num_list = Sim()->getConfig()->getProcessNumList();
    for (Config::ProcessList::const_iterator itr = process_num_list.begin(); itr != process_num_list.end(); itr ++)
    {
       SInt32 pid = *itr;
@@ -603,6 +600,7 @@ void ThreadManager::slaveTerminateThreadSpawner()
 void ThreadManager::slaveTerminateThreadSpawnerAck(tile_id_t tile_id)
 {
    Config *config = Config::getSingleton();
+   assert(config->getSimulationMode() == Config::FULL);
    Config::ProcessList process_num_list = config->getProcessNumList();
    for (Config::ProcessList::iterator itr = process_num_list.begin(); itr != process_num_list.end(); itr ++)
    {
@@ -876,8 +874,6 @@ bool ThreadManager::areAllCoresRunning()
    LOG_ASSERT_ERROR(m_master, "areAllCoresRunning() should only be called on master.");
 
    // Check if all the cores are running
-   bool is_all_running = true;
-   SInt32 thread_idx = INVALID_THREAD_IDX;
    for (SInt32 tile_idx = 0; tile_idx < (SInt32) m_thread_state.size(); tile_idx++)
    {
       tile_id_t tile_id = getTileIDFromTileIDX(tile_idx);
@@ -1009,7 +1005,7 @@ void ThreadManager::setThreadState(tile_id_t tile_id, thread_id_t thread_idx, Th
 SInt32 ThreadManager::getTileIDXFromTileID(tile_id_t tile_id)
 {
    SInt32 idx = 0;
-   Config::TileList tile_id_list = config->getTileIDList();
+   Config::TileList tile_id_list = Sim()->getConfig()->getTileIDList();
    for (Config::TileList::const_iterator itr = tile_id_list.begin(); itr != tile_id_list.end(); itr ++)
    {
       if (tile_id == *itr)
@@ -1022,7 +1018,8 @@ SInt32 ThreadManager::getTileIDXFromTileID(tile_id_t tile_id)
 
 tile_id_t ThreadManager::getTileIDFromTileIDX(SInt32 tile_idx)
 {
-   Config::TileList tile_id_list = config->getTileIDList();
-   LOG_ASSERT_ERROR(tile_idx < tile_id_list.size(), "Tile-IDX:%i greater than number of tiles:%i allocated to target",
+   Config::TileList tile_id_list = Sim()->getConfig()->getTileIDList();
+   LOG_ASSERT_ERROR(tile_idx < (SInt32) tile_id_list.size(), "Tile-IDX:%i greater than number of tiles:%i allocated to target",
                     tile_idx, (SInt32) tile_id_list.size());
+   return tile_id_list[tile_idx];
 }

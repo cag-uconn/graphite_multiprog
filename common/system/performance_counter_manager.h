@@ -14,5 +14,13 @@ public:
    PerformanceCounterManager();
    ~PerformanceCounterManager();
 
+   // Called by MCP
+   void masterTogglePerformanceCountersRequest(Byte* msg);
+   void masterTogglePerformanceCountersResponse();
+   // Called by LCP
    void togglePerformanceCounters(Byte* msg);
+
+private:
+   UInt32 _num_toggle_requests_received;
+   UInt32 _num_toggle_responses_received;
 };

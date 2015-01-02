@@ -40,6 +40,7 @@ private:
    SyscallServer _syscall_server;
    SyncServer _sync_server;
    ClockSkewManagementServer* _clock_skew_management_server;
+   PerformanceCounterManager* _performance_counter_manager;
   
    Thread* _thread;
 };
