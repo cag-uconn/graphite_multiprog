@@ -288,8 +288,8 @@ void Simulator::shutdownPowerModelsDatabase()
 
 Network& Simulator::getMCPNetwork()
 {
-   Tile* mcp_core = _tile_manager->getTileFromID(_config.getTargetMCPTileNum());   //sqc_multi
-   fprintf(stderr, "Target MCP Tile Num (%i) \n", _config.getTargetMCPTileNum());   //sqc_multi
+   Tile* mcp_core = _tile_manager->getTileFromID(_config.getMCPTileID());   //sqc_multi
+   fprintf(stderr, "Target MCP Tile Num (%i) \n", _config.getMCPTileID());   //sqc_multi
    LOG_ASSERT_ERROR(mcp_core, "Could not find the MCP's core");
    return *(mcp_core->getNetwork());
 }
