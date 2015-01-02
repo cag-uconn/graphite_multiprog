@@ -762,7 +762,7 @@ void ThreadManager::stallThread(core_id_t core_id, SInt32 thread_idx)
 void ThreadManager::stallThread(tile_id_t tile_id, SInt32 thread_idx)
 {
    SInt32 tile_idx = getTileIDXFromTileID(tile_id);
-   LOG_ASSERT_ERROR(m_thread_state[tile_idx][thread_idx] == Core::RUNNING, "Thread on Tile:%i, IDX:%i not running", tile_id, thread_idx);
+   LOG_ASSERT_ERROR(m_thread_state[tile_idx][thread_idx].status == Core::RUNNING, "Thread on Tile:%i, IDX:%i not running", tile_id, thread_idx);
    m_thread_state[tile_idx][thread_idx].status = Core::STALLED;
    m_last_stalled_thread[tile_idx] = thread_idx;
    
@@ -791,7 +791,7 @@ void ThreadManager::resumeThread(core_id_t core_id, SInt32 thread_idx)
 void ThreadManager::resumeThread(tile_id_t tile_id, SInt32 thread_idx)
 {
    LOG_ASSERT_ERROR(m_master, "resumeThread() must only be called on master");
-   SInt32 tile_idx = getTileIDXFromTileID(core_id.tile_id);
+   SInt32 tile_idx = getTileIDXFromTileID(tile_id);
    m_thread_state[tile_idx][thread_idx].status = Core::RUNNING;
 }
 
