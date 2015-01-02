@@ -21,22 +21,21 @@ class ThreadManager
 public:
    struct ThreadState
    {
-      Core::State status;
-      core_id_t waiter_core;
-      thread_id_t waiter_tid;
-      thread_id_t thread_id;
-      pid_t os_tid;
-      cpu_set_t * cpu_set;
-      Time completion_time;
-
       ThreadState()
          : status(Core::IDLE)
          , waiter_core(INVALID_CORE_ID)
-         , waiter_tid(INVALID_THREAD_ID)
+         , waiter_tidx(INVALID_THREAD_IDX)
          , thread_id(INVALID_THREAD_ID)
          , completion_time(0)
-      {
-      } 
+      {}
+
+      Core::State status;
+      core_id_t waiter_core;
+      SInt32 waiter_tidx;
+      thread_id_t thread_id;
+      pid_t os_tid;
+      cpu_set_t* cpu_set;
+      Time completion_time;
    };
 
    ThreadManager(TileManager*);
@@ -134,7 +133,8 @@ private:
    void masterQueryThreadIndex(tile_id_t req_tile_id, SInt32 req_core_type, thread_id_t thread_id);
 
    // Translate between tileID and tileIDX
-   SInt32 getTileIDXFromTileID(tile_id_t tile_ID);
+   SInt32 getTileIDXFromTileID(tile_id_t tile_id);
+   tile_id_t getTileIDFromTileIDX(SInt32 tile_idx);
 
    thread_id_t m_tid_counter;
    Lock m_tid_counter_lock;

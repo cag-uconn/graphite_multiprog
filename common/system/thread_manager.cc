@@ -915,8 +915,8 @@ SInt32 ThreadManager::getRunningThreadIDX(tile_id_t tile_id)
 
 int ThreadManager::setThreadAffinity(pid_t os_tid, cpu_set_t* set)
 {
-   thread_id_t thread_idx = INVALID_THREAD_ID;
-   tile_id_t tile_id = INVALID_TILE_ID;
+   SInt32 thread_idx = INVALID_THREAD_IDX;
+   SInt32 tile_idx = INVALID_TILE_IDX;
    int res = -1;
 
    for (SInt32 i = 0; i < (SInt32) m_thread_state.size(); i++)
@@ -925,37 +925,39 @@ int ThreadManager::setThreadAffinity(pid_t os_tid, cpu_set_t* set)
       {
          if (m_thread_state[i][j].os_tid == os_tid)
          {
-            if(thread_idx == INVALID_THREAD_ID)
+            if (thread_idx == INVALID_THREAD_ID)
             {
-               tile_id = i;
+               tile_idx = i;
                thread_idx = j;
             }
             else
-               LOG_PRINT_ERROR("Two threads %i on %i and %i on %i have the same os_tid %i!", thread_idx, tile_id, j, i, os_tid);
+               LOG_PRINT_ERROR("Two threads, T1[Tile-IDX:%i, Thread-IDX:%i] and T2[Tile-IDX:%i, Thread-IDX:%i] have the same OS-TID %i",
+                               tile_idx, thread_idx, i, j, os_tid);
          }
       }
    }
 
-   if (thread_idx != INVALID_THREAD_ID)
+   if (thread_idx != INVALID_THREAD_IDX)
    {
       res = 0;
-      setThreadAffinity(tile_id, thread_idx, set);
+      setThreadAffinity(tile_idx, thread_idx, set);
    }
 
    return res;
 }
 
 
-void ThreadManager::setThreadAffinity(tile_id_t tile_id, thread_id_t tidx, cpu_set_t* set)
+void ThreadManager::setThreadAffinity(SInt32 tile_idx, SInt32 thread_idx, cpu_set_t* set)
 {
-   CPU_ZERO_S(CPU_ALLOC_SIZE(Config::getSingleton()->getTotalTiles()), m_thread_state[tile_id][tidx].cpu_set);
-   CPU_OR_S(CPU_ALLOC_SIZE(Config::getSingleton()->getTotalTiles()), m_thread_state[tile_id][tidx].cpu_set, set, set);
+   size_t total_tiles = Config::getSingleton()->getTotalTilesCurrentTarget();
+   CPU_ZERO_S(CPU_ALLOC_SIZE(total_tiles), m_thread_state[tile_idx][thread_idx].cpu_set);
+   CPU_OR_S(CPU_ALLOC_SIZE(total_tiles), m_thread_state[tile_idx][thread_idx].cpu_set, set, set);
 }
 
 int ThreadManager::getThreadAffinity(pid_t os_tid, cpu_set_t* set)
 {
-   thread_id_t thread_idx = INVALID_THREAD_ID;
-   tile_id_t tile_id = INVALID_TILE_ID;
+   SInt32 thread_idx = INVALID_THREAD_IDX;
+   SInt32 tile_idx = INVALID_TILE_IDX;
    int res = -1;
 
    for (SInt32 i = 0; i < (SInt32) m_thread_state.size(); i++)
@@ -964,48 +966,51 @@ int ThreadManager::getThreadAffinity(pid_t os_tid, cpu_set_t* set)
       {
          if (m_thread_state[i][j].os_tid == os_tid)
          {
-            if(thread_idx == INVALID_THREAD_ID)
+            if (thread_idx == INVALID_THREAD_IDX)
             {
-               tile_id = i;
+               tile_idx = i;
                thread_idx = j;
             }
             else
-               LOG_PRINT_ERROR("Two threads %i on %i and %i on %i have the same os_tid %i!", thread_idx, tile_id, j, i, os_tid);
+               LOG_PRINT_ERROR("Two threads, T1[Tile-IDX:%i, Thread-IDX:%i] and T2[Tile-IDX:%i, Thread-IDX:%i] have the same OS-TID %i",
+                               tile_idx, thread_idx, i, j, os_tid);
          }
       }
    }
 
-   if (thread_idx != INVALID_THREAD_ID)
+   if (thread_idx != INVALID_THREAD_IDX)
    {
       res = 0;
-      getThreadAffinity(tile_id, thread_idx, set);
+      getThreadAffinity(tile_idx, thread_idx, set);
    }
 
    return res;
 }
 
-void ThreadManager::getThreadAffinity(tile_id_t tile_id, thread_id_t tidx, cpu_set_t* set)
+void ThreadManager::getThreadAffinity(SInt32 tile_idx, SInt32 thread_idx, cpu_set_t* set)
 {
-   CPU_ZERO_S(CPU_ALLOC_SIZE(Config::getSingleton()->getTotalTiles()), set);
-   CPU_OR_S(CPU_ALLOC_SIZE(Config::getSingleton()->getTotalTiles()), set, m_thread_state[tile_id][tidx].cpu_set, set);
+   size_t total_tiles = Config::getSingleton()->getTotalTilesCurrentTarget();
+   CPU_ZERO_S(CPU_ALLOC_SIZE(total_tiles), set);
+   CPU_OR_S(CPU_ALLOC_SIZE(total_tiles), set, m_thread_state[tile_idx][thread_idx].cpu_set, set);
 }
 
 
-void ThreadManager::setThreadState(tile_id_t tile_id, thread_id_t tidx, ThreadManager::ThreadState state)
+void ThreadManager::setThreadState(tile_id_t tile_id, thread_id_t thread_idx, ThreadState state)
 {
-   m_thread_state[tile_id][tidx].status = state.status;
-   m_thread_state[tile_id][tidx].waiter_core.tile_id = state.waiter_core.tile_id;
-   m_thread_state[tile_id][tidx].waiter_core.core_type = state.waiter_core.core_type;
-   m_thread_state[tile_id][tidx].waiter_tid = state.waiter_tid;
-   m_thread_state[tile_id][tidx].thread_id = state.thread_id;
-   m_thread_state[tile_id][tidx].cpu_set = state.cpu_set;
+   SInt32 tile_idx = getTileIDXFromTileID(tile_id);
+   m_thread_state[tile_idx][thread_idx].status = state.status;
+   m_thread_state[tile_idx][thread_idx].waiter_core.tile_id = state.waiter_core.tile_id;
+   m_thread_state[tile_idx][thread_idx].waiter_core.core_type = state.waiter_core.core_type;
+   m_thread_state[tile_idx][thread_idx].waiter_tidx = state.waiter_tidx;
+   m_thread_state[tile_idx][thread_idx].thread_id = state.thread_id;
+   m_thread_state[tile_idx][thread_idx].cpu_set = state.cpu_set;
 }
 
 SInt32 ThreadManager::getTileIDXFromTileID(tile_id_t tile_id)
 {
    SInt32 idx = 0;
-   Config::TileList tile_ID_list = config->getTileIDList();
-   for (Config::TileList::const_iterator itr = tile_ID_list.begin(); itr != tile_ID_list.end(); itr ++)
+   Config::TileList tile_id_list = config->getTileIDList();
+   for (Config::TileList::const_iterator itr = tile_id_list.begin(); itr != tile_id_list.end(); itr ++)
    {
       if (tile_id == *itr)
          return idx;
@@ -1013,4 +1018,11 @@ SInt32 ThreadManager::getTileIDXFromTileID(tile_id_t tile_id)
    }
    LOG_PRINT_ERROR("Tile-ID(%i) not found in Tile-ID-List", tile_id);
    return 0;
+}
+
+tile_id_t ThreadManager::getTileIDFromTileIDX(SInt32 tile_idx)
+{
+   Config::TileList tile_id_list = config->getTileIDList();
+   LOG_ASSERT_ERROR(tile_idx < tile_id_list.size(), "Tile-IDX:%i greater than number of tiles:%i allocated to target",
+                    tile_idx, (SInt32) tile_id_list.size());
 }
