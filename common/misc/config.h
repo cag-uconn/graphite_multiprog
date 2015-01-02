@@ -84,7 +84,7 @@ public:
    // Retrieve and set the process number for this process (I'm expecting
    //  that the initialization routine of the Transport layer will set this)
    UInt32 getCurrentProcessNum() { return m_current_process_num; }
-   void setProcessNum(UInt32 in_my_proc_num) { m_current_process_num = in_my_proc_num; }
+   void setProcessNum(UInt32 proc_num) { m_current_process_num = proc_num; setMasterProcessNum(proc_num); }
 
    //Target process number  //sqc_multi
    UInt32 getTargetCount() { return m_num_targets; }
@@ -99,7 +99,8 @@ public:
    void setProcessCountCurrentTarget(UInt32 in_process_count_current_target) { m_process_count_current_target = in_process_count_current_target; }
    
    // Check whether this process is the main process of this target  //sqc_multi
-   bool isMasterProcess() { return m_current_process_num == m_master_process_num; }
+   bool isMasterProcess() const                        { return m_current_process_num == m_master_process_num; }
+   UInt32 getMasterProcessNum() const                  { return m_master_process_num; }
    void setMasterProcessNum(UInt32 master_process_num) { m_master_process_num = master_process_num; }
  
    // Process num bounds for current target
@@ -111,10 +112,10 @@ public:
    //Changed for multi-target   //sqc_multi
 //   tile_id_t getMCPTileNum() { return (getTotalTiles() - 1); }
 //   core_id_t getMCPCoreId() { return (core_id_t) {(tile_id_t) getTotalTiles() - 1, MAIN_CORE_TYPE}; }
-   tile_id_t getMainMCPTileNum () { return (getTotalTiles() - m_num_targets); }
-   core_id_t getMainMCPCoreId() { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets), MAIN_CORE_TYPE}; }
-   tile_id_t getTargetMCPTileNum () { return (getTotalTiles() - m_num_targets + m_current_target_num); }
-   core_id_t getTargetMCPCoreId() { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets + m_current_target_num), MAIN_CORE_TYPE}; }
+   tile_id_t getMasterMCPTileID () { return (getTotalTiles() - m_num_targets); }
+   core_id_t getMasterMCPCoreID() { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets), MAIN_CORE_TYPE}; }
+   tile_id_t getMCPTileID () { return (getTotalTiles() - m_num_targets + m_current_target_num); }
+   core_id_t getMCPCoreID() { return (core_id_t) {(tile_id_t) (getTotalTiles() - m_num_targets + m_current_target_num), MAIN_CORE_TYPE}; }
    
    
    tile_id_t getMainThreadTileNum() { return 0; }

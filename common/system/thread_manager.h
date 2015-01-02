@@ -100,7 +100,6 @@ public:
 
    void setOSTid(core_id_t core_id, thread_id_t thread_idx, pid_t pid);
    void masterSetOSTid(tile_id_t tile_id, thread_id_t thread_idx, pid_t pid);
-   void queryThreadIndex(thread_id_t thread_id, core_id_t &core_id, thread_id_t &thread_idx, thread_id_t &next_tidx);
 
    friend class ThreadScheduler;
    void setThreadScheduler(ThreadScheduler* thread_scheduler) {m_thread_scheduler = thread_scheduler;}
@@ -134,6 +133,8 @@ private:
    thread_id_t getIdleThread(core_id_t core_id);
    void masterQueryThreadIndex(tile_id_t req_tile_id, SInt32 req_core_type, thread_id_t thread_id);
 
+   // Translate between tileID and tileIDX
+   SInt32 getTileIDXFromTileID(tile_id_t tile_ID);
 
    thread_id_t m_tid_counter;
    Lock m_tid_counter_lock;

@@ -124,11 +124,6 @@ void MCP::processPacket()
                                                 *(pid_t*)((Byte*)recv_pkt.data+sizeof(msg_type)+sizeof(tile_id_t)+sizeof(thread_id_t)));
       break;
 
-   case MCP_MESSAGE_QUERY_THREAD_INDEX:
-      Sim()->getThreadManager()->masterQueryThreadIndex( *(tile_id_t*)((Byte*)recv_pkt.data+sizeof(msg_type)), 
-                                                         *(UInt32*)((Byte*)recv_pkt.data+sizeof(msg_type)+sizeof(tile_id_t)), 
-                                                         *(thread_id_t*)((Byte*)recv_pkt.data+sizeof(msg_type)+sizeof(tile_id_t)+sizeof(UInt32)));
-      break;
    case MCP_MESSAGE_THREAD_START:
       Sim()->getThreadManager()->masterOnThreadStart( *(tile_id_t*)((Byte*)recv_pkt.data+sizeof(msg_type)), 
                                                       *(UInt32*)((Byte*)recv_pkt.data+sizeof(msg_type)+sizeof(tile_id_t)), 
