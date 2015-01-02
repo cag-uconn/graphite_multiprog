@@ -90,20 +90,21 @@ class SimJobMultiApp:
    def spawn(self):
       self.makeCommand()
       self.createOutputDir()
+      self.proc_list = {}
       for i in range(0,len(self.command_MultiApp)):
-         self.proc = subprocess.Popen(self.command_MultiApp[i], shell=True, preexec_fn=os.setsid)
+         self.proc_list[i] = subprocess.Popen(self.command_MultiApp[i], shell=True, preexec_fn=os.setsid)
          
       
    # poll:
    #  check if a job has finished
    def poll(self):
-      return self.proc.poll()
+      return self.proc_list[0].poll()
 
    # wait:
    #  wait on a job to finish
    def wait(self):
       while True:
-         ret = self.proc.poll()
+         ret = self.proc_list[0].poll()
          if ret != None:
             return ret
          time.sleep(0.5)
@@ -111,7 +112,8 @@ class SimJobMultiApp:
    # kill:
    #  kill the job
    def kill(self):
-      os.killpg(self.proc.pid, signal.SIGINT)
+      for i in range(0,len(self.command_MultiApp)):
+         os.killpg(self.proc_list[i].pid, signal.SIGINT)
    
    def makeCommand(self):
       self.makeSimFlags()

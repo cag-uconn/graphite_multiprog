@@ -54,7 +54,7 @@ app_flags_MultiApp = [getAppFlags(benchmark_list[0]), getAppFlags(benchmark_list
 
 
 # Generate SIM_FLAGS
-sim_flags = "--general/total_cores=64 " + \
+sim_flags = "--general/total_cores=128 " + \
             "--general/mode=lite "
 #            "--general/enable_power_modeling=true " + \
 #            "--general/trigger_models_within_application=true "
