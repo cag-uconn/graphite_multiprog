@@ -132,7 +132,7 @@ Config::TileList Config::getThreadSpawnerTileIDList() const
 
 tile_id_t Config::getThreadSpawnerTileID(UInt32 proc_num) const
 {
-   assert(m_simulation_mode == FULL);
+   //assert(m_simulation_mode == FULL); //sqc_multi
    return getApplicationTiles() + proc_num;
 }
 

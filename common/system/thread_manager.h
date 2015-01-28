@@ -89,7 +89,7 @@ public:
 
 
    void setThreadState(tile_id_t tile_id, thread_id_t tidx, ThreadState state);
-   void setThreadState(tile_id_t tile_id, thread_id_t tidx, Core::State state) {assert(m_master); m_thread_state[tile_id][tidx].status = state;}
+   void setThreadState(tile_id_t tile_id, thread_id_t tidx, Core::State state) {assert(m_master);SInt32 tile_idx = getTileIDXFromTileID(tile_id); m_thread_state[tile_idx][tidx].status = state;}
 
    int setThreadAffinity(pid_t pid, cpu_set_t* set);
    void setThreadAffinity(tile_id_t tile_id, thread_id_t tidx, cpu_set_t* set);

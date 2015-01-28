@@ -219,8 +219,9 @@ void ThreadManager::masterOnThreadExit(tile_id_t tile_id, SInt32 core_type, SInt
    m_thread_state[tile_idx][thread_idx].status = Core::IDLE;
    m_thread_state[tile_idx][thread_idx].completion_time = Time(time);
 
-   if (Sim()->getMCP()->getClockSkewManagementServer())
-      Sim()->getMCP()->getClockSkewManagementServer()->signal();
+//comment out for now //sqc_multi
+//   if (Sim()->getMCP()->getClockSkewManagementServer())
+//      Sim()->getMCP()->getClockSkewManagementServer()->signal();
 
    // Wake up any threads that is waiting on this thread to finish
    wakeUpWaiter(core_id, thread_idx, Time(time));
@@ -246,7 +247,7 @@ void ThreadManager::masterOnThreadExit(tile_id_t tile_id, SInt32 core_type, SInt
 SInt32 ThreadManager::spawnThread(tile_id_t dest_tile_id, thread_func_t func, void *arg)
 {
    // step 1
-   LOG_PRINT("(1) spawnThread with func: %p and arg: %p", func, arg);
+   LOG_PRINT("(1) spawnThread with func: %p, arg: %p, specified destination: %i ", func, arg, dest_tile_id);
 
    Core *core = m_tile_manager->getCurrentCore();
    thread_id_t thread_idx = m_tile_manager->getCurrentThreadIndex();
@@ -259,7 +260,7 @@ SInt32 ThreadManager::spawnThread(tile_id_t dest_tile_id, thread_func_t func, vo
    core_id_t dest_core_id = INVALID_CORE_ID;
    // If destination was specified, send it there.  Otherwise pick a free core at the MCP.
    if (dest_tile_id != INVALID_TILE_ID)
-      dest_core_id = Tile::getMainCoreId(dest_tile_id);
+      dest_core_id =Tile::getMainCoreId(dest_tile_id);   //Can only assign core with in the appliction core list, sqc_multi
 
    ThreadSpawnRequest req = { MCP_MESSAGE_THREAD_SPAWN_REQUEST_FROM_REQUESTER,
                               func, arg,
@@ -310,6 +311,7 @@ void ThreadManager::masterSpawnThread(ThreadSpawnRequest *req)
 
    // Tile-IDX on which thread is going to get spawned
    SInt32 destination_tile_idx = INVALID_TILE_IDX;
+   
    SInt32 requester_tile_idx = getTileIDXFromTileID(req->requester.tile_id);
    if (req->destination.tile_id == INVALID_TILE_ID)
    {
@@ -763,9 +765,11 @@ void ThreadManager::stallThread(tile_id_t tile_id, SInt32 thread_idx)
    LOG_ASSERT_ERROR(m_thread_state[tile_idx][thread_idx].status == Core::RUNNING, "Thread on Tile:%i, IDX:%i not running", tile_id, thread_idx);
    m_thread_state[tile_idx][thread_idx].status = Core::STALLED;
    m_last_stalled_thread[tile_idx] = thread_idx;
-   
-   if (Sim()->getMCP()->getClockSkewManagementServer())
-      Sim()->getMCP()->getClockSkewManagementServer()->signal();
+ //  Config* config = Config::getSingleton();
+  
+   //Target MCP can not access clock_skew_management_sever, need to send message to master MCP (MCP of target 0)  //sqc_multi 
+ //  if (Sim()->getMCP()->getClockSkewManagementServer() && config->getCurrentTargetNum()==0)
+     //  Sim()->getMCP()->getClockSkewManagementServer()->signal();
 }
 
 void ThreadManager::resumeThread(core_id_t core_id)
@@ -897,7 +901,7 @@ SInt32 ThreadManager::getRunningThreadIDX(tile_id_t tile_id)
    SInt32 tile_idx = getTileIDXFromTileID(tile_id);
    for (SInt32 j = 0; j < (SInt32) m_thread_state[tile_idx].size(); j++)
    {
-      if (isThreadRunning(tile_idx, j))
+      if (isThreadRunning(tile_id, j))
       {
          if (thread_idx == INVALID_THREAD_IDX)
             thread_idx = j;

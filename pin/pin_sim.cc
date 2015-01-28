@@ -240,6 +240,9 @@ void ApplicationStart()
 void ApplicationExit(int, void*)
 {
    LOG_PRINT("Application exit.");
+   
+   Sim()->getTransport()->barrier();   
+
    Simulator::release();
    shutdownProgressTrace();
    delete cfg;

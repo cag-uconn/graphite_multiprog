@@ -38,7 +38,7 @@ ThreadScheduler::ThreadScheduler(ThreadManager *thread_manager, TileManager *til
 {
    Config *config = Config::getSingleton();
 
-   m_master = config->getCurrentProcessNum() == 0;
+   m_master = config->isMasterProcess();
 
    m_thread_manager = thread_manager;
    m_thread_manager->setThreadScheduler(this);
@@ -170,7 +170,7 @@ void ThreadScheduler::masterScheduleThread(ThreadSpawnRequest *req)
       // If the requesting tile is the destination tile, the calling thread is stalled, but should be set as the
       // running thread because it will resume after the spawn call.
       if (Tile::isMainCore(req->requester))
-         running_thread = thread_state[req->requester.tile_id][req->requester_tidx].thread_id;
+         running_thread = thread_state[m_thread_manager->getTileIDXFromTileID(req->requester.tile_id)][req->requester_tidx].thread_id;
    }
    else
    {
@@ -183,10 +183,12 @@ void ThreadScheduler::masterScheduleThread(ThreadSpawnRequest *req)
    // Grab the thread states on destination tile and set to initializing.
    if (Tile::isMainCore(req->destination))
    {
-      LOG_ASSERT_ERROR(thread_state[req->destination.tile_id][req->destination_tidx].status == Core::IDLE,
+      LOG_ASSERT_ERROR(thread_state[m_thread_manager->getTileIDXFromTileID(req->destination.tile_id)][req->destination_tidx].status == Core::IDLE,
                        "Spawning a non-idle thread at %i on {%i, %i}",
                        req->destination_tidx, req->destination.tile_id, req->destination.core_type); 
       m_thread_manager->setThreadState(req->destination.tile_id, req->destination_tidx, Core::INITIALIZING);
+     
+      std::vector< std::vector<ThreadManager::ThreadState> > thread_state = m_thread_manager->getThreadState();
    }
    else
    {
@@ -204,7 +206,7 @@ void ThreadScheduler::masterScheduleThread(ThreadSpawnRequest *req)
 
 void ThreadScheduler::masterStartThread(core_id_t core_id)
 {
-   LOG_ASSERT_ERROR(m_master, "masterStartThread should only be called on master.");
+   LOG_ASSERT_ERROR(m_master, "masterStartThread should only be called on master.");  //sqc_multi
    
    // Start the thread next in line.
    LOG_ASSERT_ERROR(!m_waiter_queue[core_id.tile_id].empty(), "m_waiter_queue[%i].size() = %d", core_id.tile_id, m_waiter_queue[core_id.tile_id].size() );
@@ -216,7 +218,7 @@ void ThreadScheduler::masterStartThread(core_id_t core_id)
    m_last_start_time[req->destination.tile_id][req->destination_tidx] = (UInt32) time(NULL);
 
    // Spawn the thread by calling LCP on correct process.
-   LOG_ASSERT_ERROR(thread_state[req->destination.tile_id][req->destination_tidx].status == Core::INITIALIZING || thread_state[req->destination.tile_id][req->destination_tidx].status == Core::STALLED, "Haven't made this work for starting waiting threads yet, current status %i", thread_state[req->destination.tile_id][req->destination_tidx].status);
+   LOG_ASSERT_ERROR(thread_state[m_thread_manager->getTileIDXFromTileID(req->destination.tile_id)][req->destination_tidx].status == Core::INITIALIZING || thread_state[m_thread_manager->getTileIDXFromTileID(req->destination.tile_id)][req->destination_tidx].status == Core::STALLED, "Haven't made this work for starting waiting threads yet, current status %i", thread_state[m_thread_manager->getTileIDXFromTileID(req->destination.tile_id)][req->destination_tidx].status);
 
    LOG_PRINT("Thread(%i) to be started on  core id(%i, %i)", req->destination_tidx, req->destination.tile_id, req->destination.core_type);
    if (Sim()->getConfig()->getSimulationMode() == Config::FULL)

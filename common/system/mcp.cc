@@ -11,6 +11,7 @@
 #include "syscall.h"
 #include "thread_manager.h"
 #include "thread_scheduler.h"
+#include "performance_counter_manager.h"
 
 using namespace std;
 
@@ -147,7 +148,8 @@ void MCP::processPacket()
       break;
 
    case MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS:
-      Sim()->getPerformanceCounterManager()->masterTogglePerformanceCountersRequest();
+      LOG_PRINT("entering masterTogglePerformanceCountersRequest()"); 
+      Sim()->getPerformanceCounterManager()->masterTogglePerformanceCountersRequest((Byte*)recv_pkt.data+sizeof(msg_type));   //sqc_multi not sure about the input, may need to change
       break;
 
    case MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS_ACK:
@@ -173,7 +175,7 @@ void MCP::quitThread()
 {
    LOG_PRINT("Send MCP thread quit message");
    SInt32 msg_type = MCP_MESSAGE_QUIT;
-   _network.netSend(Config::getSingleton()->getMasterMCPCoreID(), MCP_SYSTEM_TYPE, &msg_type, sizeof(msg_type));   //sqc_multi may need to change later
+   _network.netSend(Config::getSingleton()->getMCPCoreID(), MCP_SYSTEM_TYPE, &msg_type, sizeof(msg_type));   //sqc_multi may need to change later
    // Join thread
    _thread->join();
 }

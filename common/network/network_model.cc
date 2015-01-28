@@ -79,7 +79,7 @@ NetworkModel::isPacketReadyToBeReceived(const NetPacket& pkt)
    }
    else
    {
-      assert(TILE_ID(pkt.receiver) == _tile_id);
+      LOG_ASSERT_ERROR(TILE_ID(pkt.receiver) == _tile_id, "pkt_receiver(%i), _tile_id(%i), name(%s)", TILE_ID(pkt.receiver), _tile_id, _network_name.c_str());
       return true;
    }
 }

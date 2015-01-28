@@ -68,7 +68,7 @@ void setupCarbonSpawnThreadSpawnerStack(const CONTEXT *ctxt)
    // on processes other than 0 execute the thread spawner, in which case
    // this will probably just work as is
 
-   LOG_ASSERT_ERROR(Sim()->getConfig()->getCurrentProcessNum() == 0, "Process-Num: %u",
+   LOG_ASSERT_ERROR(Sim()->getConfig()->isMasterProcess(), "setupCarbonSpawnThreadSpawnerStack() should only be called at master process!  Process-Num: %u",
                     Sim()->getConfig()->getCurrentProcessNum());
    
    ADDRINT esp = PIN_GetContextReg (ctxt, REG_STACK_PTR);

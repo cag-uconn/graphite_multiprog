@@ -23,6 +23,7 @@ PerformanceCounterManager::masterTogglePerformanceCountersRequest(Byte* msg)
    SInt32 msg_type = *((SInt32*) msg);
    Config* config = Config::getSingleton(); 
    
+   LOG_PRINT("Processing message in masterTogglePerformanceCounterRequester()  -- type : %i", msg_type);
    // If received message from all targets, proceed to initialize models.
    // Else, wait till this is received from all targets
    _num_toggle_requests_received ++;
@@ -83,7 +84,7 @@ PerformanceCounterManager::togglePerformanceCounters(Byte* msg)
    // Send ACK back to master MCP
    SInt32 message_type = MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS_ACK;
    NetPacket ack(Time(0) /* time */, MCP_SYSTEM_TYPE /* packet type */,
-                 0 /* sender - doesn't matter */, 0 /* receiver */,
+                 0 /* sender - doesn't matter */,Config::getSingleton()->getMasterMCPTileID() /* receiver */,
                  sizeof(message_type) /* length */, &message_type /* data */);
    
    Byte buffer[ack.bufferSize()];
