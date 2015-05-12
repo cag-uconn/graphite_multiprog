@@ -219,9 +219,8 @@ void ThreadManager::masterOnThreadExit(tile_id_t tile_id, SInt32 core_type, SInt
    m_thread_state[tile_idx][thread_idx].status = Core::IDLE;
    m_thread_state[tile_idx][thread_idx].completion_time = Time(time);
 
-//comment out for now //sqc_multi
-//   if (Sim()->getMCP()->getClockSkewManagementServer())
-//      Sim()->getMCP()->getClockSkewManagementServer()->signal();
+  if (Sim()->getMCP()->getClockSkewManagementServer())
+      Sim()->getMCP()->getClockSkewManagementServer()->signal();
 
    // Wake up any threads that is waiting on this thread to finish
    wakeUpWaiter(core_id, thread_idx, Time(time));
@@ -765,11 +764,9 @@ void ThreadManager::stallThread(tile_id_t tile_id, SInt32 thread_idx)
    LOG_ASSERT_ERROR(m_thread_state[tile_idx][thread_idx].status == Core::RUNNING, "Thread on Tile:%i, IDX:%i not running", tile_id, thread_idx);
    m_thread_state[tile_idx][thread_idx].status = Core::STALLED;
    m_last_stalled_thread[tile_idx] = thread_idx;
- //  Config* config = Config::getSingleton();
-  
-   //Target MCP can not access clock_skew_management_sever, need to send message to master MCP (MCP of target 0)  //sqc_multi 
- //  if (Sim()->getMCP()->getClockSkewManagementServer() && config->getCurrentTargetNum()==0)
-     //  Sim()->getMCP()->getClockSkewManagementServer()->signal();
+    
+   if (Sim()->getMCP()->getClockSkewManagementServer()) 
+      Sim()->getMCP()->getClockSkewManagementServer()->signal();
 }
 
 void ThreadManager::resumeThread(core_id_t core_id)

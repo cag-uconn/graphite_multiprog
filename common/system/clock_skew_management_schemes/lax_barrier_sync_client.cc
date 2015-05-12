@@ -41,16 +41,16 @@ LaxBarrierSyncClient::synchronize(Time time)
    if (curr_time_ns >= m_next_sync_time)
    {
       // Send 'SIM_BARRIER_WAIT' request
-      int msg_type = MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT;
+      int msg_type = MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT_LOCAL;
 
       m_send_buff << msg_type << curr_time_ns;
-      m_core->getTile()->getNetwork()->netSend(Config::getSingleton()->getMasterMCPCoreID(), MCP_SYSTEM_TYPE, m_send_buff.getBuffer(), m_send_buff.size());  //sqc_multi the only place for main MCP? 
+      m_core->getTile()->getNetwork()->netSend(Config::getSingleton()->getMCPCoreID(), MCP_SYSTEM_TYPE, m_send_buff.getBuffer(), m_send_buff.size());
 
       LOG_PRINT("Core(%i, %i), curr_time(%llu), m_next_sync_time(%llu) sent SIM_BARRIER_WAIT", m_core->getId().tile_id, m_core->getId().core_type, curr_time_ns, m_next_sync_time);
 
       // Receive 'BARRIER_RELEASE' response
       NetPacket recv_pkt;
-      recv_pkt = m_core->getTile()->getNetwork()->netRecv(Config::getSingleton()->getMasterMCPCoreID(), m_core->getId(), MCP_SYSTEM_RESPONSE_TYPE);   //sqc_multi the only place for main MCP?
+      recv_pkt = m_core->getTile()->getNetwork()->netRecv(Config::getSingleton()->getMCPCoreID(), m_core->getId(), MCP_SYSTEM_RESPONSE_TYPE);   
       assert(recv_pkt.length == sizeof(int));
 
       unsigned int dummy;

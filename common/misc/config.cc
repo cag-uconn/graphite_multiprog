@@ -1,5 +1,5 @@
 #include "config.h"
-
+#include <stdio.h>
 #include "network_model.h"
 #include "network_types.h"
 #include "packet_type.h"
@@ -20,6 +20,8 @@ bool Config::m_knob_enable_core_modeling;
 bool Config::m_knob_enable_power_modeling;
 bool Config::m_knob_enable_area_modeling;
 UInt32 Config::m_knob_max_threads_per_core;
+char* Config::m_knob_proc_index_str;
+char* Config::m_knob_target_index_str;
 
 using namespace std;
 
@@ -48,9 +50,14 @@ Config::Config()
       m_knob_enable_area_modeling = Sim()->getCfg()->getBool("general/enable_area_modeling");
       // WARNING: Do not change this parameter. Hard-coded until multi-threading bug is fixed
       m_knob_max_threads_per_core = 1; // Sim()->getCfg()->getInt("general/max_threads_per_core");
-
+      
       // Simulation Mode
       m_simulation_mode = parseSimulationMode(Sim()->getCfg()->getString("general/mode"));
+    
+      // Target and Process Index, moved from socktransport.cc 
+      m_knob_proc_index_str = getenv("CARBON_PROCESS_INDEX");
+      m_knob_target_index_str = getenv("CARBON_TARGET_INDEX");
+   
    }
    catch(...)
    {
@@ -63,10 +70,54 @@ Config::Config()
    m_total_tiles = m_knob_total_tiles;
    m_application_tiles = m_total_tiles;
    m_max_threads_per_core = m_knob_max_threads_per_core;
-
    m_num_cores_per_tile = 1;
 
-   if ((m_simulation_mode == LITE) && (m_process_count_current_target > 1))
+   if(m_num_processes > 1 && m_knob_proc_index_str == NULL)
+   {
+      fprintf(stderr, "ERROR: Process index undefined with multiple processes.\n");
+   }
+
+   if(m_num_targets > 1 && m_knob_target_index_str == NULL )
+   {
+      fprintf(stderr, "ERROR: Target index undefined with multiple targets.\n");
+   }
+   
+   if (m_knob_proc_index_str)
+      m_current_process_num = atoi(m_knob_proc_index_str);
+   else
+      m_current_process_num = 0;
+
+   if (m_current_process_num < 0 || m_current_process_num >= m_num_processes)
+   { 
+      fprintf(stderr, "Invalid process index: %d with num processes: %d", m_current_process_num, m_num_processes);
+   }
+
+   setProcessNum(m_current_process_num);///////// master process number is set here,  should be changed.
+
+   if (m_knob_target_index_str)
+      m_current_target_num = atoi(m_knob_target_index_str);
+   else
+      m_current_target_num = 0;
+
+   if (m_current_target_num < 0 || m_current_target_num >= m_num_targets)
+   { 
+      fprintf(stderr, "Invalid target index: %d with num targets: %d", m_current_target_num, m_num_targets);
+   }
+
+   // set host process number in this target
+   char target_str[8];
+   snprintf(target_str, 8, "%d", m_current_target_num);
+   string target_string = "target_map/target";
+   target_string += target_str;
+   string target_map_str = Sim()->getCfg()->getString(target_string);
+   
+   vector<string> target_map_tuple;
+   parseList(target_map_str, target_map_tuple, ","); 
+   m_num_processes_current_target = std::stoi(target_map_tuple.front());
+   m_application_tiles_current_target = std::stoi(target_map_tuple.back());
+   m_total_tiles_current_target = m_application_tiles_current_target;
+ 
+   if ((m_simulation_mode == LITE) && (m_num_processes_current_target > 1))
    {
       fprintf(stderr, "ERROR: Use only 1 process in lite mode\n");
       exit(EXIT_FAILURE);
@@ -79,11 +130,14 @@ Config::Config()
 
    // Add MCPs (one for each target) sqc_multi
    m_total_tiles += m_num_targets;
+   m_total_tiles_current_target += 1;
 
    // Add the thread-spawners (one for each process)
-   if (m_simulation_mode == FULL)
+   if (m_simulation_mode == FULL || m_num_targets >1 )
+   {
       m_total_tiles += m_num_processes;
-
+      m_total_tiles_current_target += m_num_processes_current_target;
+   }
    // Parse network parameters - Need to be done here to initialize the network models 
    parseNetworkParameters();
 

@@ -60,7 +60,7 @@ public:
    void stallThread(tile_id_t tile_id, thread_id_t thread_id);
    void stallThread(core_id_t core_id, thread_id_t thread_id);
    void stallThread(core_id_t core_id);
-
+   
    void resumeThread(tile_id_t tile_id, thread_id_t thread_id);
    void resumeThread(core_id_t core_id, thread_id_t thread_id);
    void resumeThread(core_id_t core_id);
@@ -76,6 +76,7 @@ public:
 
    thread_id_t getRunningThreadIDX(core_id_t core_id);
    thread_id_t getRunningThreadIDX(tile_id_t tile_id);
+  
    bool areAllCoresRunning();
 
    bool isCoreInitializing(tile_id_t tile_id);
@@ -102,6 +103,10 @@ public:
 
    friend class ThreadScheduler;
    void setThreadScheduler(ThreadScheduler* thread_scheduler) {m_thread_scheduler = thread_scheduler;}
+
+   // Translate between tileID and tileIDX
+   SInt32 getTileIDXFromTileID(tile_id_t tile_id);
+   tile_id_t getTileIDFromTileIDX(SInt32 tile_idx);
 
 private:
 
@@ -131,10 +136,6 @@ private:
    UInt32 getNumScheduledThreads(core_id_t core_id);
    thread_id_t getIdleThread(core_id_t core_id);
    void masterQueryThreadIndex(tile_id_t req_tile_id, SInt32 req_core_type, thread_id_t thread_id);
-
-   // Translate between tileID and tileIDX
-   SInt32 getTileIDXFromTileID(tile_id_t tile_id);
-   tile_id_t getTileIDFromTileIDX(SInt32 tile_idx);
 
    thread_id_t m_tid_counter;
    Lock m_tid_counter_lock;

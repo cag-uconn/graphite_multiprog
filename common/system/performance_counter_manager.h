@@ -15,7 +15,7 @@ public:
    ~PerformanceCounterManager();
 
    // Called by MCP
-   void masterTogglePerformanceCountersRequest(Byte* msg);
+   void masterTogglePerformanceCountersRequest(Byte* msg, core_id_t core_id);
    void masterTogglePerformanceCountersResponse();
    // Called by LCP
    void togglePerformanceCounters(Byte* msg);

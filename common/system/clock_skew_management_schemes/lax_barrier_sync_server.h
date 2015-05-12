@@ -20,17 +20,25 @@ private:
    UInt64 m_next_barrier_time;
    std::vector<UInt64> m_local_clock_list;
    std::vector<bool> m_barrier_acquire_list;
+   std::vector<bool> m_target_running_status_list;
+   UInt32 m_local_mcp_barrier_acquire;
    
+   UInt32 m_num_targets;
    UInt32 m_num_application_tiles;
+   UInt32 m_num_application_current_target_tiles;
 
 public:
    LaxBarrierSyncServer(Network &network, UnstructuredBuffer &recv_buff);
    ~LaxBarrierSyncServer();
 
-   void processSyncMsg(core_id_t core_id);
+   void processSyncMsgGlobal(core_id_t core_id);
+   void processSyncMsgGlobalAck(core_id_t core_id);
+   void processSyncMsgLocal(core_id_t core_id);
    void signal();
 
    void barrierWait(core_id_t core_id);
-   bool isBarrierReached(void);
+   bool isBarrierReachedLocal(void);
    void barrierRelease(void);
+
+   void setTargetRunningStatus(UInt32 target_id, bool status);
 };

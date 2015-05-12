@@ -98,8 +98,8 @@ public:
    void setTargetNum(UInt32 target_num)         { m_current_target_num = target_num; }
    
    // Number of processes for this target
-   UInt32 getProcessCountCurrentTarget() const { return m_process_count_current_target; }
-   void setProcessCountCurrentTarget(UInt32 process_count) { m_process_count_current_target = process_count; }
+   UInt32 getProcessCountCurrentTarget() const { return m_num_processes_current_target; }
+   void setProcessCountCurrentTarget(UInt32 process_count) { m_num_processes_current_target = process_count; }
    
    // Check whether this process is the main process of this target  //sqc_multi
    bool isMasterProcess() const                        { return m_current_process_num == m_master_process_num; }
@@ -152,8 +152,8 @@ public:
    UInt32 getTotalTiles() const;
    UInt32 getApplicationTiles() const;
    // Returns the number of tiles in only current application processes
-   UInt32 getTotalTilesCurrentTarget() const       { return 66; }
-   UInt32 getApplicationTilesCurrentTarget() const { return 64; }
+   UInt32 getTotalTilesCurrentTarget() const       { return m_total_tiles_current_target; }
+   UInt32 getApplicationTilesCurrentTarget() const { return m_application_tiles_current_target; }
    bool isApplicationTile(tile_id_t tile_id) const;
 
    // Return an array of tile numbers for a given process
@@ -215,15 +215,17 @@ private:
    UInt32  m_num_processes;         // Total number of processes (incl myself)
    UInt32  m_num_targets;           // Total number of targets (incl myself)  //sqc_multi
    UInt32  m_total_tiles;           // Total number of tiles in all processes
-   UInt32  m_application_tiles;     // Total number of tiles used by the application
+   UInt32  m_application_tiles;     // Total number of tiles used by applications
    UInt32  m_num_cores_per_tile;    // Number of cores per tile
    UInt32  m_tile_id_length;        // Number of bits needed to store a tile_id
    UInt32  m_max_threads_per_core;
 
    UInt32  m_current_process_num;   // Process number for this process
-   UInt32  m_current_target_num;    // Target number for this process //sqc_multi
-   UInt32  m_master_process_num;    // Master process number for this target //sqc_multi
-   UInt32  m_process_count_current_target;  // Number of host processes in this target //sqc_multi
+   UInt32  m_current_target_num;    // Target number for this process
+   UInt32  m_master_process_num;    // Master process number for this target 
+   UInt32  m_num_processes_current_target;  // Number of host processes in this target 
+   UInt32  m_application_tiles_current_target; // Number of application tiles used in this target 
+   UInt32  m_total_tiles_current_target; // Number of total tiles used in this target 
 
    std::vector<TileParameters> m_tile_parameters_vec;         // Vector holding main tile parameters
    std::vector<NetworkParameters> m_network_parameters_vec;   // Vector holding network parameters
@@ -243,17 +245,21 @@ private:
 
    UInt32  m_mcp_process;          // The process where the MCP lives
 
+   ProcessList m_process_list_current_target;  // The process indexes of current target
+
    static Config *m_singleton;
 
    static UInt32 m_knob_total_tiles;
    static UInt32 m_knob_max_threads_per_core;
    static UInt32 m_knob_num_process;
-   static UInt32 m_knob_num_target;   //sqc_multi
+   static UInt32 m_knob_num_target;  
    static bool m_knob_simarch_has_shared_mem;
    static std::string m_knob_output_file;
    static bool m_knob_enable_core_modeling;
    static bool m_knob_enable_power_modeling;
    static bool m_knob_enable_area_modeling;
+   static char* m_knob_proc_index_str;
+   static char* m_knob_target_index_str; 
 
    // Get Tile & Network Parameters
    void parseTileParameters();

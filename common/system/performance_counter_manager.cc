@@ -8,6 +8,7 @@
 #include "packetize.h"
 #include "message_types.h"
 #include "log.h"
+#include "mcp.h"
 
 PerformanceCounterManager::PerformanceCounterManager()
    : _num_toggle_requests_received(0)
@@ -18,15 +19,20 @@ PerformanceCounterManager::~PerformanceCounterManager()
 {}
 
 void
-PerformanceCounterManager::masterTogglePerformanceCountersRequest(Byte* msg)
+PerformanceCounterManager::masterTogglePerformanceCountersRequest(Byte* msg, core_id_t core_id)
 {
    SInt32 msg_type = *((SInt32*) msg);
    Config* config = Config::getSingleton(); 
    
-   LOG_PRINT("Processing message in masterTogglePerformanceCounterRequester()  -- type : %i", msg_type);
+   LOG_PRINT("Processing message in masterTogglePerformanceCounterRequester()  -- type : %i, sender : %i", msg_type, core_id.tile_id);
+   // Set the application running status to false for clock barrier.
+   UInt32 target_id = config->getCurrentTargetNum(); 
+   Sim()->getMCP()->getClockSkewManagementServer()->setTargetRunningStatus(target_id ,false);
+
    // If received message from all targets, proceed to initialize models.
    // Else, wait till this is received from all targets
    _num_toggle_requests_received ++;
+   
    if (_num_toggle_requests_received == config->getTargetCount())
    {
       Transport::Node *transport = Transport::getSingleton()->getGlobalNode();
@@ -34,10 +40,14 @@ PerformanceCounterManager::masterTogglePerformanceCountersRequest(Byte* msg)
       send_buff << (SInt32) LCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS << msg_type;
 
       // Send message to all processes to enable models
-      for (SInt32 i = 0; i < (SInt32) Config::getSingleton()->getProcessCount(); i++)
+      for (SInt32 i = 0; i < (SInt32) config->getProcessCount(); i++)
          transport->globalSend(i, send_buff.getBuffer(), send_buff.size());
 
       _num_toggle_requests_received = 0;
+
+      for (UInt32 i = 0; i < (UInt32) config->getTargetCount(); i++)
+         Sim()->getMCP()->getClockSkewManagementServer()->setTargetRunningStatus(i ,true);
+      
    }
 }
 

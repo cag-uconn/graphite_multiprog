@@ -14,7 +14,7 @@
 #include "config.h"
 #include "simulator.h" //interface to config file singleton
 #include "socktransport.h"
-
+#include "utils.h"
 using std::string;
 
 SockTransport::SockTransport()
@@ -46,11 +46,17 @@ SockTransport::SockTransport()
 
 void SockTransport::getProcInfo()  //sqc_multi 
 {
-   m_num_procs = (SInt32)Config::getSingleton()->getProcessCount();
-   m_num_targets = (SInt32)Config::getSingleton()->getTargetCount();
+   Config* config = Config::getSingleton();
+   m_num_procs = (SInt32)config->getProcessCount();
+   m_num_targets = (SInt32)config->getTargetCount();
 
    LOG_PRINT("Num-Host-Processes: %u, Num-Target-Processes: %u", m_num_procs, m_num_targets);
 
+   m_proc_index = (SInt32)config->getCurrentProcessNum();
+   m_target_index = (SInt32)config->getCurrentTargetNum();
+   LOG_PRINT("Target %i, Process %i: Number of Processes (%i); Number of Application Tiles (%i); Number of Total Tiles (%i) \n", m_target_index, m_proc_index, config->getProcessCountCurrentTarget(), config->getApplicationTilesCurrentTarget(), config->getTotalTilesCurrentTarget());
+ 
+/*
    const char *proc_index_str = getenv("CARBON_PROCESS_INDEX");
    LOG_ASSERT_ERROR(proc_index_str != NULL || m_num_procs == 1,
                     "Process index undefined with multiple processes.");
@@ -86,10 +92,18 @@ void SockTransport::getProcInfo()  //sqc_multi
    snprintf(target_str, 8, "%d", m_target_index);
    string target_string = "target_map/target";
    target_string += target_str;
-   UInt32 num_procs_target = Sim()->getCfg()->getInt(target_string);
+   string target_map_str = Sim()->getCfg()->getString(target_string);
    
-   Config::getSingleton()->setProcessCountCurrentTarget(num_procs_target);
-   LOG_PRINT("Number of process in target %i: (%i) \n", m_target_index, num_procs_target);
+   vector<string> target_map_tuple;
+   parseList(target_map_str, target_map_tuple, ","); 
+   UInt32 num_process_current_target = std::stoi(target_map_tuple.front());
+   UInt32 num_application_tiles_current_target = std::stoi(target_map_tuple.back());
+
+   Config::getSingleton()->setProcessCountCurrentTarget(num_process_current_target);
+   Config::getSingleton()->setApplicationTilesCurrentTarget(num_application_tiles_current_target);
+ 
+   LOG_PRINT("Target %i: Number of Processes (%i); Number of Application Tiles (%i) \n", m_target_index, num_process_current_target, num_application_tiles_current_target);
+*/
 }
 
 void SockTransport::initBufferLists()

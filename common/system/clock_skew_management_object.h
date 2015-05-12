@@ -63,6 +63,9 @@ public:
    virtual ~ClockSkewManagementServer() {}
    static ClockSkewManagementServer* create(std::string scheme_str, Network& network, UnstructuredBuffer& recv_buff);
 
-   virtual void processSyncMsg(core_id_t core_id) = 0;
+   virtual void processSyncMsgGlobal(core_id_t core_id) = 0;
+   virtual void processSyncMsgGlobalAck(core_id_t core_id) = 0;
+   virtual void processSyncMsgLocal(core_id_t core_id) = 0;
    virtual void signal() = 0;
+   virtual void setTargetRunningStatus(UInt32 target_id, bool status) = 0;
 };

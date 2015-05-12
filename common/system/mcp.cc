@@ -142,14 +142,24 @@ void MCP::processPacket()
       Sim()->getThreadManager()->masterJoinThread((ThreadJoinRequest*)recv_pkt.data, recv_pkt.time);
       break;
 
-   case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT:
+   case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT_GLOBAL:
       assert(_clock_skew_management_server);
-      _clock_skew_management_server->processSyncMsg(recv_pkt.sender);
+      _clock_skew_management_server->processSyncMsgGlobal(recv_pkt.sender);
       break;
 
+   case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT_GLOBAL_ACK:
+      assert(_clock_skew_management_server);
+      _clock_skew_management_server->processSyncMsgGlobalAck(recv_pkt.sender);
+      break;
+
+   case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT_LOCAL:
+      assert(_clock_skew_management_server);
+      _clock_skew_management_server->processSyncMsgLocal(recv_pkt.sender);
+      break;
+      
    case MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS:
       LOG_PRINT("entering masterTogglePerformanceCountersRequest()"); 
-      Sim()->getPerformanceCounterManager()->masterTogglePerformanceCountersRequest((Byte*)recv_pkt.data+sizeof(msg_type));   //sqc_multi not sure about the input, may need to change
+      Sim()->getPerformanceCounterManager()->masterTogglePerformanceCountersRequest((Byte*)recv_pkt.data+sizeof(msg_type), recv_pkt.sender); 
       break;
 
    case MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS_ACK:
