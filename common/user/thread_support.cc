@@ -111,7 +111,7 @@ int CarbonSpawnThreadSpawner()
 // This function will spawn threads provided by the sim
 void *CarbonThreadSpawner(void *)
 {
-   ThreadSpawnRequest req = {-1, NULL, NULL, INVALID_CORE_ID, INVALID_THREAD_ID, Sim()->getConfig()->getCurrentThreadSpawnerCoreId(), 0};
+   ThreadSpawnRequest req = {-1, NULL, NULL, INVALID_CORE_ID, INVALID_THREAD_ID, Sim()->getConfig()->getCurrentThreadSpawnerCoreID(), 0};
    CarbonThreadStart (&req);
 
    while(1)

@@ -79,7 +79,7 @@ Simulator::Simulator()
 
 void Simulator::start()
 {
-   LOG_PRINT("In Simulator ctor.");
+   LOG_PRINT("Simulator ctor starting...");
    _config.generateTileMap();
 
    initializeGraphiteHome();
@@ -97,7 +97,7 @@ void Simulator::start()
    if (_config_file->getBool("statistics_trace/enabled"))
       _statistics_manager = new StatisticsManager();
 
-   if (_config.getCurrentProcessNum() == 0)
+   if (_config.isMasterProcess())   //sqc_multi
       _mcp = new MCP(getMCPNetwork());
    _lcp = new LCP();
 
@@ -110,6 +110,7 @@ void Simulator::start()
       _statistics_manager->spawnThread();
 
    shutdownPowerModelingTools();
+   LOG_PRINT("Simulator ctor done...");
 }
 
 Simulator::~Simulator()
@@ -287,7 +288,8 @@ void Simulator::shutdownPowerModelsDatabase()
 
 Network& Simulator::getMCPNetwork()
 {
-   Tile* mcp_core = _tile_manager->getTileFromID(_config.getMCPTileNum());
+   Tile* mcp_core = _tile_manager->getTileFromID(_config.getMCPTileID());   //sqc_multi
+   fprintf(stderr, "Target MCP Tile Num (%i) \n", _config.getMCPTileID());   //sqc_multi
    LOG_ASSERT_ERROR(mcp_core, "Could not find the MCP's core");
    return *(mcp_core->getNetwork());
 }

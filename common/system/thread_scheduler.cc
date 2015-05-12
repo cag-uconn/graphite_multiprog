@@ -38,7 +38,7 @@ ThreadScheduler::ThreadScheduler(ThreadManager *thread_manager, TileManager *til
 {
    Config *config = Config::getSingleton();
 
-   m_master = config->getCurrentProcessNum() == 0;
+   m_master = config->isMasterProcess();
 
    m_thread_manager = thread_manager;
    m_thread_manager->setThreadScheduler(this);
@@ -79,7 +79,7 @@ ThreadScheduler::~ThreadScheduler()
 
 void ThreadScheduler::onThreadExit()
 {
-   if (m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getCurrentThreadSpawnerTileNum() && m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getMCPTileNum())
+   if (m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getCurrentThreadSpawnerTileID() && m_tile_manager->getCurrentTileID() != Sim()->getConfig()->getMCPTileID())
    {
       // Wait for master to update the next thread
       Core *core = m_tile_manager->getCurrentCore();
@@ -105,8 +105,8 @@ void ThreadScheduler::masterOnThreadExit(core_id_t core_id, SInt32 thread_idx)
    LOG_PRINT("In ThreadScheduler::masterOnThreadExit thread %i on {%i, %i}", thread_idx, core_id.tile_id, core_id.core_type); 
    m_core_lock[core_id.tile_id].acquire();
 
-   assert(m_thread_manager->isCoreRunning(core_id) == INVALID_THREAD_ID);
-   if (core_id.tile_id != Sim()->getConfig()->getCurrentThreadSpawnerTileNum() && core_id.tile_id != Sim()->getConfig()->getMCPTileNum())
+   assert(m_thread_manager->getRunningThreadIDX(core_id) == INVALID_THREAD_ID);
+   if (core_id.tile_id != Sim()->getConfig()->getCurrentThreadSpawnerTileID() && core_id.tile_id != Sim()->getConfig()->getMCPTileID())
       if (!m_waiter_queue[core_id.tile_id].empty())
          m_waiter_queue[core_id.tile_id].pop(); 
 
@@ -156,7 +156,7 @@ void ThreadScheduler::masterScheduleThread(ThreadSpawnRequest *req)
    std::vector< std::vector<ThreadManager::ThreadState> > thread_state = m_thread_manager->getThreadState();
 
    // Add thread to spawning queue.
-   if (req->destination.tile_id != Sim()->getConfig()->getCurrentThreadSpawnerTileNum())
+   if (req->destination.tile_id != Sim()->getConfig()->getCurrentThreadSpawnerTileID())
    {
       ThreadSpawnRequest *req_cpy = new ThreadSpawnRequest;
       *req_cpy = *req;
@@ -170,12 +170,12 @@ void ThreadScheduler::masterScheduleThread(ThreadSpawnRequest *req)
       // If the requesting tile is the destination tile, the calling thread is stalled, but should be set as the
       // running thread because it will resume after the spawn call.
       if (Tile::isMainCore(req->requester))
-         running_thread = thread_state[req->requester.tile_id][req->requester_tidx].thread_id;
+         running_thread = thread_state[m_thread_manager->getTileIDXFromTileID(req->requester.tile_id)][req->requester_tidx].thread_id;
    }
    else
    {
       // Otherwise check if the destination core has a thread already running or about to run.
-      running_thread = m_thread_manager->isCoreRunning(req->destination);
+      running_thread = m_thread_manager->getRunningThreadIDX(req->destination);
       if (running_thread == INVALID_THREAD_ID)
          is_thread_startable = (!m_thread_manager->isCoreInitializing(req->destination) && !m_thread_manager->isCoreStalled(req->destination));
    }
@@ -183,10 +183,12 @@ void ThreadScheduler::masterScheduleThread(ThreadSpawnRequest *req)
    // Grab the thread states on destination tile and set to initializing.
    if (Tile::isMainCore(req->destination))
    {
-      LOG_ASSERT_ERROR(thread_state[req->destination.tile_id][req->destination_tidx].status == Core::IDLE,
+      LOG_ASSERT_ERROR(thread_state[m_thread_manager->getTileIDXFromTileID(req->destination.tile_id)][req->destination_tidx].status == Core::IDLE,
                        "Spawning a non-idle thread at %i on {%i, %i}",
                        req->destination_tidx, req->destination.tile_id, req->destination.core_type); 
       m_thread_manager->setThreadState(req->destination.tile_id, req->destination_tidx, Core::INITIALIZING);
+     
+      std::vector< std::vector<ThreadManager::ThreadState> > thread_state = m_thread_manager->getThreadState();
    }
    else
    {
@@ -204,7 +206,7 @@ void ThreadScheduler::masterScheduleThread(ThreadSpawnRequest *req)
 
 void ThreadScheduler::masterStartThread(core_id_t core_id)
 {
-   LOG_ASSERT_ERROR(m_master, "masterStartThread should only be called on master.");
+   LOG_ASSERT_ERROR(m_master, "masterStartThread should only be called on master.");  //sqc_multi
    
    // Start the thread next in line.
    LOG_ASSERT_ERROR(!m_waiter_queue[core_id.tile_id].empty(), "m_waiter_queue[%i].size() = %d", core_id.tile_id, m_waiter_queue[core_id.tile_id].size() );
@@ -216,7 +218,7 @@ void ThreadScheduler::masterStartThread(core_id_t core_id)
    m_last_start_time[req->destination.tile_id][req->destination_tidx] = (UInt32) time(NULL);
 
    // Spawn the thread by calling LCP on correct process.
-   LOG_ASSERT_ERROR(thread_state[req->destination.tile_id][req->destination_tidx].status == Core::INITIALIZING || thread_state[req->destination.tile_id][req->destination_tidx].status == Core::STALLED, "Haven't made this work for starting waiting threads yet, current status %i", thread_state[req->destination.tile_id][req->destination_tidx].status);
+   LOG_ASSERT_ERROR(thread_state[m_thread_manager->getTileIDXFromTileID(req->destination.tile_id)][req->destination_tidx].status == Core::INITIALIZING || thread_state[m_thread_manager->getTileIDXFromTileID(req->destination.tile_id)][req->destination_tidx].status == Core::STALLED, "Haven't made this work for starting waiting threads yet, current status %i", thread_state[m_thread_manager->getTileIDXFromTileID(req->destination.tile_id)][req->destination_tidx].status);
 
    LOG_PRINT("Thread(%i) to be started on  core id(%i, %i)", req->destination_tidx, req->destination.tile_id, req->destination.core_type);
    if (Sim()->getConfig()->getSimulationMode() == Config::FULL)
@@ -257,7 +259,7 @@ void ThreadScheduler::migrateThread(thread_id_t thread_id, tile_id_t tile_id)
    Network *net = m_tile_manager->getCurrentTile()->getNetwork();
 
    // update global thread state
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getMCPCoreID(),
                 MCP_REQUEST_TYPE,
                 msg,
                 sizeof(SInt32) + sizeof(thread_id_t) + sizeof(tile_id_t) + sizeof(SInt32));
@@ -328,7 +330,7 @@ void ThreadScheduler::masterMigrateThread(thread_id_t src_thread_idx, core_id_t 
          m_waiter_queue[dst_core_id.tile_id].push(migrating_thread_req);
 
          // Start thread if it is startable.
-         thread_id_t running_thread = m_thread_manager->isCoreRunning(dst_core_id);
+         thread_id_t running_thread = m_thread_manager->getRunningThreadIDX(dst_core_id);
          bool is_thread_startable = false;
 
          if (running_thread == INVALID_THREAD_ID)
@@ -381,7 +383,7 @@ bool ThreadScheduler::schedSetAffinity(thread_id_t tid, unsigned int cpusetsize,
                                  };
 
    Network *net = core->getTile()->getNetwork();
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getMCPCoreID(),
                 MCP_REQUEST_TYPE,
                 &req,
                 sizeof(req));
@@ -432,7 +434,7 @@ bool ThreadScheduler::schedGetAffinity(thread_id_t tid, unsigned int cpusetsize,
                                  };
 
    Network *net = core->getTile()->getNetwork();
-   net->netSend(Config::getSingleton()->getMCPCoreId(),
+   net->netSend(Config::getSingleton()->getMCPCoreID(),
                 MCP_REQUEST_TYPE,
                 &req,
                 sizeof(req));
@@ -520,7 +522,7 @@ bool ThreadScheduler::masterCheckAffinityAndMigrate(core_id_t core_id, thread_id
             current_core_id =  Tile::getMainCoreId(i);
             if (CPU_ISSET_S(i, setsize, set) != 0)
             {
-               if (m_thread_manager->isCoreRunning(current_core_id) == INVALID_THREAD_ID)
+               if (m_thread_manager->getRunningThreadIDX(current_core_id) == INVALID_THREAD_ID)
                {
                   dst_core_id = current_core_id;
                   break;
@@ -653,7 +655,7 @@ void ThreadScheduler::yieldThread(bool is_pre_emptive)
       };
 
       Network *net = core->getTile()->getNetwork();
-      net->netSend(Config::getSingleton()->getMCPCoreId(),
+      net->netSend(Config::getSingleton()->getMCPCoreID(),
             MCP_REQUEST_TYPE,
             &req,
             sizeof(req));

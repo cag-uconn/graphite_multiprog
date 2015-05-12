@@ -36,7 +36,7 @@ class BasicScheduler(Scheduler):
       # Kill all jobs
       for job in self.running:
          msg = colorstr('Keyboard interrupt. Killing simulation', 'RED')
-         print "%s: %s" % (msg, job.command)
+         #print "%s: %s" % (msg, job.command)
          job.kill()
    
    # helpers

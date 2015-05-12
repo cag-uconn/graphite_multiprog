@@ -21,22 +21,21 @@ class ThreadManager
 public:
    struct ThreadState
    {
-      Core::State status;
-      core_id_t waiter_core;
-      thread_id_t waiter_tid;
-      thread_id_t thread_id;
-      pid_t os_tid;
-      cpu_set_t * cpu_set;
-      Time completion_time;
-
       ThreadState()
          : status(Core::IDLE)
          , waiter_core(INVALID_CORE_ID)
-         , waiter_tid(INVALID_THREAD_ID)
+         , waiter_tidx(INVALID_THREAD_IDX)
          , thread_id(INVALID_THREAD_ID)
          , completion_time(0)
-      {
-      } 
+      {}
+
+      Core::State status;
+      core_id_t waiter_core;
+      SInt32 waiter_tidx;
+      thread_id_t thread_id;
+      pid_t os_tid;
+      cpu_set_t* cpu_set;
+      Time completion_time;
    };
 
    ThreadManager(TileManager*);
@@ -61,7 +60,7 @@ public:
    void stallThread(tile_id_t tile_id, thread_id_t thread_id);
    void stallThread(core_id_t core_id, thread_id_t thread_id);
    void stallThread(core_id_t core_id);
-
+   
    void resumeThread(tile_id_t tile_id, thread_id_t thread_id);
    void resumeThread(core_id_t core_id, thread_id_t thread_id);
    void resumeThread(core_id_t core_id);
@@ -75,9 +74,10 @@ public:
    bool isThreadStalled(tile_id_t tile_id, thread_id_t thread_id);
    bool isThreadStalled(core_id_t core_id, thread_id_t thread_id);
 
+   thread_id_t getRunningThreadIDX(core_id_t core_id);
+   thread_id_t getRunningThreadIDX(tile_id_t tile_id);
+  
    bool areAllCoresRunning();
-   thread_id_t isCoreRunning(core_id_t core_id);
-   thread_id_t isCoreRunning(tile_id_t tile_id);
 
    bool isCoreInitializing(tile_id_t tile_id);
    bool isCoreInitializing(core_id_t core_id);
@@ -90,7 +90,7 @@ public:
 
 
    void setThreadState(tile_id_t tile_id, thread_id_t tidx, ThreadState state);
-   void setThreadState(tile_id_t tile_id, thread_id_t tidx, Core::State state) {assert(m_master); m_thread_state[tile_id][tidx].status = state;}
+   void setThreadState(tile_id_t tile_id, thread_id_t tidx, Core::State state) {assert(m_master);SInt32 tile_idx = getTileIDXFromTileID(tile_id); m_thread_state[tile_idx][tidx].status = state;}
 
    int setThreadAffinity(pid_t pid, cpu_set_t* set);
    void setThreadAffinity(tile_id_t tile_id, thread_id_t tidx, cpu_set_t* set);
@@ -100,10 +100,13 @@ public:
 
    void setOSTid(core_id_t core_id, thread_id_t thread_idx, pid_t pid);
    void masterSetOSTid(tile_id_t tile_id, thread_id_t thread_idx, pid_t pid);
-   void queryThreadIndex(thread_id_t thread_id, core_id_t &core_id, thread_id_t &thread_idx, thread_id_t &next_tidx);
 
    friend class ThreadScheduler;
    void setThreadScheduler(ThreadScheduler* thread_scheduler) {m_thread_scheduler = thread_scheduler;}
+
+   // Translate between tileID and tileIDX
+   SInt32 getTileIDXFromTileID(tile_id_t tile_id);
+   tile_id_t getTileIDFromTileIDX(SInt32 tile_idx);
 
 private:
 
@@ -133,7 +136,6 @@ private:
    UInt32 getNumScheduledThreads(core_id_t core_id);
    thread_id_t getIdleThread(core_id_t core_id);
    void masterQueryThreadIndex(tile_id_t req_tile_id, SInt32 req_core_type, thread_id_t thread_id);
-
 
    thread_id_t m_tid_counter;
    Lock m_tid_counter_lock;

@@ -1,5 +1,5 @@
 #include "config.h"
-
+#include <stdio.h>
 #include "network_model.h"
 #include "network_types.h"
 #include "packet_type.h"
@@ -13,12 +13,15 @@
 
 UInt32 Config::m_knob_total_tiles;
 UInt32 Config::m_knob_num_process;
+UInt32 Config::m_knob_num_target;
 bool Config::m_knob_simarch_has_shared_mem;
 std::string Config::m_knob_output_file;
 bool Config::m_knob_enable_core_modeling;
 bool Config::m_knob_enable_power_modeling;
 bool Config::m_knob_enable_area_modeling;
 UInt32 Config::m_knob_max_threads_per_core;
+char* Config::m_knob_proc_index_str;
+char* Config::m_knob_target_index_str;
 
 using namespace std;
 
@@ -39,6 +42,7 @@ Config::Config()
    {
       m_knob_total_tiles = Sim()->getCfg()->getInt("general/total_cores");
       m_knob_num_process = Sim()->getCfg()->getInt("general/num_processes");
+      m_knob_num_target = Sim()->getCfg()->getInt("general/num_targets");   //sqc_multi
       m_knob_simarch_has_shared_mem = Sim()->getCfg()->getBool("general/enable_shared_mem");
       m_knob_output_file = Sim()->getCfg()->getString("general/output_file");
       m_knob_enable_core_modeling = Sim()->getCfg()->getBool("general/enable_core_modeling");
@@ -46,9 +50,14 @@ Config::Config()
       m_knob_enable_area_modeling = Sim()->getCfg()->getBool("general/enable_area_modeling");
       // WARNING: Do not change this parameter. Hard-coded until multi-threading bug is fixed
       m_knob_max_threads_per_core = 1; // Sim()->getCfg()->getInt("general/max_threads_per_core");
-
+      
       // Simulation Mode
       m_simulation_mode = parseSimulationMode(Sim()->getCfg()->getString("general/mode"));
+    
+      // Target and Process Index, moved from socktransport.cc 
+      m_knob_proc_index_str = getenv("CARBON_PROCESS_INDEX");
+      m_knob_target_index_str = getenv("CARBON_TARGET_INDEX");
+   
    }
    catch(...)
    {
@@ -57,13 +66,58 @@ Config::Config()
    }
 
    m_num_processes = m_knob_num_process;
+   m_num_targets = m_knob_num_target;
    m_total_tiles = m_knob_total_tiles;
    m_application_tiles = m_total_tiles;
    m_max_threads_per_core = m_knob_max_threads_per_core;
-
    m_num_cores_per_tile = 1;
 
-   if ((m_simulation_mode == LITE) && (m_num_processes > 1))
+   if(m_num_processes > 1 && m_knob_proc_index_str == NULL)
+   {
+      fprintf(stderr, "ERROR: Process index undefined with multiple processes.\n");
+   }
+
+   if(m_num_targets > 1 && m_knob_target_index_str == NULL )
+   {
+      fprintf(stderr, "ERROR: Target index undefined with multiple targets.\n");
+   }
+   
+   if (m_knob_proc_index_str)
+      m_current_process_num = atoi(m_knob_proc_index_str);
+   else
+      m_current_process_num = 0;
+
+   if (m_current_process_num < 0 || m_current_process_num >= m_num_processes)
+   { 
+      fprintf(stderr, "Invalid process index: %d with num processes: %d", m_current_process_num, m_num_processes);
+   }
+
+   setProcessNum(m_current_process_num);///////// master process number is set here,  should be changed.
+
+   if (m_knob_target_index_str)
+      m_current_target_num = atoi(m_knob_target_index_str);
+   else
+      m_current_target_num = 0;
+
+   if (m_current_target_num < 0 || m_current_target_num >= m_num_targets)
+   { 
+      fprintf(stderr, "Invalid target index: %d with num targets: %d", m_current_target_num, m_num_targets);
+   }
+
+   // set host process number in this target
+   char target_str[8];
+   snprintf(target_str, 8, "%d", m_current_target_num);
+   string target_string = "target_map/target";
+   target_string += target_str;
+   string target_map_str = Sim()->getCfg()->getString(target_string);
+   
+   vector<string> target_map_tuple;
+   parseList(target_map_str, target_map_tuple, ","); 
+   m_num_processes_current_target = std::stoi(target_map_tuple.front());
+   m_application_tiles_current_target = std::stoi(target_map_tuple.back());
+   m_total_tiles_current_target = m_application_tiles_current_target;
+ 
+   if ((m_simulation_mode == LITE) && (m_num_processes_current_target > 1))
    {
       fprintf(stderr, "ERROR: Use only 1 process in lite mode\n");
       exit(EXIT_FAILURE);
@@ -74,13 +128,16 @@ Config::Config()
    assert(m_num_processes > 0);
    assert(m_total_tiles > 0);
 
-   // Add one for the MCP
-   m_total_tiles += 1;
+   // Add MCPs (one for each target) sqc_multi
+   m_total_tiles += m_num_targets;
+   m_total_tiles_current_target += 1;
 
    // Add the thread-spawners (one for each process)
-   if (m_simulation_mode == FULL)
+   if (m_simulation_mode == FULL || m_num_targets >1 )
+   {
       m_total_tiles += m_num_processes;
-
+      m_total_tiles_current_target += m_num_processes_current_target;
+   }
    // Parse network parameters - Need to be done here to initialize the network models 
    parseNetworkParameters();
 
@@ -103,50 +160,68 @@ Config::~Config()
    delete [] m_proc_to_application_tile_list_map;
 }
 
-UInt32 Config::getTotalTiles()
+UInt32 Config::getTotalTiles() const
 {
    return m_total_tiles;
 }
 
-UInt32 Config::getApplicationTiles()
+UInt32 Config::getApplicationTiles() const
 {
    return m_application_tiles;
 }
 
-bool Config::isApplicationTile(tile_id_t tile_id)
+bool Config::isApplicationTile(tile_id_t tile_id) const
 {
    return ((tile_id >= 0) && (tile_id < (tile_id_t) getApplicationTiles()));
 }
 
-tile_id_t Config::getThreadSpawnerTileNum(UInt32 proc_num)
+Config::TileList Config::getThreadSpawnerTileIDList() const
 {
-   if (m_simulation_mode == FULL)
-      return (getTotalTiles() - (1 + getProcessCount() - proc_num));
-   else
-      return INVALID_TILE_ID;
+   TileList tile_id_list;
+   ProcessList process_num_list = getProcessNumList();
+   for (ProcessList::iterator itr = process_num_list.begin(); itr != process_num_list.end(); itr ++)
+      tile_id_list.push_back(getThreadSpawnerTileID(*itr));
+   return tile_id_list;
 }
 
-core_id_t Config::getThreadSpawnerCoreId(UInt32 proc_num)
+tile_id_t Config::getThreadSpawnerTileID(UInt32 proc_num) const
 {
-   return (core_id_t) {getThreadSpawnerTileNum(proc_num), MAIN_CORE_TYPE};
+   //assert(m_simulation_mode == FULL); //sqc_multi
+   return getApplicationTiles() + proc_num;
 }
 
-tile_id_t Config::getCurrentThreadSpawnerTileNum()
+core_id_t Config::getThreadSpawnerCoreID(UInt32 proc_num) const
 {
-   if (m_simulation_mode == FULL)
-      return (getTotalTiles() - (1 + getProcessCount() - getCurrentProcessNum()));
-   else
-      return INVALID_TILE_ID;
+   return (core_id_t) {getThreadSpawnerTileID(proc_num), MAIN_CORE_TYPE};
 }
 
-core_id_t Config::getCurrentThreadSpawnerCoreId()
+tile_id_t Config::getCurrentThreadSpawnerTileID() const
 {
-   return (core_id_t) {getCurrentThreadSpawnerTileNum(), MAIN_CORE_TYPE};
+   return getThreadSpawnerTileID(getCurrentProcessNum());
+}
+
+core_id_t Config::getCurrentThreadSpawnerCoreID() const
+{
+   return getThreadSpawnerCoreID(getCurrentProcessNum());
 }
 
 UInt32 Config::computeTileIDLength(UInt32 application_tile_count)
 {
    return ceilLog2(application_tile_count);
+}
+
+const Config::TileList
+Config::getTileIDList() const
+{
+   TileList target_tile_id_list;
+   ProcessList process_num_list = getProcessNumList();
+   for (ProcessList::iterator itr = process_num_list.begin(); itr != process_num_list.end(); itr ++)
+   {
+      TileList tile_id_list = getTileListForProcess(*itr);
+      for (TileList::iterator itr2 = tile_id_list.begin(); itr2 != tile_id_list.end(); itr2 ++)
+         target_tile_id_list.push_back(*itr2);
+   }
+   return target_tile_id_list;
 }
 
 void Config::generateTileMap()
@@ -175,9 +250,9 @@ void Config::generateTileMap()
    if (m_simulation_mode == FULL)
    {
       // Assign the thread-spawners to tiles
-      // Thread-spawners occupy tile-id's (m_application_tiles) to (m_total_tiles - 2)
+      // Thread-spawners occupy tile-id's (m_application_tiles) to (m_total_tiles - 2) // to (m_total_tiles - m_num_targets -1) for multi-app sqc_multi
       UInt32 current_proc = 0;
-      for (UInt32 i = m_application_tiles; i < (m_total_tiles - 1); i++)
+      for (UInt32 i = m_application_tiles; i < (m_total_tiles - m_num_targets); i++)
       {
          assert((current_proc >= 0) && (current_proc < m_num_processes));
          m_tile_to_proc_map[i] = current_proc;
@@ -186,10 +261,16 @@ void Config::generateTileMap()
       }
    }
    
-   // Add one for the MCP
-   m_proc_to_tile_list_map[0].push_back(m_total_tiles - 1);
-   m_tile_to_proc_map[m_total_tiles - 1] = 0;
-
+   // Add MCPs (one for each target)
+   UInt32 current_target = 0;
+   for (UInt32 i = (m_total_tiles - m_num_targets); i < m_total_tiles; i++)
+   {
+      UInt32 master_process_id = getMasterProcessID(current_target);
+      m_tile_to_proc_map[i] = master_process_id;
+      m_proc_to_tile_list_map[master_process_id].push_back(i);
+      current_target++;
+   }
+   
    // Log the tile map
    logTileMap();
 }
@@ -216,6 +297,8 @@ Config::computeProcessToTileMapping()
       }
    }
    
+   
+   //this may need to be changed sqc_multi
    vector<TileList> process_to_tile_mapping(m_num_processes);
    UInt32 current_proc = 0;
    for (UInt32 i = 0; i < m_application_tiles; i++)
@@ -476,7 +559,7 @@ void Config::parseNetworkParameters()
    }
 }
 
-string Config::getCoreType(tile_id_t tile_id)
+string Config::getCoreType(tile_id_t tile_id) const
 {
    LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
          "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
@@ -487,7 +570,7 @@ string Config::getCoreType(tile_id_t tile_id)
    return m_tile_parameters_vec[tile_id].getCoreType();
 }
 
-string Config::getL1ICacheType(tile_id_t tile_id)
+string Config::getL1ICacheType(tile_id_t tile_id) const
 {
    LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
          "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
@@ -498,7 +581,7 @@ string Config::getL1ICacheType(tile_id_t tile_id)
    return m_tile_parameters_vec[tile_id].getL1ICacheType();
 }
 
-string Config::getL1DCacheType(tile_id_t tile_id)
+string Config::getL1DCacheType(tile_id_t tile_id) const
 {
    LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
          "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
@@ -509,7 +592,7 @@ string Config::getL1DCacheType(tile_id_t tile_id)
    return m_tile_parameters_vec[tile_id].getL1DCacheType();
 }
 
-string Config::getL2CacheType(tile_id_t tile_id)
+string Config::getL2CacheType(tile_id_t tile_id) const
 {
    LOG_ASSERT_ERROR(tile_id < ((SInt32) getTotalTiles()),
          "tile_id(%i), total tiles(%u)", tile_id, getTotalTiles());
@@ -520,7 +603,7 @@ string Config::getL2CacheType(tile_id_t tile_id)
    return m_tile_parameters_vec[tile_id].getL2CacheType();
 }
 
-string Config::getNetworkType(SInt32 network_id)
+string Config::getNetworkType(SInt32 network_id) const
 {
    LOG_ASSERT_ERROR(m_network_parameters_vec.size() == NUM_STATIC_NETWORKS,
          "m_network_parameters_vec.size(%u), NUM_STATIC_NETWORKS(%u)",

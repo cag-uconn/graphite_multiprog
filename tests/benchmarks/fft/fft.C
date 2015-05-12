@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
   // Enable Models
   CarbonEnableModels();
 
-  CREATE(SlaveStart, P);
+  CREATE(SlaveStart, P); 
   WAIT_FOR_END(P);
 
   // Disable Models

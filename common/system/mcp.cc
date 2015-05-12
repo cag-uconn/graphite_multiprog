@@ -11,6 +11,7 @@
 #include "syscall.h"
 #include "thread_manager.h"
 #include "thread_scheduler.h"
+#include "performance_counter_manager.h"
 
 using namespace std;
 
@@ -124,11 +125,6 @@ void MCP::processPacket()
                                                 *(pid_t*)((Byte*)recv_pkt.data+sizeof(msg_type)+sizeof(tile_id_t)+sizeof(thread_id_t)));
       break;
 
-   case MCP_MESSAGE_QUERY_THREAD_INDEX:
-      Sim()->getThreadManager()->masterQueryThreadIndex( *(tile_id_t*)((Byte*)recv_pkt.data+sizeof(msg_type)), 
-                                                         *(UInt32*)((Byte*)recv_pkt.data+sizeof(msg_type)+sizeof(tile_id_t)), 
-                                                         *(thread_id_t*)((Byte*)recv_pkt.data+sizeof(msg_type)+sizeof(tile_id_t)+sizeof(UInt32)));
-      break;
    case MCP_MESSAGE_THREAD_START:
       Sim()->getThreadManager()->masterOnThreadStart( *(tile_id_t*)((Byte*)recv_pkt.data+sizeof(msg_type)), 
                                                       *(UInt32*)((Byte*)recv_pkt.data+sizeof(msg_type)+sizeof(tile_id_t)), 
@@ -146,9 +142,28 @@ void MCP::processPacket()
       Sim()->getThreadManager()->masterJoinThread((ThreadJoinRequest*)recv_pkt.data, recv_pkt.time);
       break;
 
-   case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT:
+   case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT_GLOBAL:
       assert(_clock_skew_management_server);
-      _clock_skew_management_server->processSyncMsg(recv_pkt.sender);
+      _clock_skew_management_server->processSyncMsgGlobal(recv_pkt.sender);
+      break;
+
+   case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT_GLOBAL_ACK:
+      assert(_clock_skew_management_server);
+      _clock_skew_management_server->processSyncMsgGlobalAck(recv_pkt.sender);
+      break;
+
+   case MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT_LOCAL:
+      assert(_clock_skew_management_server);
+      _clock_skew_management_server->processSyncMsgLocal(recv_pkt.sender);
+      break;
+      
+   case MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS:
+      LOG_PRINT("entering masterTogglePerformanceCountersRequest()"); 
+      Sim()->getPerformanceCounterManager()->masterTogglePerformanceCountersRequest((Byte*)recv_pkt.data+sizeof(msg_type), recv_pkt.sender); 
+      break;
+
+   case MCP_MESSAGE_TOGGLE_PERFORMANCE_COUNTERS_ACK:
+      Sim()->getPerformanceCounterManager()->masterTogglePerformanceCountersResponse();
       break;
 
    default:
@@ -170,14 +185,15 @@ void MCP::quitThread()
 {
    LOG_PRINT("Send MCP thread quit message");
    SInt32 msg_type = MCP_MESSAGE_QUIT;
-   _network.netSend(Config::getSingleton()->getMCPCoreId(), MCP_SYSTEM_TYPE, &msg_type, sizeof(msg_type));
+   _network.netSend(Config::getSingleton()->getMCPCoreID(), MCP_SYSTEM_TYPE, &msg_type, sizeof(msg_type));   //sqc_multi may need to change later
    // Join thread
    _thread->join();
 }
 
 void MCP::run()
 {
-   core_id_t mcp_core_id = Config::getSingleton()->getMCPCoreId();
+   core_id_t mcp_core_id = Config::getSingleton()->getMCPCoreID();   //sqc_multi may need to change later
+   LOG_PRINT("Initial MCP thread in MCP.cc, MCP core id: %d", mcp_core_id);   //sqc_multi
    Sim()->getTileManager()->initializeThread(mcp_core_id);
    Sim()->getTileManager()->initializeCommId(mcp_core_id.tile_id);
 

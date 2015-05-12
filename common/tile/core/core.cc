@@ -140,6 +140,9 @@ Core::initiateMemoryAccess(MemComponent::Type mem_component, lock_signal_t lock_
                            IntPtr address, Byte* data_buf, UInt32 data_size,
                            bool push_info, Time time_arg)
 {
+   // Accommodate the target ID also within the address
+   address = address | (IntPtr) Config::getSingleton()->getCurrentTargetNum() << 48;
+
    LOG_ASSERT_ERROR(Config::getSingleton()->isSimulatingSharedMemory(), "Shared Memory Disabled");
    DynamicMemoryInfo dynamic_memory_info(address, data_size, mem_op_type, lock_signal);
 

@@ -14,7 +14,7 @@
 #include "config.h"
 #include "simulator.h" //interface to config file singleton
 #include "socktransport.h"
-
+#include "utils.h"
 using std::string;
 
 SockTransport::SockTransport()
@@ -44,14 +44,27 @@ SockTransport::SockTransport()
    m_global_node = new SockNode(GLOBAL_TAG, this);
 }
 
-void SockTransport::getProcInfo()
+void SockTransport::getProcInfo()  //sqc_multi 
 {
-   m_num_procs = (SInt32)Config::getSingleton()->getProcessCount();
+   Config* config = Config::getSingleton();
+   m_num_procs = (SInt32)config->getProcessCount();
+   m_num_targets = (SInt32)config->getTargetCount();
 
+   LOG_PRINT("Num-Host-Processes: %u, Num-Target-Processes: %u", m_num_procs, m_num_targets);
+
+   m_proc_index = (SInt32)config->getCurrentProcessNum();
+   m_target_index = (SInt32)config->getCurrentTargetNum();
+   LOG_PRINT("Target %i, Process %i: Number of Processes (%i); Number of Application Tiles (%i); Number of Total Tiles (%i) \n", m_target_index, m_proc_index, config->getProcessCountCurrentTarget(), config->getApplicationTilesCurrentTarget(), config->getTotalTilesCurrentTarget());
+ 
+/*
    const char *proc_index_str = getenv("CARBON_PROCESS_INDEX");
    LOG_ASSERT_ERROR(proc_index_str != NULL || m_num_procs == 1,
                     "Process index undefined with multiple processes.");
-
+					
+   const char *target_index_str = getenv("CARBON_TARGET_INDEX");
+   LOG_ASSERT_ERROR(target_index_str != NULL || m_num_targets == 1,
+                    "Target index undefined with multiple targets.");
+	  
    if (proc_index_str)
       m_proc_index = atoi(proc_index_str);
    else
@@ -62,6 +75,35 @@ void SockTransport::getProcInfo()
 
    Config::getSingleton()->setProcessNum(m_proc_index);
    LOG_PRINT("Process number set to %i", Config::getSingleton()->getCurrentProcessNum());
+   
+   if (target_index_str)
+      m_target_index = atoi(target_index_str);
+   else
+      m_target_index = 0;
+	  
+   LOG_ASSERT_ERROR(0 <= m_target_index && m_target_index < m_num_targets,
+                    "Invalid target index: %d with num_targets: %d", m_target_index, m_num_targets);
+
+   Config::getSingleton()->setTargetNum(m_target_index);
+   LOG_PRINT("Target number set to %i", Config::getSingleton()->getCurrentTargetNum());
+
+   // set host process number in this target
+   char target_str[8];
+   snprintf(target_str, 8, "%d", m_target_index);
+   string target_string = "target_map/target";
+   target_string += target_str;
+   string target_map_str = Sim()->getCfg()->getString(target_string);
+   
+   vector<string> target_map_tuple;
+   parseList(target_map_str, target_map_tuple, ","); 
+   UInt32 num_process_current_target = std::stoi(target_map_tuple.front());
+   UInt32 num_application_tiles_current_target = std::stoi(target_map_tuple.back());
+
+   Config::getSingleton()->setProcessCountCurrentTarget(num_process_current_target);
+   Config::getSingleton()->setApplicationTilesCurrentTarget(num_application_tiles_current_target);
+ 
+   LOG_PRINT("Target %i: Number of Processes (%i); Number of Application Tiles (%i) \n", m_target_index, num_process_current_target, num_application_tiles_current_target);
+*/
 }
 
 void SockTransport::initBufferLists()
@@ -76,11 +118,11 @@ void SockTransport::initBufferLists()
    m_buffer_list_sems = new Semaphore[m_num_lists];
 }
 
-void SockTransport::initSockets()
+void SockTransport::initSockets() 
 {
    SInt32 my_port;
 
-   LOG_PRINT("initSockets()");
+   LOG_PRINT("initSockets() start");
 
    // -- server side
    my_port = m_base_port + m_proc_index;
@@ -129,6 +171,7 @@ void SockTransport::initSockets()
 
       m_recv_sockets[proc_index] = sock;
    }
+   LOG_PRINT("initSockets() done");
 }
 
 void SockTransport::updateThreadFunc(void *vp)

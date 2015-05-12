@@ -58,7 +58,7 @@ private:
       Socket();
       ~Socket();
 
-      // server api
+      // server api 
       void listen(SInt32 port, SInt32 max_pending);
       Socket accept();
 
@@ -90,7 +90,9 @@ private:
 
    SInt32 m_base_port;
    SInt32 m_num_procs;
+   SInt32 m_num_targets;  //sqc_multi
    SInt32 m_proc_index;
+   SInt32 m_target_index; //sqc_multi
 
    Semaphore m_barrier_sem;
 

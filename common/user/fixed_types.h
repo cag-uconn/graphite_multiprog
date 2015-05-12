@@ -27,9 +27,11 @@ typedef struct
 
 typedef SInt32 thread_id_t;
 
-#define INVALID_THREAD_ID ((thread_id_t) -1)
-#define INVALID_CORE_ID ((core_id_t) {-1,0})
-#define INVALID_TILE_ID ((tile_id_t) -1)
+#define INVALID_THREAD_ID  ((thread_id_t) -1)
+#define INVALID_THREAD_IDX ((SInt32) -1)
+#define INVALID_TILE_ID    ((tile_id_t) -1)
+#define INVALID_TILE_IDX   ((SInt32) -1)
+#define INVALID_CORE_ID    ((core_id_t) {-1,0})
 
 #define INVALID_ADDRESS  ((IntPtr) -1)
 

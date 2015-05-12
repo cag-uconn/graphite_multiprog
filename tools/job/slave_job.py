@@ -10,7 +10,7 @@ class SlaveJob(Job):
       self.proc_num = proc_num
    
    def spawn(self):
-      return Job.spawn(self, self.proc_num)
+      return Job.spawn(self, self.proc_num, self.target_index)
 
    @staticmethod
    # getGraphiteHome:
