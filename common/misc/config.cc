@@ -133,7 +133,8 @@ Config::Config()
    m_total_tiles_current_target += 1;
 
    // Add the thread-spawners (one for each process)
-   if (m_simulation_mode == FULL || m_num_targets >1 )
+//   if (m_simulation_mode == FULL || m_num_targets >1 )
+   if (m_simulation_mode == FULL )
    {
       m_total_tiles += m_num_processes;
       m_total_tiles_current_target += m_num_processes_current_target;
@@ -247,7 +248,8 @@ void Config::generateTileMap()
       }
    }
  
-   if (m_simulation_mode == FULL)
+   if (m_simulation_mode == FULL )
+//   if (m_simulation_mode == FULL || m_num_targets >1 )
    {
       // Assign the thread-spawners to tiles
       // Thread-spawners occupy tile-id's (m_application_tiles) to (m_total_tiles - 2) // to (m_total_tiles - m_num_targets -1) for multi-app sqc_multi
