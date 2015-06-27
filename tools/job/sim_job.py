@@ -75,7 +75,7 @@ class SimJob:
 # SimJobMultiApp:
 #  a job built around the make system
 class SimJobMultiApp:
-   def __init__(self, command_MultiApp, num_machines, config_filename, config_filename_MultiApp, results_dir, sub_dir, sim_flags, app_flags_MultiApp, mode, scheduler):
+   def __init__(self, command_MultiApp, num_machines, config_filename, targets, results_dir, sub_dir, sim_flags, app_flags_MultiApp, mode, scheduler):
       self.command_MultiApp = command_MultiApp
       self.num_machines = num_machines
       self.config_filename = "%s/%s" % (os.getcwd(), config_filename)

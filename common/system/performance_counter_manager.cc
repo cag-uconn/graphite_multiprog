@@ -26,7 +26,8 @@ PerformanceCounterManager::masterTogglePerformanceCountersRequest(Byte* msg, cor
    
    LOG_PRINT("Processing message in masterTogglePerformanceCounterRequester()  -- type : %i, sender : %i", msg_type, core_id.tile_id);
    // Set the application running status to false for clock barrier.
-   UInt32 target_id = config->getCurrentTargetNum(); 
+   UInt32 target_id = core_id.tile_id; // The target is the same as the main thread ID when targets are interleaved  
+   LOG_PRINT("Target %i running status set to false", target_id);
    Sim()->getMCP()->getClockSkewManagementServer()->setTargetRunningStatus(target_id ,false);
 
    // If received message from all targets, proceed to initialize models.
@@ -46,8 +47,10 @@ PerformanceCounterManager::masterTogglePerformanceCountersRequest(Byte* msg, cor
       _num_toggle_requests_received = 0;
 
       for (UInt32 i = 0; i < (UInt32) config->getTargetCount(); i++)
+      {
          Sim()->getMCP()->getClockSkewManagementServer()->setTargetRunningStatus(i ,true);
-      
+         LOG_PRINT("Target %i running status set to true", i);
+      }
    }
 }
 
