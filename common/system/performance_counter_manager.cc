@@ -87,6 +87,7 @@ PerformanceCounterManager::togglePerformanceCounters(Byte* msg)
       Sim()->enableModels();
       break;
    case DISABLE:
+      // Model should already be disabled, in performance_counter_support 
       Sim()->disableModels();
       break;
    default:

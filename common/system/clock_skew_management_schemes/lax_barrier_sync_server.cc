@@ -222,4 +222,31 @@ void
 LaxBarrierSyncServer::setTargetRunningStatus(UInt32 target_id, bool status)
 {
    m_target_running_status_list[target_id] = status;
+
+   UInt32 num_running_targets = 0; 
+
+   for(UInt32 i=0 ; i <m_num_targets; i++)
+   {
+      if (m_target_running_status_list[i] == true)
+      {
+         num_running_targets ++;
+         LOG_PRINT("Checking target running status, targe %i is running",  i);
+      }
+   }
+
+   if (m_local_mcp_barrier_acquire == num_running_targets)
+   {
+      tile_id_t tile_id = Config::getSingleton()->getMasterMCPTileID();
+      LOG_PRINT("all target get to barrier");
+      for(UInt32 i=0 ; i <m_num_targets; i++)
+      {
+         UnstructuredBuffer m_send_buff;
+         int msg_type = MCP_MESSAGE_CLOCK_SKEW_MANAGEMENT_GLOBAL_ACK;
+         m_send_buff << msg_type;
+         if (m_target_running_status_list[i] == true)
+            m_network.netSend((core_id_t) {(tile_id_t) (tile_id+i), MAIN_CORE_TYPE}, MCP_SYSTEM_TYPE, m_send_buff.getBuffer(), m_send_buff.size());
+      }
+      m_local_mcp_barrier_acquire = 0;
+   }
+
 }
