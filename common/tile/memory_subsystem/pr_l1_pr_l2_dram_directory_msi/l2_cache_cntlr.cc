@@ -9,7 +9,7 @@ namespace PrL1PrL2DramDirectoryMSI
 
 L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
                            L1CacheCntlr* l1_cache_cntlr,
-                           AddressHomeLookup* dram_directory_home_lookup,
+                           DramAddressHomeLookup* dram_directory_home_lookup,
                            UInt32 cache_line_size,
                            UInt32 l2_cache_size,
                            UInt32 l2_cache_associativity,
@@ -93,7 +93,7 @@ L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, const Byt
       LOG_PRINT("Eviction: address(%#lx)", evicted_address);
       invalidateCacheLineInL1(evicted_cache_line_info.getCachedLoc(), evicted_address);
 
-      UInt32 home_node_id = getHome(evicted_address);
+      UInt32 home_node_id = getDramHome(evicted_address);
       bool eviction_msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
 
       if (evicted_cache_line_info.getCState() == CacheState::MODIFIED)
@@ -272,12 +272,12 @@ L2CacheCntlr::processExReqFromL1Cache(ShmemMsg* shmem_msg)
       // This will clear the 'Present' bit also
       invalidateCacheLine(address, l2_cache_line_info);
       ShmemMsg msg(ShmemMsg::INV_REP, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileID(), address, shmem_msg->isModeled());
-      _memory_manager->sendMsg(getHome(address), msg);
+      _memory_manager->sendMsg(getDramHome(address), msg);
    }
 
    // Send out EX_REQ to DRAM_DIRECTORY
    ShmemMsg msg(ShmemMsg::EX_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileID(), address, shmem_msg->isModeled());
-   _memory_manager->sendMsg(getHome(address), msg);
+   _memory_manager->sendMsg(getDramHome(address), msg);
 }
 
 void
@@ -287,7 +287,7 @@ L2CacheCntlr::processShReqFromL1Cache(ShmemMsg* shmem_msg)
 
    // Send out SH_REQ ro DRAM_DIRECTORY
    ShmemMsg msg(ShmemMsg::SH_REQ, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY, getTileID(), address, shmem_msg->isModeled());
-   _memory_manager->sendMsg(getHome(address), msg);
+   _memory_manager->sendMsg(getDramHome(address), msg);
 }
 
 void

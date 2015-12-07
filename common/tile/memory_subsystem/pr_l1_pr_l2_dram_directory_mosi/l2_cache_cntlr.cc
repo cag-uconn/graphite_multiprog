@@ -9,7 +9,7 @@ namespace PrL1PrL2DramDirectoryMOSI
 
 L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
                            L1CacheCntlr* L1_cache_cntlr,
-                           AddressHomeLookup* dram_directory_home_lookup,
+                           DramAddressHomeLookup* dram_directory_home_lookup,
                            UInt32 cache_line_size,
                            UInt32 L2_cache_size,
                            UInt32 L2_cache_associativity,
@@ -119,7 +119,7 @@ L2CacheCntlr::insertCacheLine(IntPtr address, CacheState::Type cstate, const Byt
       // Invalidate the cache line in L1-I/L1-D + get utilization
       invalidateCacheLineInL1(evicted_cache_line_info.getCachedLoc(), evicted_address);
 
-      UInt32 home_node_id = getHome(evicted_address);
+      UInt32 home_node_id = getDramHome(evicted_address);
 
       bool msg_modeled = Config::getSingleton()->isApplicationTile(getTileID());
 
@@ -280,7 +280,7 @@ L2CacheCntlr::handleMsgFromL1Cache(ShmemMsg* shmem_msg)
 
    ShmemMsg send_shmem_msg(shmem_msg_type, MemComponent::L2_CACHE, MemComponent::DRAM_DIRECTORY,
                            getTileID(), INVALID_TILE_ID, address, shmem_msg->isModeled()); 
-   _memory_manager->sendMsg(getHome(address), send_shmem_msg);
+   _memory_manager->sendMsg(getDramHome(address), send_shmem_msg);
 }
 
 void

@@ -69,7 +69,7 @@ namespace PrL1ShL2MSI
 
       // Home Lookups
       AddressHomeLookup* _L2_cache_home_lookup;
-      AddressHomeLookup* _dram_home_lookup;
+      DramAddressHomeLookup* _dram_home_lookup;
 
       UInt32 _cache_line_size;
 

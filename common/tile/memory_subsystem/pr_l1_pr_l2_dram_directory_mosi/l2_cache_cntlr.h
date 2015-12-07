@@ -25,7 +25,7 @@ namespace PrL1PrL2DramDirectoryMOSI
    public:
       L2CacheCntlr(MemoryManager* memory_manager,
                    L1CacheCntlr* L1_cache_cntlr,
-                   AddressHomeLookup* dram_directory_home_lookup,
+                   DramAddressHomeLookup* dram_directory_home_lookup,
                    UInt32 cache_line_size,
                    UInt32 L2_cache_size,
                    UInt32 L2_cache_associativity,
@@ -61,7 +61,7 @@ namespace PrL1PrL2DramDirectoryMOSI
       CacheReplacementPolicy* _L2_cache_replacement_policy_obj;
       CacheHashFn* _L2_cache_hash_fn_obj;
       L1CacheCntlr* _L1_cache_cntlr;
-      AddressHomeLookup* _dram_directory_home_lookup;
+      DramAddressHomeLookup* _dram_directory_home_lookup;
 
       // Outstanding ShmemReq info
       ShmemMsg _outstanding_shmem_msg;
@@ -113,8 +113,8 @@ namespace PrL1PrL2DramDirectoryMOSI
       ShmemPerfModel* getShmemPerfModel();
 
       // Dram Directory Home Lookup
-      tile_id_t getHome(IntPtr address)
-      { return _dram_directory_home_lookup->getHome(address); }
+      tile_id_t getDramHome(IntPtr address)
+      { return _dram_directory_home_lookup->getDramHome(address); }
 
       // Performance Counters
       void initializeEvictionCounters();

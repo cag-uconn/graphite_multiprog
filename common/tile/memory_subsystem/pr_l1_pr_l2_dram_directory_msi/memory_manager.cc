@@ -4,6 +4,7 @@
 #include "tile_manager.h"
 #include "utils.h"
 #include "log.h"
+#include "address_home_lookup.h"
 
 namespace PrL1PrL2DramDirectoryMSI
 {
@@ -163,7 +164,7 @@ MemoryManager::MemoryManager(Tile* tile)
       LOG_PRINT("Instantiated Dram Directory Cntlr");
    }
 
-   _dram_directory_home_lookup = new AddressHomeLookup(dram_directory_home_lookup_param, tile_list_with_memory_controllers, getCacheLineSize());
+   _dram_directory_home_lookup = new DramAddressHomeLookup(dram_directory_home_lookup_param, tile_list_with_memory_controllers, getCacheLineSize());
 
    LOG_PRINT("Instantiated Dram Directory Home Lookup");
 

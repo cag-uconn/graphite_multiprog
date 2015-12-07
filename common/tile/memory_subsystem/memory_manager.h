@@ -12,6 +12,7 @@ using namespace std;
 #include "caching_protocol.h"
 #include "shmem_perf_model.h"
 #include "dvfs.h"
+#include "address_home_lookup.h"
 
 void MemoryManagerNetworkCallback(void* obj, NetPacket packet);
 

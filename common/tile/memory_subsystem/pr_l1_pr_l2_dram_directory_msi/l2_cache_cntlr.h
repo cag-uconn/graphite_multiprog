@@ -28,7 +28,7 @@ namespace PrL1PrL2DramDirectoryMSI
    public:
       L2CacheCntlr(MemoryManager* memory_manager,
                    L1CacheCntlr* l1_cache_cntlr,
-                   AddressHomeLookup* dram_directory_home_lookup,
+                   DramAddressHomeLookup* dram_directory_home_lookup,
                    UInt32 cache_line_size,
                    UInt32 l2_cache_size,
                    UInt32 l2_cache_associativity,
@@ -59,7 +59,7 @@ namespace PrL1PrL2DramDirectoryMSI
       CacheReplacementPolicy* _l2_cache_replacement_policy_obj;
       CacheHashFn* _l2_cache_hash_fn_obj;
       L1CacheCntlr* _l1_cache_cntlr;
-      AddressHomeLookup* _dram_directory_home_lookup;
+      DramAddressHomeLookup* _dram_directory_home_lookup;
       
       // Outstanding Miss information
       ShmemMsg _outstanding_shmem_msg;
@@ -97,7 +97,7 @@ namespace PrL1PrL2DramDirectoryMSI
       ShmemPerfModel* getShmemPerfModel();
 
       // Dram Directory Home Lookup
-      tile_id_t getHome(IntPtr address) { return _dram_directory_home_lookup->getHome(address); }
+      tile_id_t getDramHome(IntPtr address) { return _dram_directory_home_lookup->getDramHome(address); }
 
       // Synchronization delay
       void addSynchronizationCost(MemComponent::Type mem_component);

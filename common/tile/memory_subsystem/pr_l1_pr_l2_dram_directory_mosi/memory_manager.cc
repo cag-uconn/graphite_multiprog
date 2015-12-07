@@ -5,6 +5,7 @@
 #include "network.h"
 #include "utils.h"
 #include "log.h"
+#include "address_home_lookup.h"
 
 namespace PrL1PrL2DramDirectoryMOSI
 {
@@ -158,7 +159,7 @@ MemoryManager::MemoryManager(Tile* tile)
             dram_directory_access_cycles_str);
    }
 
-   _dram_directory_home_lookup = new AddressHomeLookup(dram_directory_home_lookup_param, tile_list_with_memory_controllers, getCacheLineSize());
+   _dram_directory_home_lookup = new DramAddressHomeLookup(dram_directory_home_lookup_param, tile_list_with_memory_controllers, getCacheLineSize());
 
    _L1_cache_cntlr = new L1CacheCntlr(this,
          getCacheLineSize(),

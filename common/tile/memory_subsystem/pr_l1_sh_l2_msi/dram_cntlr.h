@@ -20,7 +20,7 @@ public:
    DramCntlr(MemoryManager* memory_manager,
              float dram_access_cost, float dram_bandwidth,
              bool dram_queue_model_enabled, string dram_queue_model_type,
-             UInt32 cache_line_size);
+             UInt32 cache_line_size, string dram_cntlr_static_partitioning, bool dram_temporal_partitioning );
    ~DramCntlr();
 
    void handleMsgFromL2Cache(tile_id_t sender, ShmemMsg* shmem_msg);

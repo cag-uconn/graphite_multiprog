@@ -38,5 +38,5 @@ public:
          LOG_PRINT_ERROR("Unrecognized caching protocol type(%s)", protocol_type.c_str());
          return NUM_TYPES;
       }
-   }
+  }
 };

@@ -29,7 +29,7 @@ namespace PrL1ShL2MSI
    {
    public:
       L2CacheCntlr(MemoryManager* memory_manager,
-                   AddressHomeLookup* dram_home_lookup,
+                   DramAddressHomeLookup* dram_home_lookup,
                    UInt32 cache_line_size,
                    UInt32 L2_cache_size,
                    UInt32 L2_cache_associativity,
@@ -59,7 +59,7 @@ namespace PrL1ShL2MSI
       Cache* _L2_cache;
       CacheReplacementPolicy* _L2_cache_replacement_policy_obj;
       CacheHashFn* _L2_cache_hash_fn_obj;
-      AddressHomeLookup* _dram_home_lookup;
+      DramAddressHomeLookup* _dram_home_lookup;
 
       DirectoryEntryFactory* _directory_entry_factory;
 
@@ -115,7 +115,7 @@ namespace PrL1ShL2MSI
       Core::mem_op_t getMemOpTypeFromShmemMsgType(ShmemMsg::Type shmem_msg_type);
 
       // Dram Home Lookup
-      tile_id_t getDramHome(IntPtr address) { return _dram_home_lookup->getHome(address); }
+      tile_id_t getDramHome(IntPtr address) { return _dram_home_lookup-> getDramHome(address); }
    };
 
 }

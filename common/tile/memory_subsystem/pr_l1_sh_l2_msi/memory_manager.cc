@@ -5,6 +5,7 @@
 #include "l2_directory_cfg.h"
 #include "network.h"
 #include "log.h"
+#include "address_home_lookup.h"
 
 namespace PrL1ShL2MSI
 {
@@ -47,6 +48,7 @@ MemoryManager::MemoryManager(Tile* tile)
    UInt32 L2_cache_tags_access_cycles = 0;
    std::string L2_cache_perf_model_type;
    bool L2_cache_track_miss_types = false;
+   std::string L2_static_partitioning_type;
    
    // L2 Directory
    SInt32 L2_directory_max_hw_sharers = 0;
@@ -57,7 +59,9 @@ MemoryManager::MemoryManager(Tile* tile)
    float per_dram_controller_bandwidth = 0.0;
    bool dram_queue_model_enabled = false;
    std::string dram_queue_model_type;
-
+   std::string dram_cntlr_spatial_partitioning_type;
+   std::string dram_cntlr_temporal_partitioning_type;
+   
    try
    {
       // L1 ICache
@@ -95,7 +99,9 @@ MemoryManager::MemoryManager(Tile* tile)
       L2_cache_tags_access_cycles = Sim()->getCfg()->getInt(L2_cache_type + "/tags_access_time");
       L2_cache_perf_model_type = Sim()->getCfg()->getString(L2_cache_type + "/perf_model_type");
       L2_cache_track_miss_types = Sim()->getCfg()->getBool(L2_cache_type + "/track_miss_types");
+      L2_static_partitioning_type= Sim()->getCfg()->getString(L2_cache_type + "/l2slice_static_partitioning");
 
+       
       // Directory
       L2_directory_max_hw_sharers = Sim()->getCfg()->getInt("l2_directory/max_hw_sharers");
       L2_directory_type_str = Sim()->getCfg()->getString("l2_directory/directory_type");
@@ -105,6 +111,8 @@ MemoryManager::MemoryManager(Tile* tile)
       per_dram_controller_bandwidth = Sim()->getCfg()->getFloat("dram/per_controller_bandwidth");
       dram_queue_model_enabled = Sim()->getCfg()->getBool("dram/queue_model/enabled");
       dram_queue_model_type = Sim()->getCfg()->getString("dram/queue_model/type");
+      dram_cntlr_static_partitioning_type->Sim()->getCfg()->getString("dram/controller_static_partitioning/type"); 
+      dram_cntlr_temporal_partitioning_type->Sim()->getCfg()->getBool("dram/controller_temporal_partitioning/enabled");
    }
    catch(...)
    {
@@ -127,7 +135,7 @@ MemoryManager::MemoryManager(Tile* tile)
    // DRAM home lookup 
    UInt32 dram_home_lookup_param = ceilLog2(_cache_line_size);
    std::vector<tile_id_t> tile_list_with_dram_controllers = getTileListWithMemoryControllers();
-   _dram_home_lookup = new AddressHomeLookup(dram_home_lookup_param, tile_list_with_dram_controllers, getCacheLineSize());
+   _dram_home_lookup = new DramAddressHomeLookup(dram_home_lookup_param, tile_list_with_dram_controllers, getCacheLineSize());
    
    UInt32 L2_cache_home_lookup_param = ceilLog2(_cache_line_size);
    std::vector<tile_id_t> tile_list;
@@ -145,7 +153,9 @@ MemoryManager::MemoryManager(Tile* tile)
             per_dram_controller_bandwidth,
             dram_queue_model_enabled,
             dram_queue_model_type,
-            getCacheLineSize());
+            getCacheLineSize(),
+            dram_cntlr_static_partitioning_type,
+            dram_cntlr_temporal_partitioning_type);
    }
    
    // Instantiate L1 cache cntlr
@@ -180,7 +190,8 @@ MemoryManager::MemoryManager(Tile* tile)
          L2_cache_data_access_cycles,
          L2_cache_tags_access_cycles,
          L2_cache_perf_model_type,
-         L2_cache_track_miss_types);
+         L2_cache_track_miss_types,
+         L2_static_partitioning_type);
 }
 
 MemoryManager::~MemoryManager()

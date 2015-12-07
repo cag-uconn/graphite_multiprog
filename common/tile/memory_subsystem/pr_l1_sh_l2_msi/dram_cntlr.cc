@@ -8,8 +8,8 @@ namespace PrL1ShL2MSI
 DramCntlr::DramCntlr(MemoryManager* memory_manager,
                      float dram_access_cost, float dram_bandwidth,
                      bool dram_queue_model_enabled, string dram_queue_model_type,
-                     UInt32 cache_line_size)
-   : ::DramCntlr(memory_manager->getTile(), dram_access_cost, dram_bandwidth, dram_queue_model_enabled, dram_queue_model_type, cache_line_size)
+                     UInt32 cache_line_size, string dram_cntlr_static_partitioning_type, string dram_temporal_partitioning)
+   : ::DramCntlr(memory_manager->getTile(), dram_access_cost, dram_bandwidth, dram_queue_model_enabled, dram_queue_model_type, cache_line_size, dram_cntlr_static_partitioning_type, dram_cntlr_temporal_partitioning)
    , _memory_manager(memory_manager)
 {}
 

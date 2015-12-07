@@ -29,7 +29,7 @@ namespace PrL1PrL2DramDirectoryMSI
       DirectoryCache* getDramDirectoryCache() { return _dram_directory_cntlr->getDramDirectoryCache(); }
       DramCntlr* getDramCntlr() { return _dram_cntlr; }
       bool isDramCntlrPresent() { return _dram_cntlr_present; }
-      AddressHomeLookup* getDramDirectoryHomeLookup() { return _dram_directory_home_lookup; }
+      DramAddressHomeLookup* getDramDirectoryHomeLookup() { return _dram_directory_home_lookup; }
 
       // Send/Broadcast msg
       void sendMsg(tile_id_t receiver, ShmemMsg& msg);
@@ -64,7 +64,7 @@ namespace PrL1PrL2DramDirectoryMSI
       DramCntlr* _dram_cntlr;
 
       // Home lookups
-      AddressHomeLookup* _dram_directory_home_lookup;
+      DramAddressHomeLookup* _dram_directory_home_lookup;
 
       bool _dram_cntlr_present;
 

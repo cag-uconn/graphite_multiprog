@@ -33,6 +33,7 @@ DramPerfModel::DramPerfModel(float dram_access_cost,
 {
    initializePerformanceCounters();
    createQueueModels();
+   //_dram_controller= new
 }
 
 DramPerfModel::~DramPerfModel()
@@ -72,14 +73,15 @@ DramPerfModel::initializePerformanceCounters()
 }
 
 Latency 
-DramPerfModel::getAccessLatency(Time pkt_time, UInt64 pkt_size)
+DramPerfModel::getAccessLatency(UInt64 queue_delay_tp, UInt64 pkt_size)
 {
 
    // In the following we assume a 1GHz frequency, so that
    // 1 cycle = 1 nanosecond.
    
    // convert to nanoseconds
-   UInt64 pkt_time_ns = (UInt64) ceil(pkt_time.getTime()/1000.0);
+   UInt64 pkt_time_ns = queue_delay_tp;// (UInt64) ceil(pkt_time.getTime()/1000.0); //schedule_time
+   LOG_PRINT("packet_arrival_tobequeued(%llu)",pkt_time_ns); //pkt_time_ns);
 
    // pkt_size is in 'Bytes'
    // m_dram_bandwidth is in 'Bytes per clock cycle'
@@ -103,7 +105,7 @@ DramPerfModel::getAccessLatency(Time pkt_time, UInt64 pkt_size)
       queue_delay = 0;
    }
    LOG_PRINT("Queue Delay(%llu)", queue_delay);
-   UInt64 access_latency = queue_delay + processing_time + m_dram_access_cost;
+   UInt64 access_latency = queue_delay_tp + processing_time + m_dram_access_cost;
    LOG_PRINT("Access Latency(%llu)", access_latency);
 
 

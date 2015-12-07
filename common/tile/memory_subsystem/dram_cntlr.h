@@ -41,11 +41,25 @@ private:
    AccessCountMap* _dram_access_count;
 
    ShmemPerfModel* getShmemPerfModel();
-   Latency runDramPerfModel();
+   Latency runDramPerfModel(IntPtr address);
 
    void addToDramAccessCount(IntPtr address, AccessType access_type);
    void printDramAccessCount();
 
 protected:
    UInt32 _cache_line_size;
+   UInt64 time_schedule_modulo; 
+   UInt64 current_address;
+   UInt64 pkt_time_arrival;
+   UInt64 request_number; 
+   UInt64 lag_to_next_slot_1; 
+   UInt64 schedule_time; 
+   UInt64 current_schedule_time;
+   UInt64 previous_schedule_time;
+   UInt64 schedule_time_0;
+   UInt64 schedule_time_1;
+   UInt64 queue_delay_tp;
+   UInt64 next_available_slot_0;  
+   UInt64 next_available_slot_1;  
 };
+

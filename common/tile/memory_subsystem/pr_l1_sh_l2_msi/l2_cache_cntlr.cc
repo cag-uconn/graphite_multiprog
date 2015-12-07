@@ -13,7 +13,7 @@ namespace PrL1ShL2MSI
 {
 
 L2CacheCntlr::L2CacheCntlr(MemoryManager* memory_manager,
-                           AddressHomeLookup* dram_home_lookup,
+                           DramAddressHomeLookup* dram_home_lookup,
                            UInt32 cache_line_size,
                            UInt32 L2_cache_size,
                            UInt32 L2_cache_associativity,

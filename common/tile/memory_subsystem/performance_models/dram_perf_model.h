@@ -51,7 +51,7 @@ class DramPerfModel
 
       ~DramPerfModel();
 
-      Latency getAccessLatency(Time pkt_time, UInt64 pkt_size);
+      Latency getAccessLatency(UInt64 queue_delay_tp, UInt64 pkt_size);
       void enable();
       void disable();
 
