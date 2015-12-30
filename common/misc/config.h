@@ -111,10 +111,8 @@ public:
    { return ProcessList(1, getCurrentProcessNum()); }
 
    // Get master thread tile ID
-   tile_id_t getMasterThreadTileIDForTarget(UInt32 target_id) const
-   { return target_id; }
-   tile_id_t getMasterThreadTileID() const
-   { return getCurrentProcessNum(); }
+   tile_id_t getMasterThreadTileIDForTarget(UInt32 target_id) const;
+   tile_id_t getMasterThreadTileID() const;
 
    // Get master process ID from target ID
    UInt32 getMasterProcessID(UInt32 target_id)

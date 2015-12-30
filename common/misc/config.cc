@@ -628,3 +628,13 @@ bool Config::isTileCountPermissible(UInt32 tile_count)
    }
    return true;
 }
+
+tile_id_t Config::getMasterThreadTileID() const
+{
+   return m_proc_to_tile_list_map[getMasterProcessNum()][0];
+}
+
+tile_id_t Config::getMasterThreadTileIDForTarget(UInt32 target_id) const
+{
+   return m_proc_to_tile_list_map[target_id][0];
+}
