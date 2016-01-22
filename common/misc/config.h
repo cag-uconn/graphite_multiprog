@@ -87,16 +87,19 @@ public:
    // Retrieve and set the process number for this process (I'm expecting
    //  that the initialization routine of the Transport layer will set this)
    UInt32 getCurrentProcessNum() const          { return m_current_process_num; }
+   //master process of the target is always the currect process, works for 1 process each target
    void setProcessNum(UInt32 proc_num)          { m_current_process_num = proc_num; setMasterProcessNum(proc_num); }
 
-   // Num of target processes
+   // Num of targets 
    UInt32 getTargetCount() const                { return m_num_targets; }
    void setTargetCount(UInt32 num_targets)      { m_num_targets = num_targets; }
    
-   // Target process ID
+   // Target ID
    UInt32 getCurrentTargetNum() const           { return m_current_target_num; }
    void setTargetNum(UInt32 target_num)         { m_current_target_num = target_num; }
+   UInt32 getTargetIDFromTileID(tile_id_t tile_id) const; 
    
+  
    // Number of processes for this target
    UInt32 getProcessCountCurrentTarget() const { return m_num_processes_current_target; }
    void setProcessCountCurrentTarget(UInt32 process_count) { m_num_processes_current_target = process_count; }
@@ -106,15 +109,15 @@ public:
    UInt32 getMasterProcessNum() const                  { return m_master_process_num; }
    void setMasterProcessNum(UInt32 master_process_num) { m_master_process_num = master_process_num; }
  
-   // Process num list for current target
+   // Process num list for current target // works for 1 process each target
    ProcessList getProcessNumList() const
    { return ProcessList(1, getCurrentProcessNum()); }
 
    // Get master thread tile ID
    tile_id_t getMasterThreadTileIDForTarget(UInt32 target_id) const;
    tile_id_t getMasterThreadTileID() const;
-
-   // Get master process ID from target ID
+   
+   // Get master process ID from target ID //valid when 1 process each target
    UInt32 getMasterProcessID(UInt32 target_id)
    { return target_id; }
 

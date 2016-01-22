@@ -638,3 +638,20 @@ tile_id_t Config::getMasterThreadTileIDForTarget(UInt32 target_id) const
 {
    return m_proc_to_tile_list_map[target_id][0];
 }
+
+//works for 1 process each target
+UInt32 Config::getTargetIDFromTileID(tile_id_t tile_id) const
+{
+   for (UInt32 proc_id = 0; proc_id < m_num_processes; proc_id ++)
+   {
+      TileList tile_list = getTileListForProcess(proc_id);
+      for (UInt32 i = 0; i < tile_list.size(); i++)
+      {
+         if (tile_list[i] == tile_id)
+            // process id is the same as targe id when 1 process each target 
+            return proc_id;
+      }
+   }
+   return -1;
+}
+
